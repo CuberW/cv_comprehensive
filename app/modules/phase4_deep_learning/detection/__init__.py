@@ -12,6 +12,7 @@ class DetectionModule(AlgorithmModule):
     name_en = 'Object Detection'
     phase = 'phase4_deep_learning'
     difficulty = 3
+    required = True
     description = '框出图像中所有感兴趣的物体——同时回答"是什么"和"在哪里"。'
 
     @staticmethod

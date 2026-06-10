@@ -12,6 +12,7 @@ class SemanticModule(AlgorithmModule):
     name_en = 'Semantic Segmentation'
     phase = 'phase4_deep_learning'
     difficulty = 3
+    required = True
     description = '给图像中每个像素分配一个类别标签——知道天空在哪、道路在哪、行人又在哪。'
 
     @staticmethod

@@ -11,6 +11,7 @@ class LeNetModule(AlgorithmModule):
     name_en = 'LeNet Digit Recognition'
     phase = 'phase4_deep_learning'
     difficulty = 3
+    required = True
     description = '经典 CNN 的前向推理与训练过程全可视化：卷积层特征图、反向传播梯度流。'
 
     @staticmethod

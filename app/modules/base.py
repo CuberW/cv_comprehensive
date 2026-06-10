@@ -18,6 +18,7 @@ class AlgorithmModule:
     difficulty: int = 1          # Difficulty 1-5
     description: str = ''        # One-line description
     dependencies: list = None    # Prerequisite module ids
+    required: bool = False       # Whether this is a mandatory (required) module
 
     def __init_subclass__(cls, **kwargs):
         """Auto-register subclass into module registry on definition."""

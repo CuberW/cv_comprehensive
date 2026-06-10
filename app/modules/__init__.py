@@ -68,6 +68,7 @@ def get_modules_by_phase():
                     'difficulty': cls.difficulty,
                     'description': cls.description,
                     'dependencies': cls.dependencies or [],
+                    'required': getattr(cls, 'required', False),
                 })
         if modules:
             phases.append({

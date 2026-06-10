@@ -155,6 +155,24 @@ body {
   white-space: nowrap;
 }
 
+/* Subtle required indicator in sidebar */
+.nav-req-dot {
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  margin-left: 3px;
+  vertical-align: super;
+}
+.nav-required { }
+
+/* Subtle required indicator on gallery chips */
+.module-chip.chip-required {
+  border-bottom: 1.5px dotted currentColor;
+  opacity: 0.92;
+}
+
 /* Phase indicator dot */
 .phase-dot {
   display: inline-block;

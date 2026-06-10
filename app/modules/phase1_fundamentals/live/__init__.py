@@ -11,6 +11,7 @@ class LiveModule(AlgorithmModule):
     name_en = 'Live Camera Filters'
     phase = 'phase1_fundamentals'
     difficulty = 2
+    required = True
     description = '打开摄像头，实时查看不同卷积核对画面的影响——模糊、锐化、边缘增强。'
 
     @staticmethod

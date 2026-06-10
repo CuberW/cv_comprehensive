@@ -11,6 +11,7 @@ class CornerModule(AlgorithmModule):
     name_en = 'Harris Corner Detection'
     phase = 'phase2_classical'
     difficulty = 2
+    required = True
     description = '检测图像中的角点——那些在各个方向上亮度变化都很大的像素。'
 
     @staticmethod

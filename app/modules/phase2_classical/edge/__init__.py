@@ -11,6 +11,7 @@ class EdgeModule(AlgorithmModule):
     name_en = 'Edge Detection'
     phase = 'phase2_classical'
     difficulty = 2
+    required = True
     description = 'Sobel 梯度算子与 Canny 多阶段流水线，每一步都可视化。'
 
     @staticmethod

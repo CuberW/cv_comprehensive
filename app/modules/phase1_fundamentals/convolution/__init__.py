@@ -11,6 +11,7 @@ class ConvolutionModule(AlgorithmModule):
     name_en = 'Convolution Basics'
     phase = 'phase1_fundamentals'
     difficulty = 1
+    required = True
     description = '滑动窗口的直观理解，卷积核如何提取边缘、模糊、锐化等特征。'
 
     @staticmethod

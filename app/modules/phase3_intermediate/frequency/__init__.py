@@ -11,6 +11,7 @@ class FrequencyModule(AlgorithmModule):
     name_en = 'Frequency Domain Analysis'
     phase = 'phase3_intermediate'
     difficulty = 3
+    required = True
     description = '傅里叶变换揭示图像的频率成分：低频对应平滑区域，高频对应边缘和噪声。'
 
     @staticmethod

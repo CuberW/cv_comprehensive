@@ -11,6 +11,7 @@ class MatchModule(AlgorithmModule):
     name_en = 'Feature Matching'
     phase = 'phase3_intermediate'
     difficulty = 2
+    required = True
     description = '找到两幅图像中同一个物体的对应点——图像拼接、目标识别的基石。'
 
     @staticmethod

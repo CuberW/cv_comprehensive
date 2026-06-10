@@ -93,9 +93,10 @@ const App = (() => {
         btn.className = 'nav-item';
         btn.dataset.moduleId = m.id;
         btn.innerHTML = `
-          <span>${m.name}</span>
+          <span>${m.name}${m.required ? '<i class="nav-req-dot"></i>' : ''}</span>
           <span class="nav-difficulty">${'★'.repeat(m.difficulty)}</span>
         `;
+        if (m.required) btn.classList.add('nav-required');
         btn.addEventListener('click', () => Router.go('/module/' + m.id));
         $sidebarNav.appendChild(btn);
       });
@@ -119,7 +120,7 @@ const App = (() => {
         <div class="cat-name-en">${phase.phase_name_en}</div>
         <div class="cat-count">${phase.modules.length} algorithm modules</div>
         <div class="category-modules">
-          ${phase.modules.map(m => `<span class="module-chip" style="background:${phase.color}18;color:${phase.color}" data-module-id="${m.id}">${m.name}</span>`).join('')}
+          ${phase.modules.map(m => `<span class="module-chip${m.required ? ' chip-required' : ''}" style="background:${phase.color}18;color:${phase.color}" data-module-id="${m.id}">${m.name}</span>`).join('')}
         </div>
       `;
 

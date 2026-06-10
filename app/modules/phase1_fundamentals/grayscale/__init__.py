@@ -11,6 +11,7 @@ class GrayscaleModule(AlgorithmModule):
     name_en = 'Grayscale Conversion'
     phase = 'phase1_fundamentals'
     difficulty = 1
+    required = True
     description = '将彩色图像转换为灰度图，理解不同加权方案对人眼感知的影响。'
 
     @staticmethod

@@ -12,6 +12,7 @@ class InstanceModule(AlgorithmModule):
     name_en = 'Instance Segmentation'
     phase = 'phase4_deep_learning'
     difficulty = 4
+    required = True
     description = '不仅知道每个像素是什么，还能区分出"第一个行人"和"第二个行人"。'
 
     @staticmethod

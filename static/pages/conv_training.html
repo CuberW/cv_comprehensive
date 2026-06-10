@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>训练观察 — CV 通识教育</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>训练观察</h1>
+  <p class="module-subtitle">Training Observation</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">实时观察 LeNet-5 训练过程中的参数变化与损失曲线：权重分布如何从随机初始化逐步收敛到有意义的滤波器。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">随机初始化权重</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">前向传播</span> → <span class="pipeline-step process">计算损失</span> → <span class="pipeline-step process">反向传播</span> → <span class="pipeline-step process">权重更新</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step output">收敛的滤波器</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>损失曲线下降过程</p></div>
+  <div class="module-section"><p>各层权重分布随 epoch 的演化</p></div>
+  <div class="module-section"><p>梯度消失/爆炸的可视化</p></div>
+  <div class="module-section"><p>卷积核从随机到有意义的转变</p></div>
+</body>
+</html>

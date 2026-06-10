@@ -1,7 +1,5 @@
 """Demo processor for GAN 生成对抗网络."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
 from app.modules.phase4_deep_learning.gan.algorithm import SimpleGAN
 
 
@@ -14,8 +12,6 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
     gan=SimpleGAN(noise_dim=10,image_dim=784)
     rng=np.random.default_rng(42)
     noise=rng.normal(0,1,(8,10)).astype(np.float64)

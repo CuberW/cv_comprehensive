@@ -1,7 +1,6 @@
 """Demo processor for 轮廓查找."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 from app.modules.phase2_classical.contour.algorithm import find_contours,contour_area,approximate_contour
 from app.modules.phase1_fundamentals.threshold.algorithm import otsu_threshold,global_threshold
 
@@ -15,12 +14,8 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==3: gray=np.round(img_u8[:,:,0]*0.299+img_u8[:,:,1]*0.587+img_u8[:,:,2]*0.114).astype(np.uint8)
-    else: gray=img_u8
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=768) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    gray=ensure_gray(img_u8)
     t=otsu_threshold(gray); binary=global_threshold(gray,t)
     contours=find_contours(binary,min_area=30)
     colors=[(239,68,68),(34,197,94),(59,130,246),(168,85,247),(251,191,36),(244,114,182)]

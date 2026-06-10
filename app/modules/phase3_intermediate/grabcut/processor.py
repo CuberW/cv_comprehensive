@@ -1,7 +1,6 @@
 """Demo processor for GrabCut 前景提取."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8
 from app.modules.phase3_intermediate.grabcut.algorithm import grabcut_segment
 
 
@@ -14,17 +13,14 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=512) if image_path else np.zeros((64,64,3), dtype=np.uint8)
     h,w=img_u8.shape[:2]
     x=int(kwargs.get("x",w//5)); y=int(kwargs.get("y",h//5))
     rw=int(kwargs.get("w",w*3//5)); rh=int(kwargs.get("h",h*3//5))
     mask=grabcut_segment(img_u8,(x,y,rw,rh))
-    overlay=img_u8.copy() if img_u8.ndim==3 else np.stack([img_u8]*3,axis=-1)
+    overlay=img_u8.copy()
     overlay[mask>0]=overlay[mask>0]//2+np.array([0,100,0],dtype=np.uint8)//2
-    rect_vis=img_u8.copy() if img_u8.ndim==3 else np.stack([img_u8]*3,axis=-1)
+    rect_vis=img_u8.copy()
     cv2_rect=rect_vis.copy()
     cv2_rect[y:y+2,x:x+rw]=[34,197,94]; cv2_rect[y+rh:y+rh+2,x:x+rw]=[34,197,94]
     cv2_rect[y:y+rh,x:x+2]=[34,197,94]; cv2_rect[y:y+rh,x+rw:x+rw+2]=[34,197,94]

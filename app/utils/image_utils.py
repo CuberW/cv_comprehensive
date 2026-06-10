@@ -35,6 +35,56 @@ def load_image(path, mode='rgb'):
     return img.astype(np.float32)
 
 
+def resize_max_side(arr, max_side=None):
+    """最近邻缩放：限制最长边，避免教学 demo 被超大图片拖垮。"""
+    arr = np.asarray(arr)
+    if not max_side or arr.ndim < 2:
+        return arr
+    h, w = arr.shape[:2]
+    longest = max(h, w)
+    if longest <= max_side:
+        return arr
+    scale = float(max_side) / float(longest)
+    nh, nw = max(1, int(round(h * scale))), max(1, int(round(w * scale)))
+    ys = np.linspace(0, h - 1, nh).astype(np.int32)
+    xs = np.linspace(0, w - 1, nw).astype(np.int32)
+    return arr[ys[:, None], xs[None, :]]
+
+
+def ensure_rgb(arr, background=255):
+    """任意灰度/RGB/RGBA 图像 → RGB uint8。透明像素合成到纯色背景。"""
+    arr = to_uint8(arr)
+    if arr.ndim == 2:
+        return np.repeat(arr[..., None], 3, axis=2)
+    if arr.ndim == 3 and arr.shape[2] == 1:
+        return np.repeat(arr[..., :1], 3, axis=2)
+    if arr.ndim == 3 and arr.shape[2] >= 4:
+        rgb = arr[..., :3].astype(np.float32)
+        alpha = arr[..., 3:4].astype(np.float32) / 255.0
+        bg = np.full_like(rgb, float(background))
+        return np.round(rgb * alpha + bg * (1.0 - alpha)).clip(0, 255).astype(np.uint8)
+    if arr.ndim == 3 and arr.shape[2] >= 3:
+        return arr[..., :3]
+    raise ValueError(f'Unsupported image shape: {arr.shape}')
+
+
+def ensure_gray(arr):
+    """任意灰度/RGB/RGBA 图像 → 灰度 uint8。"""
+    arr = to_uint8(arr)
+    if arr.ndim == 2:
+        return arr
+    rgb = ensure_rgb(arr)
+    weights = np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    return np.round(np.dot(rgb, weights)).clip(0, 255).astype(np.uint8)
+
+
+def load_image_u8(path, mode='rgb', max_side=None):
+    """读取图片并进行前置预处理：规整通道、动态范围和可选尺寸。"""
+    img = iio.imread(path)
+    img = ensure_gray(img) if mode == 'gray' else ensure_rgb(img)
+    return resize_max_side(img, max_side=max_side)
+
+
 def save_image(arr, path):
     """将 float32 数组 [0, 1] 保存为 PNG。"""
     arr = to_uint8(arr)
@@ -42,14 +92,41 @@ def save_image(arr, path):
 
 
 def to_uint8(arr):
-    """float32 [0, 1] → uint8 [0, 255]，安全裁剪。"""
-    arr = np.clip(np.asarray(arr, dtype=np.float64), 0.0, 1.0)
-    return (arr * 255.0).round().astype(np.uint8)
+    """任意常见图像数组 → uint8 [0, 255]，安全裁剪。"""
+    arr = np.asarray(arr)
+    if arr.dtype == np.uint8:
+        return arr
+
+    if arr.dtype.kind == 'b':
+        return arr.astype(np.uint8) * 255
+
+    if arr.dtype.kind in 'ui':
+        info = np.iinfo(arr.dtype)
+        if info.max > 255:
+            return np.round(arr.astype(np.float64) / float(info.max) * 255.0).clip(0, 255).astype(np.uint8)
+        return arr.clip(0, 255).astype(np.uint8)
+
+    arr = np.asarray(arr, dtype=np.float64)
+    if arr.size == 0:
+        return arr.astype(np.uint8)
+
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return np.zeros(arr.shape, dtype=np.uint8)
+
+    max_val = float(finite.max())
+    min_val = float(finite.min())
+    if min_val >= 0.0 and max_val <= 1.0:
+        arr = arr * 255.0
+
+    return np.nan_to_num(arr, nan=0.0, posinf=255.0, neginf=0.0).round().clip(0, 255).astype(np.uint8)
 
 
 def to_float32(arr):
     """任意图像数组 → float32 [0, 1]。"""
     arr = np.asarray(arr, dtype=np.float64)
+    if arr.size == 0:
+        return arr.astype(np.float32)
     if arr.max() > 1.0:
         arr /= 255.0
     return np.clip(arr, 0.0, 1.0).astype(np.float32)
@@ -57,10 +134,7 @@ def to_float32(arr):
 
 def ensure_3channel(arr):
     """若为单通道 (H,W)，复制为三通道 (H,W,3)，方便统一渲染。"""
-    arr = np.asarray(arr)
-    if arr.ndim == 2:
-        return np.stack([arr, arr, arr], axis=-1)
-    return arr
+    return ensure_rgb(arr)
 
 
 def to_base64(arr):

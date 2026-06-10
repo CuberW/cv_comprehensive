@@ -3,14 +3,13 @@ Grayscale conversion pipeline builder.
 Assembles algorithm steps into frontend-renderable data.
 """
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase1_fundamentals.grayscale.algorithm import METHODS, to_uint8
+from app.utils.image_utils import load_image_u8
 
 
 def build_pipeline(image_path, method='weighted'):
     """Build grayscale conversion pipeline with all comparison methods."""
-    img = iio.imread(image_path)
-    original = to_uint8(img)
+    original = load_image_u8(image_path, mode='rgb', max_side=1024)
     method_name, method_fn = METHODS.get(method, METHODS['weighted'])
     gray = method_fn(original)
 

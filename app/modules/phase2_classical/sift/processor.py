@@ -2,7 +2,7 @@
 SIFT pipeline builder + visualization helpers.
 """
 import numpy as np
-import imageio.v3 as iio
+from app.utils.image_utils import load_image_u8
 from app.modules.phase2_classical.sift.algorithm import (
     sift_pipeline, ensure_uint8, to_gray, compute_descriptor,
     compute_first_derivative, compute_second_derivative,
@@ -182,7 +182,7 @@ def build_visualization(data, gamma=10):
 def build_pipeline(image_path, sigma=1.6, num_layers=4, k_stride=1,
                    threshold=0.02, border=5, gamma=10, octaves=3):
     """Build SIFT pipeline data for frontend rendering."""
-    img = iio.imread(image_path)
+    img = load_image_u8(image_path, mode='rgb', max_side=1024)
     data = sift_pipeline(img, sigma=sigma, num_layers=num_layers, k_stride=k_stride,
                          threshold=threshold, border=border, gamma=gamma, octaves=octaves)
 

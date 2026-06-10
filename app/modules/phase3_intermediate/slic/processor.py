@@ -1,7 +1,6 @@
 """Demo processor for SLIC 超像素."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8
 from app.modules.phase3_intermediate.slic.algorithm import slic_superpixels
 
 
@@ -14,11 +13,7 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==2: img_u8=np.stack([img_u8]*3,axis=-1)
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=1024) if image_path else np.zeros((64,64,3), dtype=np.uint8)
     h0,w0=img_u8.shape[:2]; scale=min(1.0,200.0/max(h0,w0))
     if scale<1.0:
         nh,nw=max(1,int(h0*scale)),max(1,int(w0*scale))

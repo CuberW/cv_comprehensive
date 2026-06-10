@@ -1,7 +1,6 @@
 """Demo processor for 形态学操作."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 from app.modules.phase2_classical.morphology.algorithm import erode,dilate,opening,closing,morphological_gradient
 from app.modules.phase1_fundamentals.threshold.algorithm import otsu_threshold,global_threshold
 
@@ -15,14 +14,11 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    if img.ndim==3: gray=np.round(img[:,:,0]*0.299+img[:,:,1]*0.587+img[:,:,2]*0.114).astype(np.uint8)
-    else: gray=np.asarray(img,dtype=np.uint8)
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=1024) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    gray=ensure_gray(img_u8)
     t=otsu_threshold(gray); binary=global_threshold(gray,t)
     er=erode(binary); di=dilate(binary); op=opening(binary); cl=closing(binary); grad=morphological_gradient(binary)
-    steps=[{"id":"original","name":"原图","image":to_uint8(img),"explanation":"输入图像"},
+    steps=[{"id":"original","name":"原图","image":img_u8,"explanation":"输入图像"},
            {"id":"binary","name":"二值化","image":binary,"explanation":"Otsu阈值="+str(t)},
            {"id":"erode","name":"腐蚀","image":er,"explanation":"白色区域收缩,小噪点消失"},
            {"id":"dilate","name":"膨胀","image":di,"explanation":"白色区域扩张,小孔洞被填充"},

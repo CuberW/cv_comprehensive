@@ -1,10 +1,9 @@
 """Histogram pipeline builder with chart images."""
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase1_fundamentals.histogram.algorithm import (
     compute_histogram, compute_rgb_histograms, histogram_equalization,
 )
-from app.utils.image_utils import to_uint8 as _to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 
 
 def _draw_histogram_chart(hist, width=400, height=200, highlight_t=None):
@@ -63,12 +62,8 @@ def build_pipeline(image_path=None):
         img_u8 = np.zeros((64, 64, 3), dtype=np.uint8)
         gray = np.zeros((64, 64), dtype=np.uint8)
     else:
-        img = iio.imread(image_path)
-        img_u8 = _to_uint8(img)
-        if img_u8.ndim == 2:
-            gray = img_u8
-        else:
-            gray = np.round(img_u8[:,:,0]*0.299 + img_u8[:,:,1]*0.587 + img_u8[:,:,2]*0.114).astype(np.uint8)
+        img_u8 = load_image_u8(image_path, mode='rgb', max_side=1024)
+        gray = ensure_gray(img_u8)
 
     if img_u8.ndim == 2:
         img_u8_rgb = np.stack([img_u8]*3, axis=-1)

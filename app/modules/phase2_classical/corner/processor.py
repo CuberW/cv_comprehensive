@@ -2,8 +2,8 @@
 Harris corner detection pipeline builder + visualization helpers.
 """
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase2_classical.corner.algorithm import harris_pipeline, ensure_uint8, to_gray
+from app.utils.image_utils import load_image_u8
 
 
 def _positive_to_uint8(arr):
@@ -82,7 +82,7 @@ def sample_matrix(arr, max_w=96, max_h=72, signed=False):
 def build_pipeline(image_path, k=0.04, threshold_ratio=0.01, nms=True,
                    window_size=3, sigma=2.0, nms_radius=1):
     """Build Harris corner detection pipeline data for frontend rendering."""
-    img = iio.imread(image_path)
+    img = load_image_u8(image_path, mode='rgb', max_side=1024)
     data = harris_pipeline(img, k=k, threshold_ratio=threshold_ratio, nms=nms,
                            window_size=window_size, sigma=sigma, nms_radius=nms_radius)
 

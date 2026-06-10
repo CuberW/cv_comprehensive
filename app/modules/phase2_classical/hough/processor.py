@@ -1,9 +1,8 @@
 """Demo processor for Hough 变换."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 from app.modules.phase2_classical.hough.algorithm import hough_line_transform, find_line_peaks
-from app.modules.phase2_classical.edge.algorithm import to_gray, canny_detect
+from app.modules.phase2_classical.edge.algorithm import canny_detect
 
 
 def _to_uint8_heat(arr):
@@ -15,11 +14,8 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img = iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    if img.ndim==3: gray=to_gray(img)
-    else: gray=np.asarray(img,dtype=np.uint8)
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=768) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    gray = ensure_gray(img_u8)
     edges=canny_detect(gray,60,140)
     acc,thetas,rhos=hough_line_transform(edges)
     lines=find_line_peaks(acc,thetas,rhos,threshold_ratio=0.5,max_lines=20)
@@ -31,7 +27,6 @@ def build_pipeline(image_path=None, **kwargs):
             x=int(rho*np.cos(theta)-t*np.sin(theta)); y=int(rho*np.sin(theta)+t*np.cos(theta))
             if 0<=x<w and 0<=y<h: vis[y,x]=[34,197,94]
     acc_vis=_to_uint8_heat(acc)
-    img_u8=to_uint8(img)
     steps=[{"id":"original","name":"原图","image":img_u8,"explanation":"输入图像"},
            {"id":"gray","name":"灰度图","image":gray,"explanation":"转为灰度图"},
            {"id":"edges","name":"边缘检测","image":edges,"explanation":"Canny边缘检测提取边缘像素"},

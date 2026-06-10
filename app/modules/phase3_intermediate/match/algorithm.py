@@ -3,9 +3,9 @@ Feature matching + homography estimation + image stitching.
 Pure NumPy: descriptor distance -> ratio test -> RANSAC -> homography -> stitching.
 """
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase2_classical.corner.algorithm import harris_pipeline
 from app.modules.phase2_classical.sift.algorithm import sift_pipeline, ensure_uint8
+from app.utils.image_utils import load_image_u8
 
 
 def resize_max_side(img, max_side=420):
@@ -288,8 +288,8 @@ def stitch_images(left, right, H, max_output_side=1200):
 
 def build_match_pipeline(left_path, right_path, method='sift', ratio=0.8):
     """Build complete feature matching pipeline data."""
-    left_img = ensure_uint8(iio.imread(left_path) if isinstance(left_path, str) else left_path)
-    right_img = ensure_uint8(iio.imread(right_path) if isinstance(right_path, str) else right_path)
+    left_img = load_image_u8(left_path, mode='rgb', max_side=900) if isinstance(left_path, str) else ensure_uint8(left_path)
+    right_img = load_image_u8(right_path, mode='rgb', max_side=900) if isinstance(right_path, str) else ensure_uint8(right_path)
 
     left, pts1, desc1, _ = extract_features(left_img, method=method)
     right, pts2, desc2, _ = extract_features(right_img, method=method)
@@ -312,6 +312,7 @@ def build_match_pipeline(left_path, right_path, method='sift', ratio=0.8):
 
     return {
         'left': left, 'right': right, 'pts1': pts1, 'pts2': pts2,
+        'desc1': desc1,
         'match_preview': match_preview, 'stitched': stitched,
         'matches': match_data,
         'raw_count': int(len(raw)), 'match_count': int(len(matches)),

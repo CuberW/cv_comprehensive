@@ -1,7 +1,6 @@
 """Demo processor for 光流."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 from app.modules.phase3_intermediate.optical_flow.algorithm import lucas_kanade_flow,flow_to_color
 from app.modules.phase2_classical.corner.algorithm import harris_pipeline
 
@@ -15,12 +14,8 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==3: gray=np.round(img_u8[:,:,0]*0.299+img_u8[:,:,1]*0.587+img_u8[:,:,2]*0.114).astype(np.uint8)
-    else: gray=img_u8
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=512) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    gray=ensure_gray(img_u8)
     # Simulate frame2 by shifting image slightly
     h,w=gray.shape; frame2=np.roll(gray,2,axis=1); frame2=np.roll(frame2,1,axis=0)
     # Get feature points using Harris

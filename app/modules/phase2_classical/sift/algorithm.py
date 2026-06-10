@@ -13,23 +13,15 @@ Core flow:
 """
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
+from app.utils.image_utils import to_uint8 as _to_uint8, ensure_gray as _ensure_gray
 
 
 def ensure_uint8(img):
-    arr = np.asarray(img)
-    if arr.dtype.kind == 'f':
-        if arr.size and float(arr.max()) <= 1.0:
-            arr = arr * 255.0
-        return np.round(arr).clip(0, 255).astype(np.uint8)
-    return arr.clip(0, 255).astype(np.uint8)
+    return _to_uint8(img)
 
 
 def to_gray(img):
-    arr = ensure_uint8(img)
-    if arr.ndim == 2:
-        return arr
-    weights = np.array([0.299, 0.587, 0.114], dtype=np.float32)
-    return np.round(np.dot(arr[..., :3], weights)).clip(0, 255).astype(np.uint8)
+    return _ensure_gray(img)
 
 
 def conv2d(img, kernel):

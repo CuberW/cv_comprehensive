@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def hough_line_transform(edge_img, theta_res=180, rho_res=None):
+def hough_line_transform(edge_img, theta_res=180, rho_res=None, max_edge_pixels=20000):
     """
     Hough line detection via rho-theta parameter space voting.
     For each edge pixel (x,y), vote for all lines passing through it:
@@ -22,15 +22,18 @@ def hough_line_transform(edge_img, theta_res=180, rho_res=None):
 
     # Get edge pixel coordinates
     ys, xs = np.where(edges > 0)
+    if xs.size > int(max_edge_pixels):
+        keep = np.linspace(0, xs.size - 1, int(max_edge_pixels)).astype(np.int32)
+        xs, ys = xs[keep], ys[keep]
     cos_t = np.cos(thetas)
     sin_t = np.sin(thetas)
 
-    for x, y in zip(xs, ys):
-        rho_vals = x * cos_t + y * sin_t
+    if xs.size:
+        rho_vals = xs[:, None] * cos_t[None, :] + ys[:, None] * sin_t[None, :]
         rho_idx = np.round((rho_vals + diag) / (2 * diag) * (rho_res - 1)).astype(np.int32)
         rho_idx = np.clip(rho_idx, 0, rho_res - 1)
-        for t_idx, r_idx in enumerate(rho_idx):
-            accumulator[r_idx, t_idx] += 1
+        theta_idx = np.broadcast_to(np.arange(theta_res, dtype=np.int32), rho_idx.shape)
+        np.add.at(accumulator, (rho_idx.ravel(), theta_idx.ravel()), 1)
 
     return accumulator, thetas, rhos
 
@@ -44,21 +47,22 @@ def find_line_peaks(accumulator, thetas, rhos, threshold_ratio=0.5, min_distance
     max_val = acc.max() if acc.size else 1.0
     threshold = max_val * threshold_ratio
 
-    # Find local maxima
-    peaks = []
     rho_res, theta_res = acc.shape
-    for r in range(1, rho_res - 1):
-        for t in range(1, theta_res - 1):
-            val = acc[r, t]
-            if val < threshold:
-                continue
-            # Check 3x3 neighborhood
-            patch = acc[r-1:r+2, t-1:t+2]
-            if val == patch.max():
-                peaks.append((float(val), int(r), int(t)))
+    if rho_res < 3 or theta_res < 3:
+        return []
 
-    # Sort by votes descending
-    peaks.sort(reverse=True)
+    center = acc[1:-1, 1:-1]
+    local_max = center >= threshold
+    for dr in (-1, 0, 1):
+        for dt in (-1, 0, 1):
+            if dr == 0 and dt == 0:
+                continue
+            local_max &= center >= acc[1 + dr:rho_res - 1 + dr, 1 + dt:theta_res - 1 + dt]
+
+    rr, tt = np.where(local_max)
+    vals = center[rr, tt]
+    order = np.argsort(vals)[::-1]
+    peaks = [(float(vals[i]), int(rr[i] + 1), int(tt[i] + 1)) for i in order]
 
     # Filter peaks that are too close
     filtered = []

@@ -1,7 +1,6 @@
 """Demo processor for HOG 特征."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 from app.modules.phase3_intermediate.hog_svm.algorithm import extract_hog_features,visualize_hog_cells
 
 
@@ -14,12 +13,8 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==3: gray=np.round(img_u8[:,:,0]*0.299+img_u8[:,:,1]*0.587+img_u8[:,:,2]*0.114).astype(np.uint8)
-    else: gray=img_u8
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=512) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    gray=ensure_gray(img_u8)
     features,cell_hists,(mag,ang)=extract_hog_features(gray.astype(np.float64),cell_size=8,block_size=2,num_bins=9)
     hog_vis=visualize_hog_cells(gray,cell_hists)
     mag_vis=np.clip(mag/mag.max()*255,0,255).astype(np.uint8) if mag.max()>0 else np.zeros_like(gray,dtype=np.uint8)

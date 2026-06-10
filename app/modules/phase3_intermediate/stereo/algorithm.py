@@ -66,23 +66,23 @@ def disparity_to_color(disparity, max_disp=None):
     if max_disp is None:
         max_disp = disp.max() if disp.max() > 0 else 1.0
 
-    h, w = disp.shape
-    colored = np.zeros((h, w, 3), dtype=np.uint8)
-
     norm = np.clip(disp / max(max_disp, 1e-6), 0, 1)
-    # Jet colormap: blue (0) -> cyan -> green -> yellow -> red (1)
-    # Simplified 3-point mapping
-    for y in range(h):
-        for x in range(w):
-            v = norm[y, x]
-            if v < 0.25:
-                r, g, b = 0, int(v*4*255), 255
-            elif v < 0.5:
-                r, g, b = 0, 255, int((0.5-v)*4*255)
-            elif v < 0.75:
-                r, g, b = int((v-0.5)*4*255), 255, 0
-            else:
-                r, g, b = 255, int((1-v)*4*255), 0
-            colored[y, x] = [r, g, b]
+    colored = np.zeros((*disp.shape, 3), dtype=np.uint8)
+
+    m = norm < 0.25
+    colored[..., 1][m] = np.round(norm[m] * 4 * 255).astype(np.uint8)
+    colored[..., 2][m] = 255
+
+    m = (norm >= 0.25) & (norm < 0.5)
+    colored[..., 1][m] = 255
+    colored[..., 2][m] = np.round((0.5 - norm[m]) * 4 * 255).clip(0, 255).astype(np.uint8)
+
+    m = (norm >= 0.5) & (norm < 0.75)
+    colored[..., 0][m] = np.round((norm[m] - 0.5) * 4 * 255).clip(0, 255).astype(np.uint8)
+    colored[..., 1][m] = 255
+
+    m = norm >= 0.75
+    colored[..., 0][m] = 255
+    colored[..., 1][m] = np.round((1 - norm[m]) * 4 * 255).clip(0, 255).astype(np.uint8)
 
     return colored

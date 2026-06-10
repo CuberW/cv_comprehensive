@@ -1,5 +1,6 @@
 """Morphological operations. Pure NumPy: erosion, dilation, opening, closing."""
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def _structuring_element(shape='rect', size=3):
@@ -27,15 +28,8 @@ def erode(binary_img, se_shape='rect', se_size=3, iterations=1):
 
     for _ in range(iterations):
         padded = np.pad(result, pad, mode='edge')
-        h, w = result.shape
-        out = np.zeros_like(result)
-        se_sum = se.sum()
-        for i in range(h):
-            for j in range(w):
-                patch = padded[i:i+se.shape[0], j:j+se.shape[1]]
-                if (patch * se).sum() == se_sum:
-                    out[i, j] = 1
-        result = out
+        windows = sliding_window_view(padded, se.shape)
+        result = ((windows * se).sum(axis=(2, 3)) == se.sum()).astype(np.uint8)
 
     return (result * 255).astype(np.uint8)
 
@@ -54,14 +48,8 @@ def dilate(binary_img, se_shape='rect', se_size=3, iterations=1):
 
     for _ in range(iterations):
         padded = np.pad(result, pad, mode='constant', constant_values=0)
-        h, w = result.shape
-        out = np.zeros_like(result)
-        for i in range(h):
-            for j in range(w):
-                patch = padded[i:i+se.shape[0], j:j+se.shape[1]]
-                if (patch * se).sum() > 0:
-                    out[i, j] = 1
-        result = out
+        windows = sliding_window_view(padded, se.shape)
+        result = ((windows * se).sum(axis=(2, 3)) > 0).astype(np.uint8)
 
     return (result * 255).astype(np.uint8)
 

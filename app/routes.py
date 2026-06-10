@@ -5,11 +5,10 @@ Route hub.
 - Legacy API routes for interactive algorithm pages (compatible with old CV project)
 """
 import os
-import numpy as np
 import imageio.v3 as iio
-from flask import Blueprint, render_template, jsonify, request, current_app, send_file
+from flask import Blueprint, render_template, jsonify, request
 from app.modules import MODULE_REGISTRY, get_modules_by_phase
-from app.utils.image_utils import to_base64
+from app.utils.image_utils import to_base64, load_image_u8
 
 main_bp = Blueprint('main', __name__)
 
@@ -73,9 +72,8 @@ def legacy_grayscale():
 
     unique_name, upload_path = _save_upload(file)
 
-    from app.modules.phase1_fundamentals.grayscale.algorithm import weighted_average, to_uint8
-    img = iio.imread(upload_path)
-    original = to_uint8(img)
+    from app.modules.phase1_fundamentals.grayscale.algorithm import weighted_average
+    original = load_image_u8(upload_path, mode='rgb', max_side=1024)
     gray = weighted_average(original)
 
     return jsonify({
@@ -194,6 +192,93 @@ def legacy_sift():
     })
 
 
+@main_bp.route('/match/', methods=['POST'])
+def legacy_match():
+    """
+    Legacy endpoint for match.html (feature matching and stitching).
+    Accepts: multipart left/right uploads + algorithm + ratio
+    Returns: image URLs, metrics, and visualization data for match-page.js.
+    """
+    left_file = request.files.get('left')
+    right_file = request.files.get('right')
+    if not left_file or not right_file:
+        return jsonify({'error': 'Missing left or right image'}), 400
+    if left_file.filename == '' or right_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    method = request.form.get('algorithm', 'sift')
+    if method not in ('sift', 'harris'):
+        return jsonify({'error': f'Unsupported matching algorithm: {method}'}), 400
+
+    try:
+        ratio = float(request.form.get('ratio', 0.8))
+    except ValueError:
+        ratio = 0.8
+    ratio = max(0.45, min(0.95, ratio))
+
+    left_name, left_path = _save_upload(left_file)
+    right_name, right_path = _save_upload(right_file)
+
+    from app.modules.phase3_intermediate.match.algorithm import build_match_pipeline
+
+    data = build_match_pipeline(left_path, right_path, method=method, ratio=ratio)
+
+    import uuid
+    result_dir = os.path.join(PROJECT_ROOT, 'static', 'results')
+    os.makedirs(result_dir, exist_ok=True)
+    pair_name = f"{uuid.uuid4().hex}_matches.png"
+    stitch_name = f"{uuid.uuid4().hex}_stitch.png"
+    pair_path = os.path.join(result_dir, pair_name)
+    stitch_path = os.path.join(result_dir, stitch_name)
+    iio.imwrite(pair_path, data['match_preview'])
+    iio.imwrite(stitch_path, data['stitched'])
+
+    left_features = len(data['pts1'])
+    right_features = len(data['pts2'])
+    matches = data['matches']
+    inliers = int(data['inlier_count'])
+    if inliers >= 4:
+        stitch_status = 'ok'
+        stitch_method = 'homography_inliers'
+    elif len(matches) >= 4:
+        stitch_status = 'ok'
+        stitch_method = 'homography_all_matches'
+    else:
+        stitch_status = 'failed'
+        stitch_method = 'insufficient_matches'
+
+    descriptor_samples = {}
+    for idx, desc in enumerate(data.get('desc1', [])[:80]):
+        descriptor_samples[str(idx)] = [round(float(v), 5) for v in desc[:32]]
+
+    return jsonify({
+        'left_image': f'/static/uploads/{left_name}',
+        'right_image': f'/static/uploads/{right_name}',
+        'pair_image': f'/static/results/{pair_name}',
+        'stitch_image': f'/static/results/{stitch_name}',
+        'metrics': {
+            'algorithm': method,
+            'ratio': ratio,
+            'left_features': left_features,
+            'right_features': right_features,
+            'matches': len(matches),
+            'raw_matches': int(data['raw_count']),
+            'inliers': inliers,
+            'stitch_status': stitch_status,
+            'stitch_method': stitch_method,
+        },
+        'visualization': {
+            'left_size': [int(data['left'].shape[1]), int(data['left'].shape[0])],
+            'right_size': [int(data['right'].shape[1]), int(data['right'].shape[0])],
+            'left_points': data['pts1'][:260],
+            'right_points': data['pts2'][:260],
+            'matches': matches[:120],
+            'homography': data['H'],
+            'descriptor_samples': descriptor_samples,
+        },
+    })
+
+
 # ---- History API (used by old interactive pages) ----
 @main_bp.route('/api/history', methods=['GET', 'DELETE'])
 def legacy_history():
@@ -287,8 +372,6 @@ def _get_demo_processor(module_id):
     elif module_id == 'instance':
         from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
         params = {'num_instances': 3}
-    elif module_id == 'conv_training':
-        from app.modules.phase4_deep_learning.conv_training.processor import build_pipeline as fn
     else:
         return None, None
 

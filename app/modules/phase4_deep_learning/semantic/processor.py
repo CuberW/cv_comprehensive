@@ -1,7 +1,6 @@
 """Demo processor for 语义分割."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8
 from app.modules.phase4_deep_learning.semantic.algorithm import simple_segmentation_demo,colorize_segmentation
 
 
@@ -14,11 +13,7 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==2: img_u8=np.stack([img_u8]*3,axis=-1)
+    img_u8 = load_image_u8(image_path, mode='rgb', max_side=512) if image_path else np.zeros((64,64,3), dtype=np.uint8)
     nc=int(kwargs.get("num_classes",5))
     seg=simple_segmentation_demo(img_u8,num_classes=nc)
     seg_color=colorize_segmentation(seg,num_classes=nc)

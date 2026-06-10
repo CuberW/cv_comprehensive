@@ -3,12 +3,11 @@ Edge detection pipeline builder.
 Assembles Sobel and Canny intermediate steps for frontend rendering.
 """
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase2_classical.edge.algorithm import (
     to_gray, gaussian_kernel, _GAUSS_K,
     sobel_gradients, nms, link_edges,
 )
-from app.utils.image_utils import to_uint8 as _image_to_uint8
+from app.utils.image_utils import load_image_u8
 
 
 def _positive_to_uint8(arr):
@@ -30,12 +29,12 @@ def build_sobel_pipeline(image_path, threshold=80):
     Sobel edge detection pipeline:
       Original -> Gray -> Gx -> Gy -> Magnitude -> Binary Result
     """
-    img = iio.imread(image_path)
+    img = load_image_u8(image_path, mode='rgb', max_side=1024)
     gray = to_gray(img)
     gx, gy, mag, _ = sobel_gradients(gray.astype(np.float32))
 
     steps = [
-        {'id': 'original', 'image': _image_to_uint8(img),
+        {'id': 'original', 'image': img,
          'name': 'Original Image', 'explanation': 'The input color image.'},
         {'id': 'gray', 'image': gray,
          'name': 'Grayscale', 'explanation': 'Single-channel brightness image.'},
@@ -64,12 +63,9 @@ def build_canny_pipeline(image_path, low=50, high=150):
     Canny edge detection complete pipeline:
       Original -> Gray -> Gaussian Blur -> Gx -> Gy -> Magnitude -> NMS -> Hysteresis
     """
-    img = iio.imread(image_path)
+    img = load_image_u8(image_path, mode='rgb', max_side=1024)
     gray = to_gray(img)
-    blur = np.clip(np.asarray(to_gray(img), dtype=np.float32), 0, 255)
-    # Actually compute the proper blurred version
     blur = to_gray(img).astype(np.float32)
-    blur_smooth = np.zeros_like(blur)
     from app.modules.phase2_classical.edge.algorithm import conv2d
     blur_smooth = conv2d(blur, _GAUSS_K)
     gx, gy, mag, ang = sobel_gradients(blur_smooth)
@@ -77,7 +73,7 @@ def build_canny_pipeline(image_path, low=50, high=150):
     edges = link_edges(suppressed, low, high)
 
     steps = [
-        {'id': 'original', 'image': _image_to_uint8(img),
+        {'id': 'original', 'image': img,
          'name': 'Original Image', 'explanation': 'The input color image.'},
         {'id': 'gray', 'image': gray,
          'name': 'Grayscale', 'explanation': 'Single-channel. Only brightness matters for edges.'},

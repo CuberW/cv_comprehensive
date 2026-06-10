@@ -1,7 +1,6 @@
 """Demo processor for 扩散模型."""
 import numpy as np
-import imageio.v3 as iio
-from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.utils.image_utils import load_image_u8
 from app.modules.phase4_deep_learning.diffusion.algorithm import forward_diffusion
 
 
@@ -14,12 +13,7 @@ def _to_uint8_heat(arr):
 
 
 def build_pipeline(image_path=None, **kwargs):
-    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
-    
-    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
-    img_u8=to_uint8(img)
-    if img_u8.ndim==3: gray=np.round(img_u8[:,:,0]*0.299+img_u8[:,:,1]*0.587+img_u8[:,:,2]*0.114).astype(np.uint8)
-    else: gray=img_u8
+    gray = load_image_u8(image_path, mode='gray', max_side=256) if image_path else np.zeros((64,64), dtype=np.uint8)
     small=gray[::2,::2].astype(np.float64)/255.0
     ns=int(kwargs.get("num_steps",50))
     steps_out=forward_diffusion(small,num_steps=200)

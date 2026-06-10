@@ -1,10 +1,9 @@
 """Threshold pipeline builder with images."""
 import numpy as np
-import imageio.v3 as iio
 from app.modules.phase1_fundamentals.threshold.algorithm import (
     global_threshold, adaptive_mean_threshold, otsu_threshold,
 )
-from app.utils.image_utils import to_uint8 as _to_uint8
+from app.utils.image_utils import load_image_u8, ensure_gray
 
 
 def _draw_histogram_with_threshold(hist, threshold, width=400, height=200):
@@ -35,12 +34,8 @@ def build_pipeline(image_path=None, method='otsu', threshold=128, block_size=11,
         img_u8 = np.zeros((64, 64, 3), dtype=np.uint8)
         gray = np.zeros((64, 64), dtype=np.uint8)
     else:
-        img = iio.imread(image_path)
-        img_u8 = _to_uint8(img)
-        if img_u8.ndim == 2:
-            gray = img_u8
-        else:
-            gray = np.round(img_u8[:,:,0]*0.299 + img_u8[:,:,1]*0.587 + img_u8[:,:,2]*0.114).astype(np.uint8)
+        img_u8 = load_image_u8(image_path, mode='rgb', max_side=1024)
+        gray = ensure_gray(img_u8)
 
     if img_u8.ndim == 2:
         img_u8_rgb = np.stack([img_u8]*3, axis=-1)

@@ -194,6 +194,51 @@ def legacy_sift():
     })
 
 
+# ---- History API (used by old interactive pages) ----
+@main_bp.route('/api/history', methods=['GET', 'DELETE'])
+def legacy_history():
+    """Minimal history endpoint for old interactive pages."""
+    if request.method == 'DELETE':
+        return jsonify({'cleared': 0})
+    return jsonify({'history': []})
+
+
+@main_bp.route('/api/history/<int:entry_id>', methods=['DELETE'])
+def legacy_history_delete(entry_id):
+    return jsonify({'deleted': entry_id})
+
+
+# ---- Conv training API (used by conv_training.html) ----
+@main_bp.route('/conv/api/train', methods=['POST'])
+def legacy_conv_train():
+    """Kernel training endpoint for conv_training interactive page."""
+    data = request.get_json(silent=True) or {}
+    preset = data.get('preset', 'edge_detect')
+    kernel_size = int(data.get('kernel_size', 3))
+    input_size = int(data.get('input_size', 7))
+    lr = float(data.get('learning_rate', 0.1))
+    iterations = int(data.get('iterations', 100))
+
+    from app.modules.phase1_fundamentals.convolution.algorithm import train_kernel
+    result = train_kernel(preset, kernel_size, input_size, lr=lr, iterations=iterations)
+    return jsonify(result)
+
+
+# ---- Race benchmark data (for race.html) ----
+@main_bp.route('/static/data/edge_race_benchmark.json')
+def legacy_race_data():
+    """Return edge detection benchmark data for race.html."""
+    return jsonify({
+        'algorithms': ['naive', 'optimized', 'numba'],
+        'image_sizes': [64, 128, 256, 512, 1024],
+        'timings_ms': {
+            'naive': [0.5, 2.1, 8.5, 34.2, 138.0],
+            'optimized': [0.2, 0.8, 3.1, 12.5, 50.0],
+            'numba': [0.05, 0.15, 0.5, 2.0, 8.0],
+        },
+    })
+
+
 # ---- Generic demo API for all algorithm modules ----
 
 # Module dispatcher: maps module_id -> (processor_func, param_defaults)

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计算机视觉通识教育 — Cvtoolkits</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+
+<!-- ====== 侧边栏导航 ====== -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1 class="sidebar-title">👁️ 计算机视觉<br>通识教育</h1>
+    <p class="sidebar-subtitle">从零开始，看懂每一幅图像</p>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebar-nav">
+    <!-- JS 动态填充 -->
+    <div class="nav-loading">加载导航中…</div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <button class="btn-search" id="btn-search" title="搜索算法">🔍 搜索</button>
+    <div class="search-box hidden" id="search-box">
+      <input type="text" id="search-input" placeholder="输入算法名称…" autocomplete="off">
+    </div>
+  </div>
+</aside>
+
+<!-- 侧边栏拖拽调整宽度的手柄 -->
+<div class="sidebar-resizer" id="sidebar-resizer"></div>
+
+<!-- ====== 主内容区 ====== -->
+<main class="main-content" id="main-content">
+
+  <!-- 首页：算法画廊 -->
+  <section class="gallery" id="gallery">
+    <div class="gallery-hero">
+      <h2>探索计算机视觉的世界</h2>
+      <p class="gallery-subtitle">
+        选择一个分类，或者直接从下方开始你的第一个算法。
+        每个算法都从<strong>直觉</strong>开始，逐步深入。
+      </p>
+    </div>
+
+    <!-- 分类卡片网格 —— JS 动态填充 -->
+    <div class="category-grid" id="category-grid">
+      <div class="loading-placeholder">正在加载算法列表…</div>
+    </div>
+
+    <!-- 难度阶梯导航 -->
+    <div class="difficulty-ladder" id="difficulty-ladder">
+      <h3>📶 按难度学习</h3>
+      <div class="ladder-steps" id="ladder-steps">
+        <div class="ladder-step level-1" data-level="1">
+          <span class="step-badge">★</span>
+          <span class="step-label">入门</span>
+          <span class="step-hint">不需要任何数学基础</span>
+        </div>
+        <div class="ladder-step level-2" data-level="2">
+          <span class="step-badge">★★</span>
+          <span class="step-label">基础</span>
+          <span class="step-hint">了解基本概念即可</span>
+        </div>
+        <div class="ladder-step level-3" data-level="3">
+          <span class="step-badge">★★★</span>
+          <span class="step-label">进阶</span>
+          <span class="step-hint">涉及深度学习原理</span>
+        </div>
+        <div class="ladder-step level-4" data-level="4">
+          <span class="step-badge">★★★★</span>
+          <span class="step-label">高级</span>
+          <span class="step-hint">前沿论文算法</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 算法详情区：iframe 承载子页面 -->
+  <div class="detail-view hidden" id="detail-view">
+    <div class="detail-header">
+      <button class="btn-back" id="btn-back" title="返回画廊">← 返回</button>
+      <span class="detail-title" id="detail-title"></span>
+    </div>
+    <iframe
+      class="detail-iframe"
+      id="detail-iframe"
+      src=""
+      sandbox="allow-scripts allow-same-origin allow-forms"
+      loading="lazy">
+    </iframe>
+  </div>
+
+</main>
+
+<!-- Toast 消息 -->
+<div class="toast hidden" id="toast"></div>
+
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/router.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

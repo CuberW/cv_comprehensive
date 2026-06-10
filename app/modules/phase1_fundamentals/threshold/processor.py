@@ -1,18 +1,51 @@
-"""Threshold pipeline builder."""
+"""Threshold pipeline builder with images."""
 import numpy as np
 import imageio.v3 as iio
 from app.modules.phase1_fundamentals.threshold.algorithm import (
     global_threshold, adaptive_mean_threshold, otsu_threshold,
 )
+from app.utils.image_utils import to_uint8 as _to_uint8
 
 
-def build_pipeline(image_path, method='otsu', threshold=128, block_size=11, C=2):
+def _draw_histogram_with_threshold(hist, threshold, width=400, height=200):
+    """Draw histogram with a red threshold line."""
+    chart = np.ones((height, width, 3), dtype=np.uint8) * 248
+    hist = np.asarray(hist, dtype=np.float64)
+    if hist.max() <= 0:
+        return chart
+    hist_norm = hist / hist.max()
+    bar_w = max(1, width // len(hist))
+    for i, v in enumerate(hist_norm):
+        x0 = i * bar_w
+        x1 = min(x0 + bar_w, width)
+        bar_h = int(v * (height - 30))
+        y0 = height - 30 - bar_h
+        color = [59, 130, 246] if i < threshold else [147, 197, 253]
+        chart[y0:height-30, x0:x1] = color
+    chart[height-28:height-26, :] = [100, 100, 100]
+    chart[:, :2] = [100, 100, 100]
+    tx = int(threshold / 256 * width)
+    chart[5:height-30, max(0,tx-1):min(width,tx+2)] = [239, 68, 68]
+    return chart
+
+
+def build_pipeline(image_path=None, method='otsu', threshold=128, block_size=11, C=2):
     """Build thresholding pipeline steps."""
-    img = iio.imread(image_path)
-    if img.ndim == 3:
-        gray = np.round(img[:,:,0]*0.299 + img[:,:,1]*0.587 + img[:,:,2]*0.114).astype(np.uint8)
+    if image_path is None:
+        img_u8 = np.zeros((64, 64, 3), dtype=np.uint8)
+        gray = np.zeros((64, 64), dtype=np.uint8)
     else:
-        gray = np.asarray(img, dtype=np.uint8)
+        img = iio.imread(image_path)
+        img_u8 = _to_uint8(img)
+        if img_u8.ndim == 2:
+            gray = img_u8
+        else:
+            gray = np.round(img_u8[:,:,0]*0.299 + img_u8[:,:,1]*0.587 + img_u8[:,:,2]*0.114).astype(np.uint8)
+
+    if img_u8.ndim == 2:
+        img_u8_rgb = np.stack([img_u8]*3, axis=-1)
+    else:
+        img_u8_rgb = img_u8[..., :3]
 
     if method == 'otsu':
         t = otsu_threshold(gray)
@@ -28,18 +61,26 @@ def build_pipeline(image_path, method='otsu', threshold=128, block_size=11, C=2)
     else:
         result = global_threshold(gray, threshold)
 
+    result_rgb = np.stack([result]*3, axis=-1)
+    from app.modules.phase1_fundamentals.histogram.algorithm import compute_histogram
+    hist = compute_histogram(gray)
+    hist_chart = _draw_histogram_with_threshold(hist, t if t else 128)
+
     steps = [
-        {'id': 'original', 'name': '原图', 'explanation': '输入图像'},
-        {'id': 'gray', 'name': '灰度图', 'explanation': '阈值化需要先将彩色图转为灰度图'},
-        {'id': 'histogram', 'name': '直方图 + 阈值线',
-         'explanation': f'Otsu自动计算阈值={t}, 左侧=背景区域, 右侧=前景区域' if t
-                        else f'自适应阈值 (block={block_size}, C={C}): 每个像素使用局部邻域均值作为阈值'},
-        {'id': 'result', 'name': '二值化结果', 'explanation': '白色=前景(255), 黑色=背景(0)'},
+        {'id': 'original', 'name': '原图', 'image': img_u8_rgb,
+         'explanation': '输入图像'},
+        {'id': 'gray', 'name': '灰度图', 'image': gray,
+         'explanation': '阈值化需要先将彩色图转为灰度图'},
+        {'id': 'histogram', 'name': f'直方图 (Otsu阈值={t})' if t else f'自适应阈值 (block={block_size})',
+         'image': hist_chart,
+         'explanation': f'蓝色=背景区域, 浅蓝=前景区域, 红色线=阈值={t}' if t
+                        else f'每个像素用局部均值作为阈值'},
+        {'id': 'result', 'name': '二值化结果', 'image': result_rgb,
+         'explanation': '白色=前景(255), 黑色=背景(0)'},
     ]
 
     return {
-        'steps': steps, 'gray': gray, 'result': result,
-        'threshold': t,
+        'steps': steps,
         'metrics': {
             'method': method, 'threshold': t,
             'foreground_pct': round(float(result.sum()/255/result.size)*100, 1) if result.size > 0 else 0,

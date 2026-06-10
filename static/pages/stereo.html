@@ -21,5 +21,107 @@
 
   <h3>学习要点</h3>
   <div class="module-section"><p>对极几何 & 极线校正</p></div><div class="module-section"><p>视差 = 深度倒数</p></div><div class="module-section"><p>块匹配 (Block Matching) 视差计算</p></div><div class="module-section"><p>视差图 → 深度图 → 3D 点云</p></div>
+
+  <hr style="margin:24px 0;border:none;border-top:1px solid var(--sidebar-border);">
+
+  <h2>算法演示</h2>
+  <div class="demo-area">
+    <div class="demo-controls">
+      <label class="demo-upload-btn">
+        <input type="file" id="demoFile" accept="image/*" style="display:none">
+        选择图片
+      </label>
+      <button class="demo-run-btn" id="demoRun">运行算法</button>
+      <span class="demo-status" id="demoStatus"></span>
+    </div>
+    <div class="demo-results" id="demoResults">
+      <p class="demo-hint">上传一张图片,点击"运行算法"查看中间步骤结果。</p>
+    </div>
+  </div>
+
+  <style>
+    .demo-controls { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    .demo-upload-btn, .demo-run-btn {
+      padding:8px 18px; border-radius:8px; cursor:pointer; font-size:0.9rem; border:none;
+      transition: all 0.2s;
+    }
+    .demo-upload-btn { background:var(--sidebar-bg); border:1px solid var(--sidebar-border); color:var(--text-primary); }
+    .demo-upload-btn:hover { border-color:var(--accent); }
+    .demo-run-btn { background:var(--accent); color:#fff; font-weight:600; }
+    .demo-run-btn:hover { opacity:0.9; }
+    .demo-run-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .demo-status { font-size:0.85rem; color:var(--text-muted); }
+    .demo-results { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+    .demo-hint { grid-column:1/-1; color:var(--text-muted); font-size:0.9rem; text-align:center; padding:20px; }
+    .demo-step-card {
+      background:#fff; border:1px solid var(--sidebar-border); border-radius:10px;
+      overflow:hidden; box-shadow:var(--card-shadow);
+    }
+    .demo-step-card img { width:100%; display:block; border-bottom:1px solid var(--sidebar-border); }
+    .demo-step-card .step-info { padding:8px 12px; }
+    .demo-step-card .step-name { font-weight:600; font-size:0.85rem; }
+    .demo-step-card .step-desc { font-size:0.78rem; color:var(--text-muted); margin-top:2px; line-height:1.4; }
+    .demo-metrics {
+      grid-column:1/-1; background:var(--sidebar-bg); border-radius:8px; padding:12px 16px;
+      font-size:0.85rem; color:var(--text-secondary);
+    }
+    .demo-metrics strong { color:var(--text-primary); }
+  </style>
+
+  <script>
+  (function(){
+    var fileInput=document.getElementById('demoFile');
+    var runBtn=document.getElementById('demoRun');
+    var status=document.getElementById('demoStatus');
+    var results=document.getElementById('demoResults');
+    var selectedFile=null;
+
+    fileInput.addEventListener('change',function(e){
+      selectedFile=e.target.files[0];
+      if(selectedFile){
+        var label=document.querySelector('.demo-upload-btn');
+        status.textContent=selectedFile.name;
+      }
+    });
+
+    runBtn.addEventListener('click',function(){
+      if(!selectedFile){status.textContent='请先选择图片';return;}
+      runBtn.disabled=true; runBtn.textContent='计算中...';
+      status.textContent='正在处理...';
+      results.innerHTML='<p class="demo-hint">算法运行中...</p>';
+
+      var form=new FormData();
+      form.append('file',selectedFile);
+      fetch('/api/demo/stereo',{method:'POST',body:form})
+        .then(function(r){return r.json();})
+        .then(function(data){
+          runBtn.disabled=false; runBtn.textContent='运行算法';
+          status.textContent='完成!';
+          if(data.error){results.innerHTML='<p class="demo-hint">错误:'+data.error+'</p>';return;}
+          var html='';
+          if(data.metrics && Object.keys(data.metrics).length){
+            html+='<div class="demo-metrics">';
+            for(var k in data.metrics){
+              html+='<span style="margin-right:16px">'+k+': <strong>'+data.metrics[k]+'</strong></span>';
+            }
+            html+='</div>';
+          }
+          (data.steps||[]).forEach(function(s){
+            html+='<div class="demo-step-card">';
+            if(s.image_b64) html+='<img src="data:image/png;base64,'+s.image_b64+'" alt="'+s.name+'">';
+            html+='<div class="step-info"><div class="step-name">'+s.name+'</div>';
+            if(s.explanation) html+='<div class="step-desc">'+s.explanation+'</div>';
+            html+='</div></div>';
+          });
+          results.innerHTML=html;
+        })
+        .catch(function(err){
+          runBtn.disabled=false; runBtn.textContent='运行算法';
+          status.textContent='出错'; results.innerHTML='<p class="demo-hint">请求失败:'+err.message+'</p>';
+        });
+    });
+  })();
+  </script>
+
 </body>
 </html>

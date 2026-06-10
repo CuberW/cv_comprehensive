@@ -194,6 +194,121 @@ def legacy_sift():
     })
 
 
+# ---- Generic demo API for all algorithm modules ----
+
+# Module dispatcher: maps module_id -> (processor_func, param_defaults)
+def _get_demo_processor(module_id):
+    """Return (build_pipeline_func, default_params) for a given module_id."""
+    params = {}
+
+    if module_id == 'histogram':
+        from app.modules.phase1_fundamentals.histogram.processor import build_pipeline as fn
+    elif module_id == 'threshold':
+        from app.modules.phase1_fundamentals.threshold.processor import build_pipeline as fn
+        params = {'method': 'otsu', 'threshold': 128}
+    elif module_id == 'hough':
+        from app.modules.phase2_classical.hough.processor import build_pipeline as fn
+    elif module_id == 'morphology':
+        from app.modules.phase2_classical.morphology.processor import build_pipeline as fn
+    elif module_id == 'contour':
+        from app.modules.phase2_classical.contour.processor import build_pipeline as fn
+    elif module_id == 'watershed':
+        from app.modules.phase3_intermediate.watershed.processor import build_pipeline as fn
+    elif module_id == 'grabcut':
+        from app.modules.phase3_intermediate.grabcut.processor import build_pipeline as fn
+        params = {'x': 30, 'y': 30, 'w': 160, 'h': 160}
+    elif module_id == 'slic':
+        from app.modules.phase3_intermediate.slic.processor import build_pipeline as fn
+        params = {'num_superpixels': 200, 'compactness': 10.0}
+    elif module_id == 'hog_svm':
+        from app.modules.phase3_intermediate.hog_svm.processor import build_pipeline as fn
+    elif module_id == 'optical_flow':
+        from app.modules.phase3_intermediate.optical_flow.processor import build_pipeline as fn
+    elif module_id == 'stereo':
+        from app.modules.phase3_intermediate.stereo.processor import build_pipeline as fn
+    elif module_id == 'frequency':
+        from app.modules.phase3_intermediate.frequency.processor import build_pipeline as fn
+    elif module_id == 'gan':
+        from app.modules.phase4_deep_learning.gan.processor import build_pipeline as fn
+        params = {'noise_dim': 10, 'steps': 50}
+    elif module_id == 'diffusion':
+        from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline as fn
+        params = {'num_steps': 50}
+    elif module_id == 'detection':
+        from app.modules.phase4_deep_learning.detection.processor import build_pipeline as fn
+    elif module_id == 'semantic':
+        from app.modules.phase4_deep_learning.semantic.processor import build_pipeline as fn
+        params = {'num_classes': 5}
+    elif module_id == 'instance':
+        from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
+        params = {'num_instances': 3}
+    elif module_id == 'conv_training':
+        from app.modules.phase4_deep_learning.conv_training.processor import build_pipeline as fn
+    else:
+        return None, None
+
+    return fn, params
+
+
+@main_bp.route('/api/demo/<module_id>', methods=['POST'])
+def demo_endpoint(module_id):
+    """
+    Generic demo endpoint for all algorithm modules.
+    Accepts: multipart file upload + optional form params
+    Returns: { steps: [...], metrics: {...}, original_image: url }
+    """
+    fn, defaults = _get_demo_processor(module_id)
+    if fn is None:
+        return jsonify({'error': f'Unknown module: {module_id}'}), 404
+
+    if 'file' not in request.files and module_id not in ('gan', 'diffusion', 'detection', 'conv_training'):
+        return jsonify({'error': 'No file part'}), 400
+
+    # Collect params from form data, falling back to defaults
+    kwargs = dict(defaults)
+    for key in request.form:
+        val = request.form[key]
+        # Try to convert to appropriate type
+        try:
+            if '.' in val:
+                kwargs[key] = float(val)
+            else:
+                kwargs[key] = int(val)
+        except ValueError:
+            kwargs[key] = val
+
+    if 'file' in request.files and request.files['file'].filename:
+        file = request.files['file']
+        unique_name, upload_path = _save_upload(file)
+        kwargs['image_path'] = upload_path
+        original_url = f'/static/uploads/{unique_name}'
+    else:
+        # Modules that don't need upload: generate demo internally
+        kwargs['image_path'] = None
+        original_url = None
+
+    result = fn(**kwargs)
+
+    # Convert step images to base64
+    steps_out = []
+    for step in result.get('steps', []):
+        step_out = {'id': step['id'], 'name': step['name']}
+        if 'image' in step and step['image'] is not None:
+            step_out['image_b64'] = to_base64(step['image'])
+        if 'explanation' in step:
+            step_out['explanation'] = step['explanation']
+        steps_out.append(step_out)
+
+    resp = {
+        'steps': steps_out,
+        'metrics': result.get('metrics', {}),
+    }
+    if original_url:
+        resp['original_image'] = original_url
+
+    return jsonify(resp)
+
+
 # ---- Register all module API endpoints ----
 for _mid, _cls in list(MODULE_REGISTRY.items()):
     if hasattr(_cls, 'get_api_endpoints'):

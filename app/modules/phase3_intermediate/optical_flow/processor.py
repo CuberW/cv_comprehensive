@@ -1,0 +1,45 @@
+"""Demo processor for 光流."""
+import numpy as np
+import imageio.v3 as iio
+from app.modules.phase1_fundamentals.grayscale.algorithm import to_uint8
+from app.modules.phase3_intermediate.optical_flow.algorithm import lucas_kanade_flow,flow_to_color
+from app.modules.phase2_classical.corner.algorithm import harris_pipeline
+
+
+def _to_uint8_heat(arr):
+    """Float array -> uint8 heatmap."""
+    arr=np.asarray(arr,dtype=np.float64)
+    m=arr.max() if arr.size else 1.0
+    if m<=1e-12: return np.zeros(arr.shape,dtype=np.uint8)
+    return np.clip(arr/m*255,0,255).astype(np.uint8)
+
+
+def build_pipeline(image_path=None, **kwargs):
+    img_u8 = to_uint8(iio.imread(image_path)) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    
+    img=iio.imread(image_path) if image_path else np.zeros((64,64,3),dtype=np.uint8)
+    img_u8=to_uint8(img)
+    if img_u8.ndim==3: gray=np.round(img_u8[:,:,0]*0.299+img_u8[:,:,1]*0.587+img_u8[:,:,2]*0.114).astype(np.uint8)
+    else: gray=img_u8
+    # Simulate frame2 by shifting image slightly
+    h,w=gray.shape; frame2=np.roll(gray,2,axis=1); frame2=np.roll(frame2,1,axis=0)
+    # Get feature points using Harris
+    data=harris_pipeline(img_u8,max_points=100)
+    pts=[(p["x"],p["y"]) for p in data["points"][:60]]
+    flows=lucas_kanade_flow(gray.astype(np.float64),frame2.astype(np.float64),pts,window_size=15)
+    colors=flow_to_color(flows)
+    # Build flow visualization
+    flow_vis=np.zeros((h,w,3),dtype=np.uint8); flow_vis[:]=np.array([15,23,42],dtype=np.uint8)
+    for i,(px,py) in enumerate(pts):
+        x,y=int(px),int(py)
+        if 0<=x<w and 0<=y<h:
+            u,v=flows[i]; col=colors[i]
+            x2=int(x+u*3); y2=int(y+v*3)
+            n=max(abs(x2-x),abs(y2-y),1)
+            for t in np.linspace(0,1,n):
+                xx=int(x+(x2-x)*t); yy=int(y+(y2-y)*t)
+                if 0<=xx<w and 0<=yy<h: flow_vis[yy,xx]=col
+    steps=[{"id":"frame1","name":"第t帧","image":gray,"explanation":"参考帧"},
+           {"id":"frame2","name":"第t+1帧","image":frame2,"explanation":"下一帧(模拟位移)"},
+           {"id":"flow","name":"光流可视化","image":flow_vis,"explanation":"颜色=运动方向,饱和度=速度,共"+str(len(pts))+"个跟踪点"}]
+    return {"steps":steps,"metrics":{"tracked_points":len(pts),"window_size":15}}

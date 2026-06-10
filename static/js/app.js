@@ -70,7 +70,7 @@ const App = (() => {
 
     } catch (err) {
       console.error('[App] Failed to load modules:', err);
-      Utils.toast('Failed to load module list. Is the backend running?');
+      Utils.toast('加载模块列表失败，后端是否已启动？');
     }
   }
 
@@ -118,7 +118,7 @@ const App = (() => {
         <div class="cat-emoji" style="color:${phase.color}">阶段 ${phase.emoji}</div>
         <div class="cat-name">${phase.phase_name}</div>
         <div class="cat-name-en">${phase.phase_name_en}</div>
-        <div class="cat-count">${phase.modules.length} algorithm modules</div>
+        <div class="cat-count">${phase.modules.length} 个算法模块</div>
         <div class="category-modules">
           ${phase.modules.map(m => `<span class="module-chip${m.required ? ' chip-required' : ''}" style="background:${phase.color}18;color:${phase.color}" data-module-id="${m.id}">${m.name}</span>`).join('')}
         </div>
@@ -146,7 +146,7 @@ const App = (() => {
       const lv = parseInt(el.dataset.level);
       const hint = el.querySelector('.step-hint');
       if (hint && counts[lv] > 0) {
-        hint.textContent = `${counts[lv]} modules`;
+        hint.textContent = `${counts[lv]} 个模块`;
       }
     });
   }
@@ -158,7 +158,7 @@ const App = (() => {
   function _openModule(moduleId) {
     const mod = _modules.find(m => m.id === moduleId);
     if (!mod) {
-      Utils.toast(`Module "${moduleId}" not found`);
+      Utils.toast(`模块 "${moduleId}" 未找到`);
       Router.go('/');
       return;
     }
@@ -227,7 +227,7 @@ const App = (() => {
         if (el) el.style.opacity = '0.35';
       }
     });
-    Utils.toast(`Filtered to difficulty=${level} (click any module to reset)`);
+    Utils.toast(`已筛选难度 ${level}（点击任意模块恢复）`);
     setTimeout(() => { items.forEach(el => el.style.opacity = '1'); }, 5000);
   }
 

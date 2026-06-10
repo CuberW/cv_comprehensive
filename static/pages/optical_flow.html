@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>光流 — Optical Flow</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>光流</h1>
+  <p class="module-subtitle">Optical Flow</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">估计图像中每个像素的运动速度和方向——稠密光流展现了场景中的所有运动信息，是视频理解、目标跟踪和运动分割的基础。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">帧t</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">特征点/稠密跟踪</span> → <span class="pipeline-step process">运动向量计算</span> → 
+    <span class="pipeline-step output">光流可视化</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>光流基本假设: 亮度恒定</p></div><div class="module-section"><p>Lucas-Kanade 稀疏光流</p></div><div class="module-section"><p>Farneback 稠密光流</p></div><div class="module-section"><p>光流颜色编码 (HSV: 方向=色相, 速度=饱和度)</p></div>
+</body>
+</html>

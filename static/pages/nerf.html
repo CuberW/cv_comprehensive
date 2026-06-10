@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>NeRF 神经辐射场 — NeRF</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>NeRF 神经辐射场</h1>
+  <p class="module-subtitle">NeRF</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">用一个小 MLP 从几十张照片中学习整个 3D 场景——输入 5D 坐标 (x,y,z,θ,φ)，输出该点的颜色和密度。体渲染积分生成任意新视角的照片。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">多视角照片</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">5D采样(x,y,z,θ,φ)</span> → <span class="pipeline-step process">MLP预测颜色密度</span> → <span class="pipeline-step process">体渲染积分</span> → 
+    <span class="pipeline-step output">新视角图像</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>5D 输入: 位置 (x,y,z) + 视角 (θ,φ)</p></div><div class="module-section"><p>位置编码 (高频映射)</p></div><div class="module-section"><p>体渲染公式: 透射率×颜色×密度</p></div><div class="module-section"><p>分层采样 (Coarse + Fine)</p></div><div class="module-section"><p>360° 视角旋转查看器</p></div>
+</body>
+</html>

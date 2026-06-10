@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Vision Transformer — Vision Transformer (ViT)</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>Vision Transformer</h1>
+  <p class="module-subtitle">Vision Transformer (ViT)</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">将图像切成 16×16 的 Patch，像处理文字 Token 一样送入 Transformer。ViT 证明：纯注意力机制在大规模预训练后可以超越 CNN。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">Patch切分+投影</span> → <span class="pipeline-step process">Transformer Encoder</span> → 
+    <span class="pipeline-step output">CLS分类结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>Patch 切分 + 线性投影 = Token</p></div><div class="module-section"><p>位置编码 (Position Embedding)</p></div><div class="module-section"><p>多头自注意力 (Multi-Head Self-Attention)</p></div><div class="module-section"><p>CLS Token 分类头</p></div><div class="module-section"><p>注意力图可视化: 浅层→深层</p></div>
+</body>
+</html>

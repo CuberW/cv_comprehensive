@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Hough 变换 — Hough Transform</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>Hough 变换</h1>
+  <p class="module-subtitle">Hough Transform</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">在参数空间中投票找形状——直线检测和圆形检测的核心算法。即使边缘有断裂或噪声，也能鲁棒地检测出完整的几何形状。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Canny边缘图</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">参数空间投票</span> → <span class="pipeline-step process">峰值检测</span> → 
+    <span class="pipeline-step output">检测到的直线/圆</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>Hough 直线检测 (rho-theta 参数空间)</p></div><div class="module-section"><p>Hough 圆形检测 (a-b-r 三维参数空间)</p></div><div class="module-section"><p>投票与阈值筛选</p></div><div class="module-section"><p>概率 Hough 变换加速</p></div>
+</body>
+</html>

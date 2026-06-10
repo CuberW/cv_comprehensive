@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>HOG + SVM 目标检测 — HOG + SVM Detection</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>HOG + SVM 目标检测</h1>
+  <p class="module-subtitle">HOG + SVM Detection</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">深度学习之前的目标检测标准方案：先计算梯度方向直方图 (HOG) 作为特征，再用支持向量机 (SVM) 做分类——理解它才能理解为什么深度学习检测器更好。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">HOG特征提取</span> → <span class="pipeline-step process">SVM分类</span> → 
+    <span class="pipeline-step output">滑动窗口检测结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>HOG 特征: 梯度方向投票 (8x8 cell)</p></div><div class="module-section"><p>Block 归一化提升光照不变性</p></div><div class="module-section"><p>SVM 分类器: 最大间隔超平面</p></div><div class="module-section"><p>滑动窗口检测 + 图像金字塔</p></div>
+</body>
+</html>

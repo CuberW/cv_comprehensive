@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>分水岭分割 — Watershed Segmentation</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>分水岭分割</h1>
+  <p class="module-subtitle">Watershed Segmentation</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">把梯度幅值图看作地形——「注水」后不同集水盆地对应不同物体。经典的分割算法，擅长分离粘连物体。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">梯度幅值图</span> → <span class="pipeline-step process">标记定义</span> → 
+    <span class="pipeline-step output">分水岭分割结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>梯度幅值 = 地形高度</p></div><div class="module-section"><p>标记控制的分水岭 (Marker-Controlled)</p></div><div class="module-section"><p>距离变换 + 前景/背景标记</p></div><div class="module-section"><p>OpenCV 分水岭对比</p></div>
+</body>
+</html>

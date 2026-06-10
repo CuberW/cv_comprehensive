@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DETR 目标检测 — DETR</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>DETR 目标检测</h1>
+  <p class="module-subtitle">DETR</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">去掉了 Anchor、NMS、Region Proposal——DETR 用 Transformer 的 Object Query 直接「问」出图像中的物体。彻底简化了检测流水线。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">CNN Backbone</span> → <span class="pipeline-step process">Transformer Encoder-Decoder</span> → 
+    <span class="pipeline-step output">Object Query预测框</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>Object Query: 100 个可学习的查询向量</p></div><div class="module-section"><p>Encoder-Decoder 注意力机制</p></div><div class="module-section"><p>二分图匹配 (Hungarian Algorithm)</p></div><div class="module-section"><p>与 YOLO/Faster R-CNN 的架构对比</p></div>
+</body>
+</html>

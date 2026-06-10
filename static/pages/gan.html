@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GAN 生成对抗网络 — GAN</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>GAN 生成对抗网络</h1>
+  <p class="module-subtitle">GAN</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">生成器和判别器互相博弈——生成器学习伪造逼真图像，判别器学习识破伪造。这个对抗过程最终让生成器能创造出以假乱真的图像。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">随机噪声</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">生成器</span> → <span class="pipeline-step process">生成图像+真实图像</span> → <span class="pipeline-step process">判别器判断</span> → 
+    <span class="pipeline-step output">对抗训练</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>生成器 (Generator) 从噪声生成图像</p></div><div class="module-section"><p>判别器 (Discriminator) 判断真伪</p></div><div class="module-section"><p>对抗训练: Minimax 博弈</p></div><div class="module-section"><p>潜在空间插值 & 风格混合</p></div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>立体匹配与深度 — Stereo Matching</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>立体匹配与深度</h1>
+  <p class="module-subtitle">Stereo Matching</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">从左右两个视角的图像中恢复每个像素的深度——模仿人眼的双目视差原理。视差图越大表示物体越近，越小表示物体越远。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">左视图</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">右视图</span> → <span class="pipeline-step process">视差计算</span> → 
+    <span class="pipeline-step output">深度图重建</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>对极几何 & 极线校正</p></div><div class="module-section"><p>视差 = 深度倒数</p></div><div class="module-section"><p>块匹配 (Block Matching) 视差计算</p></div><div class="module-section"><p>视差图 → 深度图 → 3D 点云</p></div>
+</body>
+</html>

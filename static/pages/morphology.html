@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>形态学操作 — Morphological Operations</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>形态学操作</h1>
+  <p class="module-subtitle">Morphological Operations</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">用「结构元素」在二值图像上做集合运算——腐蚀让白色区域缩水、膨胀让白色区域扩张。开运算去除小噪点，闭运算填补小孔洞。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入二值图</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">结构元素</span> → <span class="pipeline-step process">形态学运算</span> → 
+    <span class="pipeline-step output">处理结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>腐蚀 (Erosion) & 膨胀 (Dilation)</p></div><div class="module-section"><p>开运算 (Opening) & 闭运算 (Closing)</p></div><div class="module-section"><p>形态学梯度 & 顶帽/黑帽</p></div><div class="module-section"><p>结构元素形状 (矩形/椭圆/十字)</p></div>
+</body>
+</html>

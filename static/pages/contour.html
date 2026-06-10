@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>轮廓查找 — Contour Finding</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>轮廓查找</h1>
+  <p class="module-subtitle">Contour Finding</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">在二值图像中追踪物体边界，建立轮廓层级树——哪个轮廓在哪个轮廓内部？这是形状分析和物体计数的第一步。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入二值图</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">边界追踪</span> → <span class="pipeline-step process">层级构建</span> → 
+    <span class="pipeline-step output">轮廓绘制</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>Suzuki 边界追踪算法</p></div><div class="module-section"><p>轮廓层级树 (父子关系)</p></div><div class="module-section"><p>轮廓矩 & 面积/周长/重心</p></div><div class="module-section"><p>轮廓近似 (Douglas-Peucker)</p></div>
+</body>
+</html>

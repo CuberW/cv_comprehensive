@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Stable Diffusion — Stable Diffusion</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>Stable Diffusion</h1>
+  <p class="module-subtitle">Stable Diffusion</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">在压缩的潜空间中做扩散——比像素空间快一个数量级。文本通过 Cross-Attention 控制图像生成过程，催生了整个 AI 图像生成生态。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">文本提示</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">CLIP文本编码</span> → <span class="pipeline-step process">潜空间初始化(噪声)</span> → <span class="pipeline-step process">UNet+CrossAttn去噪</span> → 
+    <span class="pipeline-step output">VAE解码→图像</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>VAE: 图像↔潜空间压缩</p></div><div class="module-section"><p>UNet + Cross-Attention 文本条件</p></div><div class="module-section"><p>潜空间去噪循环 (50步)</p></div><div class="module-section"><p>Classifier-Free Guidance</p></div><div class="module-section"><p>ControlNet 空间控制扩展</p></div>
+</body>
+</html>

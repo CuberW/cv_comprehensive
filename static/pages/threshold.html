@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>阈值化 — Thresholding</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>阈值化</h1>
+  <p class="module-subtitle">Thresholding</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">将灰度图按阈值切分为黑白二值——最简单的图像分割方法。全局阈值、自适应阈值和Otsu自动阈值各有适用场景。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入灰度图</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">选择阈值方法</span> → <span class="pipeline-step process">计算阈值</span> → 
+    <span class="pipeline-step output">二值化结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>全局阈值化</p></div><div class="module-section"><p>自适应阈值 (局部均值/高斯)</p></div><div class="module-section"><p>Otsu 大津法 (类间方差最大化)</p></div><div class="module-section"><p>二值化在文档扫描中的应用</p></div>
+</body>
+</html>

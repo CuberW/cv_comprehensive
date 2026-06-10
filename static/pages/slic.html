@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SLIC 超像素 — SLIC Superpixels</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>SLIC 超像素</h1>
+  <p class="module-subtitle">SLIC Superpixels</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">将图像分割成紧凑、均匀的「超级像素」块——每个超像素内的像素颜色和位置都相近。大幅降低后续处理的复杂度，是很多高级算法的预处理步骤。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">初始化聚类中心</span> → <span class="pipeline-step process">K-Means迭代</span> → 
+    <span class="pipeline-step output">超像素网格</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>K-Means 在 5 维空间 (L,a,b,x,y)</p></div><div class="module-section"><p>紧凑度参数 m</p></div><div class="module-section"><p>超像素的规则性保证</p></div><div class="module-section"><p>超像素在分割/跟踪中的应用</p></div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SAM 分割一切 — Segment Anything (SAM)</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>SAM 分割一切</h1>
+  <p class="module-subtitle">Segment Anything (SAM)</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">Meta 的分割基础模型——给它一个点、一个框或一段文字，它能分割出对应的物体。SAM 展示了「提示工程」在视觉领域的巨大潜力。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">Image Encoder</span> → <span class="pipeline-step process">提示(点/框/文字)</span> → <span class="pipeline-step process">Mask Decoder</span> → 
+    <span class="pipeline-step output">分割掩码</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>Image Encoder (ViT 主干)</p></div><div class="module-section"><p>Prompt Encoder (点/框/掩码)</p></div><div class="module-section"><p>Mask Decoder (轻量 Transformer)</p></div><div class="module-section"><p>零样本泛化能力</p></div><div class="module-section"><p>SA-1B: 10 亿掩码数据集</p></div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GrabCut 前景提取 — GrabCut</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>GrabCut 前景提取</h1>
+  <p class="module-subtitle">GrabCut</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">用户画一个矩形框住目标物体，算法用高斯混合模型 (GMM) 迭代优化，自动分离前景和背景——交互式抠图的经典方法。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">输入图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">用户框选</span> → <span class="pipeline-step process">GMM建模</span> → <span class="pipeline-step process">迭代GraphCut</span> → 
+    <span class="pipeline-step output">分割结果</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>高斯混合模型 (GMM) 建模前景/背景</p></div><div class="module-section"><p>Graph Cut 能量最小化</p></div><div class="module-section"><p>迭代优化流程 (GMM→GraphCut→GMM→...)</p></div><div class="module-section"><p>交互式修正 (用户可补画前景/背景笔触)</p></div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>CLIP 多模态模型 — CLIP</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>CLIP 多模态模型</h1>
+  <p class="module-subtitle">CLIP</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">用 4 亿图文对训练的对比学习模型——给它任意图像和任意文字描述，它能判断是否匹配。CLIP 实现了真正的「零样本」视觉识别。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">文本描述...</span> → <span class="pipeline-step process">Image Encoder</span> → <span class="pipeline-step process">Text Encoder</span> → 
+    <span class="pipeline-step output">相似度匹配</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>双塔架构: Image Encoder + Text Encoder</p></div><div class="module-section"><p>对比损失: 图文对的余弦相似度</p></div><div class="module-section"><p>零样本分类: 无需微调</p></div><div class="module-section"><p>图文检索 & 跨模态应用</p></div>
+</body>
+</html>

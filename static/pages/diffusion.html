@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>扩散模型 — Diffusion Model</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="module-page">
+  <h1>扩散模型</h1>
+  <p class="module-subtitle">Diffusion Model</p>
+  <span class="module-status placeholder">模块已建立，算法待实现</span>
+
+  <p class="module-desc">先给图像逐步加噪声直到变成纯噪声，再学习逆向去噪——这就是扩散模型的核心思想。每一步去噪都可以可视化，天然适合教学展示。</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">原始图像</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step process">逐步加噪→纯噪声</span> → <span class="pipeline-step process">UNet去噪预测</span> → 
+    <span class="pipeline-step output">逐步去噪→恢复图像</span>
+  </div>
+
+  <h3>学习要点</h3>
+  <div class="module-section"><p>前向过程: 逐步加噪 (Markov Chain)</p></div><div class="module-section"><p>逆向过程: UNet 预测噪声并去除</p></div><div class="module-section"><p>重参数化技巧</p></div><div class="module-section"><p>去噪步骤动画: 纯噪声→轮廓→细节→照片</p></div>
+</body>
+</html>

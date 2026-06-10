@@ -155,6 +155,15 @@ body {
   white-space: nowrap;
 }
 
+/* Phase indicator dot */
+.phase-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 /* 搜索 */
 .sidebar-footer {
   padding: 12px;
@@ -237,8 +246,13 @@ body {
 .category-card .cat-name {
   font-size: 1rem;
   font-weight: 600;
-  margin: 8px 0 4px;
+  margin: 8px 0 2px;
   color: var(--text-primary);
+}
+.category-card .cat-name-en {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 .category-card .cat-count {
   font-size: 0.78rem;

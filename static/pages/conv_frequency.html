@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>频域分析</title></head>
+<head>
+<meta charset="UTF-8">
+<title>频域分析 — Frequency Domain Analysis</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>频域分析</h1>
-  <p>模块页面待实现。</p>
+  <h1>Frequency Domain Analysis</h1>
+  <p class="module-subtitle">频域分析</p>
+  <span class="module-status placeholder">Coming Soon</span>
+
+  <p class="module-desc">The Fourier Transform converts images from spatial domain to frequency domain. Low frequencies correspond to smooth gradients, high frequencies to edges and noise. Understanding and manipulating frequencies is fundamental to many advanced techniques.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input Image</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">2D FFT</span> → <span class="pipeline-step process">Magnitude Spectrum</span> → <span class="pipeline-step process">Phase Spectrum</span> → <span class="pipeline-step process">Filtering</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Inverse FFT</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>2D Fourier Transform</p></div><div class="module-section"><p>Magnitude & phase spectrum</p></div><div class="module-section"><p>Low/high/band-pass filtering</p></div><div class="module-section"><p>Convolution theorem</p></div>
 </body>
 </html>

@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>LeNet 手写数字识别</title></head>
+<head>
+<meta charset="UTF-8">
+<title>LeNet-5 手写数字识别 — LeNet-5 Digit Recognition</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>LeNet 手写数字识别</h1>
-  <p>模块页面待实现。</p>
+  <h1>LeNet-5 Digit Recognition</h1>
+  <p class="module-subtitle">LeNet-5 手写数字识别</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">Yann LeCun's classic CNN from 1998. Seven layers progressively transform a 28x28 handwritten digit into 10 class probabilities — what does each layer do and what do the intermediate results look like?</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input 28x28</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Conv1 (6@5x5)</span> → <span class="pipeline-step process">Tanh</span> → <span class="pipeline-step process">AvgPool</span> → <span class="pipeline-step process">Conv2 (16@5x5)</span> → <span class="pipeline-step process">Tanh</span> → <span class="pipeline-step process">AvgPool</span> → <span class="pipeline-step process">FCx3</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Softmax</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Conv layer feature map visualization</p></div><div class="module-section"><p>Pooling layer downsampling</p></div><div class="module-section"><p>Fully-connected weight matrices</p></div><div class="module-section"><p>Softmax probability distribution</p></div>
 </body>
 </html>

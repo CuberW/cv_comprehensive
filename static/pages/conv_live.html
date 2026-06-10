@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>实时摄像头滤镜</title></head>
+<head>
+<meta charset="UTF-8">
+<title>实时摄像头滤镜 — Live Camera Filters</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>实时摄像头滤镜</h1>
-  <p>模块页面待实现。</p>
+  <h1>Live Camera Filters</h1>
+  <p class="module-subtitle">实时摄像头滤镜</p>
+  <span class="module-status placeholder">Coming Soon</span>
+
+  <p class="module-desc">Open your camera and apply convolution filters in real time. See the effect of blur, sharpen, and edge-enhance kernels on your video feed instantly.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Camera Frame</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Canvas Capture</span> → <span class="pipeline-step process">Convolution</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Rendered Output</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>getUserMedia API</p></div><div class="module-section"><p>Canvas pixel manipulation</p></div><div class="module-section"><p>Real-time frame rate optimization</p></div>
 </body>
 </html>

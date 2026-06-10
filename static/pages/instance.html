@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>实例分割</title></head>
+<head>
+<meta charset="UTF-8">
+<title>实例分割 — Instance Segmentation</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>实例分割</h1>
-  <p>模块页面待实现。</p>
+  <h1>Instance Segmentation</h1>
+  <p class="module-subtitle">实例分割</p>
+  <span class="module-status wip">Under Development</span>
+
+  <p class="module-desc">Semantic segmentation tells "what"; instance segmentation goes further — it distinguishes "the first pedestrian" from "the second pedestrian". Mask R-CNN adds a mask prediction branch to object detection.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Backbone</span> → <span class="pipeline-step process">RPN</span> → <span class="pipeline-step process">ROI Align</span> → <span class="pipeline-step process">BBox Head</span> → <span class="pipeline-step process">Mask Head</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Instance Masks</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>ROI Align bilinear interpolation</p></div><div class="module-section"><p>Detection + segmentation dual task</p></div><div class="module-section"><p>Mask R-CNN architecture</p></div><div class="module-section"><p>COCO evaluation metrics</p></div>
 </body>
 </html>

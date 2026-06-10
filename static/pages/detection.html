@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>目标检测</title></head>
+<head>
+<meta charset="UTF-8">
+<title>目标检测 — Object Detection</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>目标检测</h1>
-  <p>模块页面待实现。</p>
+  <h1>Object Detection</h1>
+  <p class="module-subtitle">目标检测</p>
+  <span class="module-status wip">Under Development</span>
+
+  <p class="module-desc">Object detection answers two questions simultaneously: "what is it?" and "where is it?". YOLO divides the image into a grid, with each cell predicting bounding boxes and class probabilities in a single forward pass.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Grid Division</span> → <span class="pipeline-step process">Feature Extract</span> → <span class="pipeline-step process">BBox Regression</span> → <span class="pipeline-step process">NMS</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Detection Result</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Anchor box mechanism</p></div><div class="module-section"><p>IoU (Intersection over Union)</p></div><div class="module-section"><p>NMS (Non-Maximum Suppression)</p></div><div class="module-section"><p>mAP evaluation metric</p></div>
 </body>
 </html>

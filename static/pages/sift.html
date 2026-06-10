@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>SIFT 特征检测</title></head>
+<head>
+<meta charset="UTF-8">
+<title>SIFT 特征检测 — SIFT Feature Detection</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>SIFT 特征检测</h1>
-  <p>模块页面待实现。</p>
+  <h1>SIFT Feature Detection</h1>
+  <p class="module-subtitle">SIFT 特征检测</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">SIFT finds stable keypoints under rotation, scale, and illumination changes. It builds a scale-space pyramid, detects DoG extrema, refines to sub-pixel accuracy, assigns dominant orientation, and generates 128-dim descriptors.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Original</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Scale-Space</span> → <span class="pipeline-step process">DoG</span> → <span class="pipeline-step process">Extrema</span> → <span class="pipeline-step process">Refinement</span> → <span class="pipeline-step process">Orientation</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Descriptor</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Gaussian scale-space pyramid</p></div><div class="module-section"><p>DoG extrema detection</p></div><div class="module-section"><p>Taylor sub-pixel refinement</p></div><div class="module-section"><p>Edge response suppression</p></div><div class="module-section"><p>4x4x8 = 128-dim descriptor</p></div>
 </body>
 </html>

@@ -368,6 +368,90 @@ body {
   box-shadow: var(--card-shadow);
 }
 
+/* ---- 模块页面（iframe 内）通用样式 ---- */
+.module-page {
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  padding: 32px 40px;
+  max-width: 960px;
+  margin: 0 auto;
+  background: #FFFFFF;
+  min-height: 100vh;
+}
+.module-page h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+.module-page .module-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+.module-page .module-status {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.module-page .module-status.ready { background: #D1FAE5; color: #065F46; }
+.module-page .module-status.wip { background: #FEF3C7; color: #92400E; }
+.module-page .module-status.placeholder { background: #E0E7FF; color: #3730A3; }
+.module-page .module-desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+.module-page .module-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 20px;
+  background: var(--sidebar-bg);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.module-page .pipeline-step {
+  padding: 10px 16px;
+  background: #FFFFFF;
+  border: 2px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  text-align: center;
+}
+.module-page .pipeline-step.input { border-color: var(--color-input); }
+.module-page .pipeline-step.process { border-color: var(--color-process); }
+.module-page .pipeline-step.output { border-color: var(--color-output); }
+.module-page .pipeline-arrow {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.module-page .module-section {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #FAFBFC;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.module-page .module-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.module-page .module-section p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 /* ---- Toast ---- */
 .toast {
   position: fixed;

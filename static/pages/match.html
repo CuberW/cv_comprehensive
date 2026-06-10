@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>特征匹配</title></head>
+<head>
+<meta charset="UTF-8">
+<title>特征匹配 — Feature Matching</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>特征匹配</h1>
-  <p>模块页面待实现。</p>
+  <h1>Feature Matching</h1>
+  <p class="module-subtitle">特征匹配</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">Find corresponding points between two images — the foundation of image stitching, 3D reconstruction, and SLAM. Uses ratio test for reliable matches and RANSAC for robust geometry estimation.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Left Image</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Feature Extract</span> → <span class="pipeline-step process">Descriptor Match</span> → <span class="pipeline-step process">Ratio Test</span> → <span class="pipeline-step process">RANSAC</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Stitching Result</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Nearest neighbor + Lowe ratio test</p></div><div class="module-section"><p>DLT homography estimation</p></div><div class="module-section"><p>RANSAC robust fitting</p></div><div class="module-section"><p>Inverse mapping + bilinear interpolation</p></div>
 </body>
 </html>

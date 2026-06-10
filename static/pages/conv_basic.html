@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>基础卷积</title></head>
+<head>
+<meta charset="UTF-8">
+<title>基础卷积 — Convolution Basics</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>基础卷积</h1>
-  <p>模块页面待实现。</p>
+  <h1>Convolution Basics</h1>
+  <p class="module-subtitle">基础卷积</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">Convolution is the most fundamental operation in CV. A small kernel slides over an image, computing a weighted sum at each position — this is the foundation of all CNNs.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input Matrix</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Kernel Positioning</span> → <span class="pipeline-step process">Element-wise Product</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Sum & Output</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Sliding window visualization</p></div><div class="module-section"><p>Edge/blur/sharpen kernel presets</p></div><div class="module-section"><p>Stride, padding, dilation</p></div><div class="module-section"><p>Kernel training via gradient descent</p></div>
 </body>
 </html>

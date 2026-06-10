@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>Harris 角点检测</title></head>
+<head>
+<meta charset="UTF-8">
+<title>Harris 角点检测 — Harris Corner Detection</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>Harris 角点检测</h1>
-  <p>模块页面待实现。</p>
+  <h1>Harris Corner Detection</h1>
+  <p class="module-subtitle">Harris 角点检测</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">Corners are pixels where intensity changes significantly in all directions. Harris constructs a "structure tensor" and uses its eigenvalues to classify each pixel as corner, edge, or flat region.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Original</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Grayscale</span> → <span class="pipeline-step process">Ix & Iy</span> → <span class="pipeline-step process">Ixx,Iyy,Ixy</span> → <span class="pipeline-step process">Gaussian Smooth</span> → <span class="pipeline-step process">Response R</span> → <span class="pipeline-step process">NMS</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Corners</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Structure tensor M</p></div><div class="module-section"><p>Corner response R=det(M)-k*trace(M)^2</p></div><div class="module-section"><p>Eigenvalue analysis</p></div><div class="module-section"><p>Non-maximum suppression</p></div>
 </body>
 </html>

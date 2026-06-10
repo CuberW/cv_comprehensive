@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>语义分割</title></head>
+<head>
+<meta charset="UTF-8">
+<title>语义分割 — Semantic Segmentation</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>语义分割</h1>
-  <p>模块页面待实现。</p>
+  <h1>Semantic Segmentation</h1>
+  <p class="module-subtitle">语义分割</p>
+  <span class="module-status wip">Under Development</span>
+
+  <p class="module-desc">Assign a class label to every pixel in the image. U-Net's encoder-decoder structure with skip connections enables precise pixel-level classification.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Input</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Encoder (Down)</span> → <span class="pipeline-step process">Bottleneck</span> → <span class="pipeline-step process">Decoder (Up)</span> → <span class="pipeline-step process">Skip Connections</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Per-pixel Class</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>Encoder-decoder architecture</p></div><div class="module-section"><p>Skip connections</p></div><div class="module-section"><p>Upsampling methods</p></div><div class="module-section"><p>Pixel-wise cross-entropy loss</p></div>
 </body>
 </html>

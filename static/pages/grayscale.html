@@ -1,8 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>灰度转换</title></head>
+<head>
+<meta charset="UTF-8">
+<title>灰度转换 — Grayscale Conversion</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
 <body class="module-page">
-  <h1>灰度转换</h1>
-  <p>模块页面待实现。</p>
+  <h1>Grayscale Conversion</h1>
+  <p class="module-subtitle">灰度转换</p>
+  <span class="module-status ready">Algorithm Ready</span>
+
+  <p class="module-desc">Convert color images to grayscale. The human eye is most sensitive to green and least to blue — the weighted average method exploits this biological fact.</p>
+
+  <div class="module-pipeline">
+    <span class="pipeline-step input">Original RGB</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step process">Channel Split</span> → <span class="pipeline-step process">Weighted Sum</span>
+    <span class="pipeline-arrow">-></span>
+    <span class="pipeline-step output">Grayscale Output</span>
+  </div>
+
+  <h3>Learning Topics</h3>
+  <div class="module-section"><p>ITU-R BT.601 weighting standard</p></div><div class="module-section"><p>Human cone cell distribution</p></div><div class="module-section"><p>Compare 6 different schemes</p></div>
 </body>
 </html>

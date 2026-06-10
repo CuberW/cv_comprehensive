@@ -2,126 +2,241 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>SLIC 超像素 — SLIC Superpixels</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIC 超像素 — CV 通识教育</title>
 <link rel="stylesheet" href="/static/css/main.css">
+<style>
+  * { box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei","微软雅黑",sans-serif;
+    color: #111827; background: #fff; margin:0; padding:0;
+    min-height:100vh;
+  }
+  .page { max-width:1024px; margin:0 auto; padding:28px 32px 40px; }
+  .page-header { margin-bottom:24px; }
+  .page-header h1 { font-size:1.5rem; font-weight:700; margin:0 0 2px; }
+  .page-header .subtitle { color:#9CA3AF; font-size:0.9rem; }
+  .page-header .status {
+    display:inline-block; padding:3px 12px; border-radius:12px;
+    font-size:0.75rem; font-weight:600; margin-top:6px;
+  }
+  .status.ready { background:#D1FAE5; color:#065F46; }
+
+  .upload-section {
+    background:#F9FAFB; border:2px dashed #D1D5DB; border-radius:14px;
+    padding:20px 24px; margin-bottom:20px; display:flex;
+    align-items:center; gap:14px; flex-wrap:wrap; transition:border-color 0.2s;
+  }
+  .upload-section.dragover { border-color:#0ea5e9; background:#F0F9FF; }
+  .upload-section.has-file { border-style:solid; border-color:#0ea5e9; }
+  .upload-btn {
+    padding:10px 22px; background:#0ea5e9; color:#fff; border:none;
+    border-radius:10px; font-size:0.9rem; font-weight:600; cursor:pointer;
+    transition:all 0.2s; white-space:nowrap;
+  }
+  .upload-btn:hover { opacity:0.9; }
+  .upload-btn:disabled { opacity:0.45; cursor:not-allowed; }
+  .upload-info { flex:1; min-width:180px; font-size:0.85rem; color:#6B7280; }
+  .upload-info .filename { color:#111827; font-weight:600; }
+  .upload-info .hint { font-size:0.78rem; color:#9CA3AF; }
+
+  .results-section { display:none; }
+  .results-section.visible { display:block; }
+
+  .metrics-bar {
+    display:flex; flex-wrap:wrap; gap:16px; padding:14px 18px;
+    background:linear-gradient(135deg,#F0F9FF,#FFFFFF);
+    border:1px solid #BAE6FD; border-radius:12px; margin-bottom:18px;
+  }
+  .metric-item { }
+  .metric-item .metric-label { font-size:0.7rem; color:#6B7280; text-transform:uppercase; letter-spacing:0.04em; }
+  .metric-item .metric-value { font-size:1rem; font-weight:700; color:#0c4a6e; }
+
+  .steps-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px;
+  }
+  .step-card {
+    background:#fff; border:1px solid #E5E7EB; border-radius:12px; overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04); transition:box-shadow 0.2s,transform 0.2s;
+  }
+  .step-card:hover { box-shadow:0 8px 24px rgba(0,0,0,0.1); transform:translateY(-2px); }
+  .step-card.step-input { border-left:3px solid #3B82F6; }
+  .step-card.step-output { border-left:3px solid #10B981; }
+  .step-card .img-area {
+    background:#F3F4F6; min-height:120px; display:flex; align-items:center;
+    justify-content:center; border-bottom:1px solid #E5E7EB; overflow:hidden;
+  }
+  .step-card .img-area img { width:100%; display:block; }
+  .step-card .img-area .no-img { color:#9CA3AF; font-size:0.82rem; }
+  .step-card .info { padding:12px 14px; }
+  .step-card .info .step-title { font-weight:700; font-size:0.9rem; color:#111827; }
+  .step-card .info .step-desc { font-size:0.8rem; color:#6B7280; margin-top:4px; line-height:1.5; }
+
+  .error-box {
+    background:#FEF2F2; border:1px solid #FECACA; border-radius:12px;
+    padding:16px 20px; color:#991B1B; font-size:0.88rem; margin-top:16px; display:none;
+  }
+  .error-box.visible { display:block; }
+
+  .loading { text-align:center; padding:32px; color:#9CA3AF; display:none; }
+  .loading.visible { display:block; }
+  .loading .spinner {
+    display:inline-block; width:32px; height:32px; border:3px solid #E5E7EB;
+    border-top-color:#0ea5e9; border-radius:50%; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty-hint { text-align:center; padding:36px 20px; color:#9CA3AF; font-size:0.92rem; }
+</style>
 </head>
-<body class="module-page">
-  <h1>SLIC 超像素</h1>
-  <p class="module-subtitle">SLIC Superpixels</p>
-  <span class="module-status ready">算法已实现</span>
-
-  <p class="module-desc">将图像分割成紧凑、均匀的「超级像素」块——每个超像素内的像素颜色和位置都相近。大幅降低后续处理的复杂度，是很多高级算法的预处理步骤。</p>
-
-  <div class="module-pipeline">
-    <span class="pipeline-step input">输入图像</span>
-    <span class="pipeline-arrow">→</span>
-    <span class="pipeline-step process">初始化聚类中心</span> → <span class="pipeline-step process">K-Means迭代</span> → 
-    <span class="pipeline-step output">超像素网格</span>
+<body>
+<main class="page">
+  <div class="page-header">
+    <h1>SLIC 超像素</h1>
+    <p class="subtitle">SLIC Superpixels</p>
+    <span class="status ready">Algorithm Ready</span>
+    <p style="margin-top:10px;color:#4B5563;font-size:0.9rem;line-height:1.6;">在 LAB+xy 五维空间做 K-Means 聚类，生成紧凑均匀的超像素块，大幅降低后续处理复杂度。</p>
   </div>
 
-  <h3>学习要点</h3>
-  <div class="module-section"><p>K-Means 在 5 维空间 (L,a,b,x,y)</p></div><div class="module-section"><p>紧凑度参数 m</p></div><div class="module-section"><p>超像素的规则性保证</p></div><div class="module-section"><p>超像素在分割/跟踪中的应用</p></div>
-
-  <hr style="margin:24px 0;border:none;border-top:1px solid var(--sidebar-border);">
-
-  <h2>算法演示</h2>
-  <div class="demo-area">
-    <div class="demo-controls">
-      <label class="demo-upload-btn">
-        <input type="file" id="demoFile" accept="image/*" style="display:none">
-        选择图片
-      </label>
-      <button class="demo-run-btn" id="demoRun">运行算法</button>
-      <span class="demo-status" id="demoStatus"></span>
-    </div>
-    <div class="demo-results" id="demoResults">
-      <p class="demo-hint">上传一张图片,点击"运行算法"查看中间步骤结果。</p>
+  <div class="upload-section" id="uploadSection">
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <button class="upload-btn" id="uploadBtn">选择图片</button>
+    <div class="upload-info">
+      <div class="filename" id="fileName">点击选择一张图片</div>
+      <div class="hint">支持 JPG/PNG 格式</div>
     </div>
   </div>
 
-  <style>
-    .demo-controls { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
-    .demo-upload-btn, .demo-run-btn {
-      padding:8px 18px; border-radius:8px; cursor:pointer; font-size:0.9rem; border:none;
-      transition: all 0.2s;
+  <div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:12px;">算法运行中...</p></div>
+  <div class="error-box" id="errorBox"></div>
+  <div class="results-section" id="resultsSection">
+    <div class="metrics-bar" id="metricsBar"></div>
+    <div class="steps-grid" id="stepsGrid"></div>
+  </div>
+  <div class="empty-hint" id="emptyHint">选择一张图片开始体验算法。</div>
+</main>
+
+<script>
+(function(){
+  var fileInput = document.getElementById('fileInput');
+  var uploadBtn = document.getElementById('uploadBtn');
+  var uploadSection = document.getElementById('uploadSection');
+  var fileName = document.getElementById('fileName');
+  var loading = document.getElementById('loading');
+  var errorBox = document.getElementById('errorBox');
+  var resultsSection = document.getElementById('resultsSection');
+  var metricsBar = document.getElementById('metricsBar');
+  var stepsGrid = document.getElementById('stepsGrid');
+  var emptyHint = document.getElementById('emptyHint');
+  var selectedFile = null;
+
+  var NEEDS_FILE = true;
+  var MODULE_ID = 'slic';
+
+  uploadBtn.addEventListener('click', function(){
+    if (NEEDS_FILE && !selectedFile) {
+      fileInput.click();
+      return;
     }
-    .demo-upload-btn { background:var(--sidebar-bg); border:1px solid var(--sidebar-border); color:var(--text-primary); }
-    .demo-upload-btn:hover { border-color:var(--accent); }
-    .demo-run-btn { background:var(--accent); color:#fff; font-weight:600; }
-    .demo-run-btn:hover { opacity:0.9; }
-    .demo-run-btn:disabled { opacity:0.5; cursor:not-allowed; }
-    .demo-status { font-size:0.85rem; color:var(--text-muted); }
-    .demo-results { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
-    .demo-hint { grid-column:1/-1; color:var(--text-muted); font-size:0.9rem; text-align:center; padding:20px; }
-    .demo-step-card {
-      background:#fff; border:1px solid var(--sidebar-border); border-radius:10px;
-      overflow:hidden; box-shadow:var(--card-shadow);
+    runAlgorithm();
+  });
+
+  fileInput.addEventListener('change', function(e){
+    selectedFile = e.target.files[0];
+    if (selectedFile) {
+      fileName.innerHTML = '<span class="filename">'+selectedFile.name+'</span>';
+      uploadSection.classList.add('has-file');
+      uploadBtn.textContent = '运行算法';
+      if (NEEDS_FILE) runAlgorithm();
     }
-    .demo-step-card img { width:100%; display:block; border-bottom:1px solid var(--sidebar-border); }
-    .demo-step-card .step-info { padding:8px 12px; }
-    .demo-step-card .step-name { font-weight:600; font-size:0.85rem; }
-    .demo-step-card .step-desc { font-size:0.78rem; color:var(--text-muted); margin-top:2px; line-height:1.4; }
-    .demo-metrics {
-      grid-column:1/-1; background:var(--sidebar-bg); border-radius:8px; padding:12px 16px;
-      font-size:0.85rem; color:var(--text-secondary);
+  });
+
+  // Drag and drop
+  uploadSection.addEventListener('dragover', function(e){ e.preventDefault(); uploadSection.classList.add('dragover'); });
+  uploadSection.addEventListener('dragleave', function(){ uploadSection.classList.remove('dragover'); });
+  uploadSection.addEventListener('drop', function(e){
+    e.preventDefault(); uploadSection.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      selectedFile = e.dataTransfer.files[0];
+      fileName.innerHTML = '<span class="filename">'+selectedFile.name+'</span>';
+      uploadSection.classList.add('has-file');
+      uploadBtn.textContent = '运行算法';
+      runAlgorithm();
     }
-    .demo-metrics strong { color:var(--text-primary); }
-  </style>
+  });
 
-  <script>
-  (function(){
-    var fileInput=document.getElementById('demoFile');
-    var runBtn=document.getElementById('demoRun');
-    var status=document.getElementById('demoStatus');
-    var results=document.getElementById('demoResults');
-    var selectedFile=null;
+  // Auto-run for modules that don't need file
+  if (!NEEDS_FILE) {
+    uploadBtn.textContent = '运行算法 (无需图片)';
+    uploadSection.classList.add('has-file');
+  }
 
-    fileInput.addEventListener('change',function(e){
-      selectedFile=e.target.files[0];
-      if(selectedFile){
-        var label=document.querySelector('.demo-upload-btn');
-        status.textContent=selectedFile.name;
-      }
-    });
+  function runAlgorithm() {
+    loading.classList.add('visible');
+    errorBox.classList.remove('visible');
+    resultsSection.classList.remove('visible');
+    emptyHint.style.display = 'none';
+    uploadBtn.disabled = true;
 
-    runBtn.addEventListener('click',function(){
-      if(!selectedFile){status.textContent='请先选择图片';return;}
-      runBtn.disabled=true; runBtn.textContent='计算中...';
-      status.textContent='正在处理...';
-      results.innerHTML='<p class="demo-hint">算法运行中...</p>';
+    var form = new FormData();
+    if (selectedFile) form.append('file', selectedFile);
 
-      var form=new FormData();
-      form.append('file',selectedFile);
-      fetch('/api/demo/slic',{method:'POST',body:form})
-        .then(function(r){return r.json();})
-        .then(function(data){
-          runBtn.disabled=false; runBtn.textContent='运行算法';
-          status.textContent='完成!';
-          if(data.error){results.innerHTML='<p class="demo-hint">错误:'+data.error+'</p>';return;}
-          var html='';
-          if(data.metrics && Object.keys(data.metrics).length){
-            html+='<div class="demo-metrics">';
-            for(var k in data.metrics){
-              html+='<span style="margin-right:16px">'+k+': <strong>'+data.metrics[k]+'</strong></span>';
-            }
-            html+='</div>';
+    fetch('/api/demo/' + MODULE_ID, { method:'POST', body:form })
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      })
+      .then(function(data){
+        loading.classList.remove('visible');
+        uploadBtn.disabled = false;
+
+        if (data.error) { showError(data.error); return; }
+
+        // Metrics
+        var mhtml = '';
+        var metrics = data.metrics || {};
+        var keys = Object.keys(metrics);
+        if (keys.length) {
+          for (var k of keys) {
+            var v = metrics[k];
+            if (typeof v === 'number') v = Math.round(v * 100) / 100;
+            mhtml += '<div class="metric-item"><div class="metric-label">'+k+'</div><div class="metric-value">'+v+'</div></div>';
           }
-          (data.steps||[]).forEach(function(s){
-            html+='<div class="demo-step-card">';
-            if(s.image_b64) html+='<img src="data:image/png;base64,'+s.image_b64+'" alt="'+s.name+'">';
-            html+='<div class="step-info"><div class="step-name">'+s.name+'</div>';
-            if(s.explanation) html+='<div class="step-desc">'+s.explanation+'</div>';
-            html+='</div></div>';
-          });
-          results.innerHTML=html;
-        })
-        .catch(function(err){
-          runBtn.disabled=false; runBtn.textContent='运行算法';
-          status.textContent='出错'; results.innerHTML='<p class="demo-hint">请求失败:'+err.message+'</p>';
-        });
-    });
-  })();
-  </script>
+          metricsBar.innerHTML = mhtml;
+        }
 
+        // Steps
+        var shtml = '';
+        var steps = data.steps || [];
+        steps.forEach(function(s, i){
+          var cls = (i===0) ? ' step-input' : (i===steps.length-1) ? ' step-output' : '';
+          shtml += '<div class="step-card'+cls+'">';
+          shtml += '<div class="img-area">';
+          if (s.image_b64) {
+            shtml += '<img src="data:image/png;base64,'+s.image_b64+'" alt="'+s.name+'" loading="lazy">';
+          } else {
+            shtml += '<span class="no-img">(no image)</span>';
+          }
+          shtml += '</div>';
+          shtml += '<div class="info"><div class="step-title">'+s.name+'</div>';
+          if (s.explanation) shtml += '<div class="step-desc">'+s.explanation+'</div>';
+          shtml += '</div></div>';
+        });
+        stepsGrid.innerHTML = shtml;
+        resultsSection.classList.add('visible');
+      })
+      .catch(function(err){
+        loading.classList.remove('visible');
+        uploadBtn.disabled = false;
+        showError('请求失败: '+err.message+'。请确认后端已启动 (python run.py) 且端口为 7860。');
+      });
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('visible');
+  }
+})();
+</script>
 </body>
 </html>

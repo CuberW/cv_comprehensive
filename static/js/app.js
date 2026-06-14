@@ -1,312 +1,283 @@
 /**
- * Main application logic.
- * Manages sidebar navigation, gallery home page, module detail views.
- * Communicates with algorithm pages inside iframes via postMessage.
+ * CV Metro Map — Application Shell
+ * Blueprint strictly mirrors ARCHITECTURE.md §六 (77 规划算法, 5 阶段).
  */
 const App = (() => {
-  // ---- DOM refs (initialized on DOMContentLoaded) ----
-  let $sidebar, $sidebarNav, $gallery, $detailView, $detailIframe, $detailTitle;
-  let $categoryGrid, $ladderSteps;
+  let $metro, $overlay, $ifr, $dname, $den;
+  let $pstrip, $hudBody, $hudPanel, $hudToggle;
+  let $searchInput, $searchClear;
+  let $diffLadder, $statTotal, $statReady;
 
-  // ---- State ----
-  let _phases = [];          // Phase list from API
-  let _modules = [];         // Flat module list
-  let _currentModule = null;
+  // ── BLUEPRINT ──
+  const BLUEPRINT = [
+    { phase:'phase1', color:'#3B82F6', name:'阶段一 · 基础原语', en:'Fundamentals', sub:'像素级原子操作', diff:1, subs:null, algo:[
+      {id:'colorspace',  n:'色彩空间转换',   en:'Color Space Conv.', d:'RGB↔HSV↔Lab↔灰度'},
+      {id:'histogram',   n:'直方图与均衡化', en:'Histogram',         d:'像素统计+CLAHE对比度增强'},
+      {id:'threshold',   n:'阈值化',         en:'Thresholding',      d:'全局/自适应/Otsu二值化'},
+      {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成', planned:true},
+      {id:'convolution', n:'卷积操作',       en:'Convolution',       d:'1D→2D滑窗,整个CV的数学核心'},
+      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口,尺度空间基石', planned:true},
+      {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数,梯度幅值与方向', planned:true},
+      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪,椒盐杀手', planned:true},
+      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑,空间+色彩双核', planned:true},
+    ]},
+    { phase:'phase2', color:'#10B981', name:'阶段二 · 经典特征检测', en:'Classical Features', sub:'从像素到结构', diff:2, subs:null, algo:[
+      {id:'canny',       n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线:高斯→Sobel→NMS→双阈值→滞后'},
+      {id:'harris',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R,特征值三分法'},
+      {id:'shitomasi',   n:'Shi-Tomasi角点', en:'Shi-Tomasi',        d:'R=min(λ₁,λ₂),光流追踪首选', planned:true},
+      {id:'sift',        n:'SIFT特征',       en:'SIFT',              d:'四阶段:DoG→极值→方向→128D描述子'},
+      {id:'tpl_match',   n:'模板匹配',       en:'Template Match',    d:'CCORR/NCC滑窗,多目标Quickselect', planned:true},
+      {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)/(x,y,r)参数空间投票'},
+      {id:'morphology',  n:'形态学操作',     en:'Morphology',        d:'腐蚀/膨胀/开/闭,SE结构元素'},
+      {id:'contour',     n:'轮廓查找',       en:'Contour Finding',   d:'层级树,面积/周长/凸包分析'},
+      {id:'nms',         n:'非极大值抑制',   en:'NMS',               d:'边缘→角点→检测框的通用后处理', planned:true},
+    ]},
+    { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'', diff:3, subs:[
+      {key:'3A', label:'图像分割', color:'#F59E0B', algo:[
+        {id:'kmeans',    n:'K-Means分割',   en:'K-Means Seg',      d:'RGB像素聚类,无监督分割入口', planned:true},
+        {id:'ncuts',     n:'Normalized Cuts',en:'Normalized Cuts',  d:'谱聚类:拉普拉斯→Fiedler向量', planned:true},
+        {id:'watershed', n:'分水岭分割',     en:'Watershed',        d:'梯度图→地形浸没+标记控制'},
+        {id:'grabcut',   n:'GrabCut',        en:'GrabCut',          d:'GraphCut+迭代GMM交互式抠图'},
+        {id:'slic',      n:'SLIC超像素',     en:'SLIC Superpixel',  d:'Lab+xy五维K-means聚类'},
+      ]},
+      {key:'3B', label:'传统识别管线', color:'#FBBF24', algo:[
+        {id:'hog_svm',   n:'HOG+SVM',       en:'HOG+SVM',          d:'梯度直方图+LinearSVM行人检测'},
+        {id:'bovw_spm',  n:'BoVW+SPM',      en:'BoVW+SPM',         d:'SIFT→K-Means词汇→SPM→Chi2SVM', planned:true},
+        {id:'sift_ransac',n:'SIFT+RANSAC',  en:'SIFT+RANSAC',      d:'L2距离→ratio test→RANSAC单应性'},
+      ]},
+      {key:'3C', label:'运动估计', color:'#FB923C', algo:[
+        {id:'optical_flow',n:'光流',        en:'Optical Flow',      d:'LK稀疏+Farneback稠密+金字塔'},
+      ]},
+      {key:'3D', label:'几何视觉', color:'#EF4444', algo:[
+        {id:'calibration',n:'相机标定',     en:'Camera Calibration',d:'针孔→K[R|t]→畸变→DLT→Cholesky', planned:true},
+        {id:'epipolar',  n:'对极几何',      en:'Epipolar Geometry', d:'F/E矩阵→8点法→SVD恢复R,t', planned:true},
+        {id:'stereo',    n:'立体匹配',       en:'Stereo Matching',   d:'SAD/SSD→视差图→深度Z=fB/d'},
+        {id:'sfm',       n:'三角测量与SfM', en:'SfM',               d:'P₀,P₁→SVD→稀疏点云', planned:true},
+        {id:'stitching', n:'图像拼接',       en:'Image Stitching',   d:'单应性+warpPerspective+融合'},
+      ]},
+    ]},
+    { phase:'phase4', color:'#EF4444', name:'阶段四 · 深度学习时代', en:'Deep Learning Era', sub:'', diff:4, subs:[
+      {key:'4A', label:'基础架构', color:'#F87171', algo:[
+        {id:'cnn_basics',n:'CNN基础',       en:'CNN Basics',        d:'Conv→ReLU→Pool→FC,滤波器可视化', planned:true},
+        {id:'resnet',    n:'ResNet+Grad-CAM',en:'ResNet+Grad-CAM',  d:'残差连接+Grad-CAM决策可视化', planned:true},
+      ]},
+      {key:'4B', label:'语义分割', color:'#FB923C', algo:[
+        {id:'fcn',       n:'FCN',           en:'FCN',               d:'全卷积+转置卷积+跳跃融合,开山之作', planned:true},
+        {id:'unet',      n:'U-Net',         en:'U-Net',             d:'对称编解码+长跳跃连接', planned:true},
+      ]},
+      {key:'4C', label:'目标检测', color:'#FBBF24', algo:[
+        {id:'faster_rcnn',n:'Faster R-CNN+FPN',en:'Faster R-CNN',  d:'两阶段:RPN+RoIPool+FPN', planned:true},
+        {id:'yolo',      n:'YOLO',          en:'YOLO',              d:'单阶段:网格→回归(x,y,w,h,class)', planned:true},
+      ]},
+      {key:'4D', label:'实例分割', color:'#A3E635', algo:[
+        {id:'mask_rcnn', n:'Mask R-CNN',    en:'Mask R-CNN',        d:'FasterRCNN+掩码分支+RoIAlign', planned:true},
+      ]},
+      {key:'4E', label:'生成模型', color:'#C084FC', algo:[
+        {id:'gan',       n:'GAN(基础)',     en:'GAN Basics',        d:'生成器/判别器博弈,模式坍塌'},
+        {id:'diffusion', n:'扩散模型基础',  en:'Diffusion Basics',  d:'前向加噪→反向去噪,与GAN对比'},
+      ]},
+    ]},
+    { phase:'phase5', color:'#8B5CF6', name:'阶段五 · 基础模型与前沿感知', en:'Foundation Models & Perception', sub:'2020-2025', diff:5, subs:[
+      {key:'5.1', label:'视觉骨干网络 (4)', color:'#A78BFA', algo:[
+        {id:'vit',       n:'ViT',           en:'Vision Transformer',d:'Patch→Transformer,CNN替代范式'},
+        {id:'swin',      n:'Swin Transformer',en:'Swin Transformer',d:'窗口注意力+移位窗口,多尺度ViT', planned:true},
+        {id:'dino',      n:'DINO/DINOv2',   en:'DINO/DINOv2',       d:'自监督ViT,注意力自动涌现分割', planned:true},
+        {id:'mae',       n:'MAE',           en:'MAE',               d:'遮盖75%→重建,SAM的预训练方法', planned:true},
+      ]},
+      {key:'5.2', label:'现代检测范式 (3)', color:'#C084FC', algo:[
+        {id:'detr',      n:'DETR',          en:'DETR',              d:'Transformer端到端,Object Query+二分匹配'},
+        {id:'dino_det',  n:'DINO(检测)',    en:'DINO Detection',    d:'DETR+对比去噪+混合Query', planned:true},
+        {id:'grdino',    n:'Grounding DINO',en:'Grounding DINO',    d:'开放词汇检测,文本条件Query', planned:true},
+      ]},
+      {key:'5.3', label:'通用分割 (3)', color:'#E879F9', algo:[
+        {id:'mask2former',n:'Mask2Former',  en:'Mask2Former',       d:'掩码注意力统一语义/实例/全景', planned:true},
+        {id:'sam',       n:'SAM',           en:'SAM',               d:'ViT+提示编码+Mask解码,分割基础模型'},
+        {id:'sam2',      n:'SAM 2',         en:'SAM 2',             d:'扩展到视频,记忆注意力+时间传播', planned:true},
+      ]},
+      {key:'5.4', label:'多模态视觉-语言 (2)', color:'#F0ABFC', algo:[
+        {id:'clip',      n:'CLIP',          en:'CLIP',              d:'4亿图文对对比学习,双塔对齐'},
+        {id:'blip2',     n:'BLIP-2',        en:'BLIP-2',            d:'Q-Former桥接冻结ViT+LLM', planned:true},
+      ]},
+      {key:'5.5', label:'生成式模型 (6)', color:'#F9A8D4', algo:[
+        {id:'ddpm',      n:'DDPM',          en:'DDPM',              d:'扩散奠基作,加噪→去噪逐步生成', planned:true},
+        {id:'sd',        n:'Stable Diffusion',en:'Stable Diffusion',d:'潜空间扩散,VAE+UNet+Cross-Attn', planned:true},
+        {id:'controlnet',n:'ControlNet',    en:'ControlNet',        d:'零卷积+冻结SD,空间控制信号', planned:true},
+        {id:'dit',       n:'DiT',           en:'DiT',               d:'Transformer替代UNet做扩散', planned:true},
+        {id:'flux',      n:'Flux',          en:'Flux',              d:'DiT+Flow Matching,直线路径', planned:true},
+        {id:'stylegan',  n:'StyleGAN',      en:'StyleGAN',          d:'风格映射+AdaIN→解调→抗混叠', planned:true},
+      ]},
+      {key:'5.6', label:'自监督学习 (4)', color:'#FDA4AF', algo:[
+        {id:'simclr',    n:'SimCLR',        en:'SimCLR',            d:'大batch+强增强+MLP投影,NT-Xent', planned:true},
+        {id:'moco',      n:'MoCo',          en:'MoCo',              d:'动量编码器+动态队列,解耦batch', planned:true},
+        {id:'byol',      n:'BYOL',          en:'BYOL',              d:'无负样本,Online→Target(EMA)', planned:true},
+        {id:'ijepa',     n:'I-JEPA',        en:'I-JEPA',            d:'表征空间预测,非像素重建', planned:true},
+      ]},
+      {key:'5.7', label:'神经3D与空间感知 (7)', color:'#FDBA74', algo:[
+        {id:'nerf',      n:'NeRF',          en:'NeRF',              d:'MLP隐式3D,采样→编码→体渲染'},
+        {id:'3dgs',      n:'3D Gaussian Splat.',en:'3D Gaussian Splat.',d:'显式高斯椭球→可微光栅化,实时', planned:true},
+        {id:'dust3r',    n:'DUSt3R',        en:'DUSt3R',            d:'无需相机参数,Transformer→3D点云', planned:true},
+        {id:'pointnet',  n:'PointNet',      en:'PointNet',          d:'MaxPool对称函数+T-Net,点云DL入口', planned:true},
+        {id:'orbslam3',  n:'ORB-SLAM3',     en:'ORB-SLAM3',         d:'三线程:跟踪+建图+回环,空间计算基石', planned:true},
+        {id:'bev',       n:'BEV Perception',en:'BEV Perception',    d:'Lift-Splat,环视→鸟瞰图特征', planned:true},
+        {id:'occupy',    n:'Occupancy Net.', en:'Occupancy Networks',d:'体素占据预测,比3D框更精细', planned:true},
+      ]},
+      {key:'5.8', label:'时序理解 (3)', color:'#FCD34D', algo:[
+        {id:'c3d',       n:'C3D',           en:'C3D',               d:'3D卷积(时空核),动作识别入门', planned:true},
+        {id:'bytetrack', n:'ByteTrack',     en:'ByteTrack',         d:'低分检测框+两阶段关联MOT', planned:true},
+        {id:'botsort',   n:'BoT-SORT',      en:'BoT-SORT',          d:'ByteTrack+CMC+ReID', planned:true},
+      ]},
+      {key:'5.9', label:'人体姿态 (4)', color:'#FDE68A', algo:[
+        {id:'deeppose',  n:'DeepPose',      en:'DeepPose',          d:'CNN直接回归(x,y),DL姿态起点', planned:true},
+        {id:'openpose',  n:'OpenPose',      en:'OpenPose',          d:'PAF+热力图→二分图匹配,自底向上', planned:true},
+        {id:'mediapipe', n:'MediaPipe Pose',en:'MediaPipe Pose',    d:'MobileNetV3,33关键点,30+FPS', planned:true},
+        {id:'vitpose',   n:'ViTPose',       en:'ViTPose',           d:'纯ViT→直接输出关键点热力图', planned:true},
+      ]},
+    ]},
+  ];
 
-  // ================================================================
-  //  Init
-  // ================================================================
+  function _allAlgos(){ const a=[]; BLUEPRINT.forEach(p=>{if(p.subs)p.subs.forEach(g=>g.algo.forEach(x=>a.push(x)));else p.algo.forEach(x=>a.push(x));}); return a; }
+  function _phaseAlgos(ph){ if(ph.subs){ const a=[]; ph.subs.forEach(g=>a.push(...g.algo)); return a; } return ph.algo; }
 
-  function init() {
-    $sidebar = document.getElementById('sidebar');
-    $sidebarNav = document.getElementById('sidebar-nav');
-    $gallery = document.getElementById('gallery');
-    $detailView = document.getElementById('detail-view');
-    $detailIframe = document.getElementById('detail-iframe');
-    $detailTitle = document.getElementById('detail-title');
-    $categoryGrid = document.getElementById('category-grid');
-    $ladderSteps = document.getElementById('ladder-steps');
+  let _apiMap = {};
+  let _apiModules = [];
+  let _current = null;
+  // Only count modules with actual algorithm.py (not just skeleton __init__.py)
+  const IMPLEMENTED=new Set(['grayscale','histogram','threshold','convolution','edge','corner','sift','hough','morphology','contour','match','frequency','grabcut','hog_svm','optical_flow','slic','stereo','watershed','lenet','detection','semantic','instance','diffusion','gan']);
+  function _isReady(id){ return IMPLEMENTED.has(id)&&!!(_apiMap[id]&&_apiMap[id].page); }
 
-    document.getElementById('btn-back').addEventListener('click', _closeDetail);
-    document.getElementById('btn-search').addEventListener('click', _toggleSearch);
-    document.getElementById('search-input').addEventListener('input', Utils.debounce(_onSearch, 200));
+  // ============================================================
+  function init(){
+    $metro=document.getElementById('phase-metro');
+    $overlay=document.getElementById('detail-overlay');
+    $ifr=document.getElementById('detail-iframe');
+    $dname=document.getElementById('detail-name');
+    $den=document.getElementById('detail-en');
+    $pstrip=document.getElementById('pipeline-strip');
+    $hudBody=document.getElementById('hud-body');
+    $hudPanel=document.getElementById('hud-panel');
+    $hudToggle=document.getElementById('hud-toggle');
+    $searchInput=document.getElementById('search-input');
+    $searchClear=document.getElementById('search-clear');
+    $diffLadder=document.getElementById('ladder-steps');
+    $statTotal=document.getElementById('stat-total');
+    $statReady=document.getElementById('stat-ready');
 
-    document.querySelectorAll('.ladder-step').forEach(el => {
-      el.addEventListener('click', () => _filterByDifficulty(parseInt(el.dataset.level)));
-    });
+    document.getElementById('btn-back').addEventListener('click',closeDetail);
+    $hudToggle.addEventListener('click',()=>{$hudPanel.classList.toggle('collapsed');$hudToggle.textContent=$hudPanel.classList.contains('collapsed')?'+':'−';});
+    $diffLadder.querySelectorAll('.ladder-step').forEach(el=>el.addEventListener('click',()=>filterByDiff(parseInt(el.dataset.lv))));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$overlay.classList.contains('active'))closeDetail();});
 
-    _initSidebarResizer();
-    _fetchModules();
+    // Search box
+    $searchInput.addEventListener('input', Utils.debounce(_onSearch, 180));
+    $searchClear.addEventListener('click', ()=>{ $searchInput.value=''; $searchClear.classList.add('hidden'); _clearSearch(); });
 
-    Router.on('/', () => _showGallery());
-    Router.on('/module/:id', (params) => _openModule(params.id));
-
-    window.addEventListener('message', _onIframeMessage);
+    window.addEventListener('message',_onIframeMsg);
+    _loadAndRender();
+    Router.on('/',()=>closeDetail());
+    Router.on('/module/:id',params=>openModule(params.id));
   }
 
-  // ================================================================
-  //  Data fetching
-  // ================================================================
+  async function _loadAndRender(){
+    try{
+      const res=await fetch('/api/modules'); const data=await res.json();
+      _apiModules=[]; _apiMap={};
+      (data.phases||[]).forEach(ph=>{(ph.modules||[]).forEach(m=>{_apiModules.push(m);_apiMap[m.id]=m;});});
+    }catch(e){console.warn('[App] API unreachable');}
+    _renderMetro(); _renderDiffLadder();
+    const all=_allAlgos();
+    $statTotal.textContent=all.length;
+    $statReady.textContent=all.filter(a=>_isReady(a.id)).length;
+  }
 
-  async function _fetchModules() {
-    try {
-      const res = await fetch('/api/modules');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      Utils.assertFields(data, ['phases', 'total'], '/api/modules response');
-
-      _phases = data.phases || [];
-      _modules = [];
-      _phases.forEach(phase => {
-        phase.modules.forEach(m => {
-          _modules.push({ ...m, phase_id: phase.phase_id, phase_name: phase.phase_name, phase_color: phase.color });
+  // ── Metro ──
+  function _renderMetro(){
+    $metro.innerHTML='';
+    BLUEPRINT.forEach(phase=>{
+      const line=document.createElement('div'); line.className='phase-line';
+      const algos=_phaseAlgos(phase);
+      const ready=algos.filter(a=>_isReady(a.id)).length;
+      let h=`<div class="phase-line-header">
+        <span class="station-dot" style="background:${phase.color};box-shadow:0 0 10px ${phase.color}"></span>
+        <span class="phase-label">${phase.name} · ${phase.en}</span>
+        <span class="phase-sub">${phase.sub}</span>
+        <span class="phase-count">${ready}/${algos.length} 已实现</span></div>`;
+      if(phase.subs){
+        phase.subs.forEach(grp=>{
+          const gr=grp.algo.filter(a=>_isReady(a.id)).length;
+          h+=`<div class="sub-group"><div class="sub-group-header">
+            <span class="sub-group-badge" style="background:${grp.color}">${grp.key}</span>
+            <span class="sub-group-label">${grp.label}</span>
+            <span class="sub-group-count">${gr}/${grp.algo.length}</span></div>
+            <div class="phase-cards">${grp.algo.map(a=>_card(a)).join('')}</div></div>`;
         });
-      });
-
-      _renderSidebar(_phases);
-      _renderGallery(_phases);
-      _renderDifficultyLadder();
-      _renderHeroMetrics(data.total);
-
-    } catch (err) {
-      console.error('[App] Failed to load modules:', err);
-      Utils.toast('加载模块列表失败，后端是否已启动？');
-    }
-  }
-
-  // ================================================================
-  //  Sidebar navigation
-  // ================================================================
-
-  function _renderSidebar(phases) {
-    $sidebarNav.innerHTML = '';
-
-    phases.forEach(phase => {
-      const header = document.createElement('div');
-      header.className = 'nav-category';
-      header.dataset.phaseId = phase.phase_id;
-      header.innerHTML = `<span class="phase-dot" style="background:${phase.color}"></span> ${phase.phase_name}`;
-      $sidebarNav.appendChild(header);
-
-      phase.modules.forEach(m => {
-        const btn = document.createElement('button');
-        btn.className = 'nav-item';
-        btn.dataset.moduleId = m.id;
-        btn.innerHTML = `
-          <span class="nav-label">${m.name}${m.required ? '<i class="nav-req-dot"></i>' : ''}</span>
-          <span class="nav-difficulty" aria-label="难度 ${m.difficulty}/5">${_difficultyBars(m.difficulty)}</span>
-        `;
-        if (m.required) btn.classList.add('nav-required');
-        btn.addEventListener('click', () => Router.go('/module/' + m.id));
-        $sidebarNav.appendChild(btn);
-      });
-    });
-  }
-
-  // ================================================================
-  //  Gallery home page
-  // ================================================================
-
-  function _renderGallery(phases) {
-    $categoryGrid.innerHTML = '';
-
-    phases.forEach(phase => {
-      const card = document.createElement('div');
-      card.className = 'category-card';
-      card.style.setProperty('--phase-color', phase.color);
-      card.innerHTML = `
-        <div class="cat-index">
-          <span class="cat-number">${phase.emoji}</span>
-          <span class="cat-count">${phase.modules.length} 个模块</span>
-        </div>
-        <div class="cat-name">${phase.phase_name}</div>
-        <div class="cat-name-en">${phase.phase_name_en}</div>
-        <div class="category-modules">
-          ${phase.modules.map(m => `<span class="module-chip${m.required ? ' chip-required' : ''}" data-module-id="${m.id}">${m.name}</span>`).join('')}
-        </div>
-      `;
-
-      card.addEventListener('click', (e) => {
-        if (e.target.classList.contains('module-chip')) {
-          Router.go('/module/' + e.target.dataset.moduleId);
-          return;
-        }
-        _scrollSidebarToPhase(phase.phase_id);
-      });
-
-      $categoryGrid.appendChild(card);
-    });
-  }
-
-  function _difficultyBars(level) {
-    const n = Math.max(0, Math.min(5, Number(level) || 0));
-    return Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
-  }
-
-  function _renderDifficultyLadder() {
-    const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    _modules.forEach(m => {
-      if (counts[m.difficulty] !== undefined) counts[m.difficulty]++;
-    });
-
-    document.querySelectorAll('.ladder-step').forEach(el => {
-      const lv = parseInt(el.dataset.level);
-      const hint = el.querySelector('.step-hint');
-      if (hint && counts[lv] > 0) {
-        hint.textContent = `${counts[lv]} 个模块`;
+      }else{
+        h+=`<div class="phase-cards">${phase.algo.map(a=>_card(a)).join('')}</div>`;
       }
-      const badge = el.querySelector('.step-badge');
-      if (badge) badge.innerHTML = _difficultyBars(lv);
+      line.innerHTML=h;
+      line.querySelectorAll('.algo-card').forEach(c=>c.addEventListener('click',()=>Router.go('/module/'+c.dataset.mid)));
+      $metro.appendChild(line);
     });
   }
-
-  function _renderHeroMetrics(total) {
-    const moduleCount = document.getElementById('hero-module-count');
-    if (moduleCount) moduleCount.textContent = String(total || _modules.length || '--');
+  function _card(a){
+    const ready=_isReady(a.id), isNew=a.planned;
+    const cls=['algo-card',ready?'realized':'pending',isNew?'planned':''].filter(Boolean).join(' ');
+    const tag=ready?'✅ 可体验':(isNew?'🆕 规划中':'○ 待实现');
+    return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><span class="card-tag">${tag}</span></div>`;
   }
 
-  // ================================================================
-  //  Module detail
-  // ================================================================
-
-  function _openModule(moduleId) {
-    const mod = _modules.find(m => m.id === moduleId);
-    if (!mod) {
-      Utils.toast(`模块 "${moduleId}" 未找到`);
-      Router.go('/');
-      return;
-    }
-
-    _currentModule = mod;
-
-    $gallery.classList.add('hidden');
-    $detailView.classList.add('visible');
-
-    $detailTitle.textContent = `${mod.name}  ·  ${mod.name_en}`;
-
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const navItem = document.querySelector(`.nav-item[data-module-id="${moduleId}"]`);
-    if (navItem) navItem.classList.add('active');
-
-    $detailIframe.src = mod.page ? `/static/pages/${mod.page}` : '';
+  // ── Detail ──
+  function openModule(id){
+    const m=_apiMap[id]; if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
+    _current=m; $dname.textContent=m.name; $den.textContent=m.name_en||'';
+    _renderPipeline([m.name]);
+    $hudBody.innerHTML='<div class="hud-control"><label style="color:var(--text-muted)">加载中…</label></div>';
+    $hudPanel.classList.remove('collapsed'); $hudToggle.textContent='−';
+    $ifr.src=m.page?'/static/pages/'+m.page:''; $overlay.classList.add('active');
   }
+  function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;$pstrip.innerHTML='';}
+  function _renderPipeline(steps){$pstrip.innerHTML=steps.map((s,i)=>(i>0?'<span class="pipeline-arrow">→</span>':'')+'<span class="pipeline-step'+(i===0?' active':'')+'"><span class="step-num">'+(i+1)+'</span>'+s+'</span>').join('');}
 
-  function _closeDetail() {
-    $gallery.classList.remove('hidden');
-    $detailView.classList.remove('visible');
-    $detailIframe.src = '';
-    _currentModule = null;
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  }
-
-  function _showGallery() {
-    if (_currentModule) _closeDetail();
-  }
-
-  // ================================================================
-  //  iframe communication
-  // ================================================================
-
-  function _onIframeMessage(e) {
-    const { type, payload } = e.data || {};
-    if (!type) return;
-
-    switch (type) {
-      case 'toast':
-        Utils.toast(payload?.message || '', payload?.duration);
-        break;
-      case 'navigate':
-        Router.go('/module/' + (payload?.moduleId || ''));
-        break;
-    }
-  }
-
-  // ================================================================
-  //  Helpers
-  // ================================================================
-
-  function _scrollSidebarToPhase(phaseId) {
-    const header = $sidebarNav.querySelector(`.nav-category[data-phase-id="${phaseId}"]`);
-    if (header) {
-      header.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  function _filterByDifficulty(level) {
-    const items = $sidebarNav.querySelectorAll('.nav-item');
-    items.forEach(el => el.style.opacity = '1');
-    _modules.forEach(m => {
-      if (m.difficulty !== level) {
-        const el = $sidebarNav.querySelector(`.nav-item[data-module-id="${m.id}"]`);
-        if (el) el.style.opacity = '0.35';
-      }
+  // ── Search (inline) ──
+  function _onSearch(e){
+    const q=(e.target.value||'').toLowerCase().trim();
+    if(q){$searchClear.classList.remove('hidden');}else{$searchClear.classList.add('hidden');_clearSearch();return;}
+    const all=_allAlgos();
+    const hits=all.filter(a=>a.n.toLowerCase().includes(q)||a.en.toLowerCase().includes(q)||a.d.toLowerCase().includes(q));
+    document.querySelectorAll('.algo-card').forEach(c=>{
+      const ok=hits.some(h=>h.id===c.dataset.mid);
+      c.style.opacity=ok?'1':'.12'; c.style.transform=ok?'scale(1.04)':'';
     });
-    Utils.toast(`已筛选难度 ${level}（点击任意模块恢复）`);
-    setTimeout(() => { items.forEach(el => el.style.opacity = '1'); }, 5000);
+    // Scroll to first hit
+    const first=document.querySelector('.algo-card[style*=\"scale(1.04)\"]');
+    if(first) first.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function _clearSearch(){
+    document.querySelectorAll('.algo-card').forEach(c=>{c.style.opacity='';c.style.transform='';});
   }
 
-  function _toggleSearch() {
-    const box = document.getElementById('search-box');
-    const input = document.getElementById('search-input');
-    box.classList.toggle('hidden');
-    if (!box.classList.contains('hidden')) {
-      input.focus();
-    } else {
-      input.value = '';
-      _onSearch({ target: input });
-    }
+  // ── Difficulty ──
+  function _renderDiffLadder(){
+    const counts={1:0,2:0,3:0,4:0,5:0}, ready={1:0,2:0,3:0,4:0,5:0};
+    BLUEPRINT.forEach(p=>{const a=_phaseAlgos(p);a.forEach(x=>{const lv=p.diff;if(counts[lv]!==undefined){counts[lv]++;if(_isReady(x.id))ready[lv]++;}});});
+    $diffLadder.querySelectorAll('.ladder-step').forEach(el=>{const lv=parseInt(el.dataset.lv);el.querySelector('.count').textContent=ready[lv]+' / '+counts[lv]+' 已实现';});
   }
-
-  function _onSearch(e) {
-    const q = (e.target.value || '').toLowerCase().trim();
-    const items = $sidebarNav.querySelectorAll('.nav-item');
-    items.forEach(el => {
-      const mid = el.dataset.moduleId || '';
-      const mod = _modules.find(m => m.id === mid);
-      if (!mod) { el.style.display = 'none'; return; }
-      const match = !q
-        || mod.name.toLowerCase().includes(q)
-        || mod.name_en.toLowerCase().includes(q)
-        || mod.description.toLowerCase().includes(q);
-      el.style.display = match ? '' : 'none';
+  function filterByDiff(lv){
+    document.querySelectorAll('.algo-card').forEach(c=>{
+      let found=null; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===c.dataset.mid))found=p;});
+      c.style.opacity=(found&&found.diff===lv)?'1':'.12';
     });
+    Utils.toast('已筛选难度 '+lv+'（5秒后恢复）');
+    setTimeout(()=>document.querySelectorAll('.algo-card').forEach(c=>c.style.opacity=''),5000);
   }
 
-  // ================================================================
-  //  Sidebar resizer
-  // ================================================================
-
-  function _initSidebarResizer() {
-    const resizer = document.getElementById('sidebar-resizer');
-    let dragging = false, startX = 0, startW = 0;
-
-    resizer.addEventListener('mousedown', (e) => {
-      dragging = true;
-      startX = e.clientX;
-      startW = $sidebar.getBoundingClientRect().width;
-      resizer.classList.add('dragging');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', Utils.throttle((e) => {
-      if (!dragging) return;
-      const newW = Math.max(180, Math.min(420, startW + e.clientX - startX));
-      document.documentElement.style.setProperty('--sidebar-w', newW + 'px');
-    }, 16));
-
-    document.addEventListener('mouseup', () => {
-      if (!dragging) return;
-      dragging = false;
-      resizer.classList.remove('dragging');
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    });
+  // ── Iframe messages ──
+  function _onIframeMsg(e){const{type,payload}=e.data||{};if(!type)return;
+    switch(type){case'toast':Utils.toast(payload?.message||'',payload?.duration);break;
+      case'pipeline':if(payload?.steps)_renderPipeline(payload.steps);break;
+      case'hud-controls':if(payload?.html){$hudBody.innerHTML=payload.html;$hudBody.querySelectorAll('input[type=range]').forEach(s=>{const d=s.nextElementSibling;if(d&&d.classList.contains('slider-val'))s.addEventListener('input',()=>{d.textContent=s.value;});});}break;
+      case'navigate':Router.go('/module/'+(payload?.moduleId||''));break;}
   }
 
-  // ---- Boot ----
-  window.addEventListener('DOMContentLoaded', init);
-
-  return { getModules: () => _modules };
+  window.addEventListener('DOMContentLoaded',init);
+  return{openModule,closeDetail,getModules:()=>_apiModules};
 })();

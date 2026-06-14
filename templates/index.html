@@ -3,121 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>计算机视觉通识教育 — Cvtoolkits</title>
+<title>CV 通识教育 — Cvtoolkits</title>
 <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body>
 
-<!-- ====== 侧边栏导航 ====== -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <div class="brand-mark" aria-hidden="true"></div>
-    <h1 class="sidebar-title">计算机视觉<br>通识教育</h1>
-    <p class="sidebar-subtitle">从像素、特征到智能模型的可视化学习路径</p>
+<!-- Subtle background grid -->
+<div class="bg-grid"></div>
+
+<!-- ====== Top Nav ====== -->
+<nav class="top-nav">
+  <div class="nav-brand">
+    <span class="dot"></span> Cvtoolkits <span>· 计算机视觉通识教育</span>
   </div>
-
-  <nav class="sidebar-nav" id="sidebar-nav">
-    <!-- JS 动态填充 -->
-    <div class="nav-loading">加载导航中…</div>
-  </nav>
-
-  <div class="sidebar-footer">
-    <button class="btn-search" id="btn-search" title="搜索算法">🔍 搜索</button>
-    <div class="search-box hidden" id="search-box">
-      <input type="text" id="search-input" placeholder="输入算法名称…" autocomplete="off">
+  <div class="nav-actions">
+    <div class="search-box" id="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="search-input" placeholder="搜索算法…" autocomplete="off">
+      <button class="search-clear hidden" id="search-clear">✕</button>
     </div>
   </div>
-</aside>
+</nav>
 
-<!-- 侧边栏拖拽调整宽度的手柄 -->
-<div class="sidebar-resizer" id="sidebar-resizer"></div>
+<!-- ====== Main Wrap ====== -->
+<div class="main-wrap">
 
-<!-- ====== 主内容区 ====== -->
-<main class="main-content" id="main-content">
-
-  <!-- 首页：算法画廊 -->
+  <!-- ====== GALLERY (home) ====== -->
   <section class="gallery" id="gallery">
     <div class="gallery-hero">
-      <div>
-        <div class="hero-kicker">Interactive Computer Vision Curriculum</div>
-        <h2>探索计算机视觉的<span class="hero-gradient-text">世界</span></h2>
-        <p class="gallery-subtitle">
-          从像素级基础原语开始，逐步进入经典视觉、几何理解与深度学习模型。每个算法都从<strong>直觉</strong>开始，以可操作的流水线展开。
-        </p>
-      </div>
-      <aside class="hero-panel" aria-label="平台概览">
-        <div class="hero-panel-label">Learning System</div>
-        <div class="hero-metrics">
-          <div class="hero-metric"><strong>5</strong><span>学习阶段</span></div>
-          <div class="hero-metric"><strong id="hero-module-count">--</strong><span>算法模块</span></div>
-          <div class="hero-metric"><strong>0</strong><span>黑盒依赖</span></div>
-        </div>
-        <div class="hero-signal" aria-hidden="true"></div>
-      </aside>
-    </div>
-
-    <!-- 分类卡片网格 —— JS 动态填充 -->
-    <div class="section-heading">
-      <div>
-        <h3>学习路径</h3>
-        <p>按认知顺序组织，而不是按工具菜单堆叠。</p>
+      <h2>探索计算机视觉的世界</h2>
+      <p class="sub">从像素级基础原语开始，逐步进入经典视觉、几何理解、深度学习与前沿模型。每个算法都从直觉出发，以可交互的流水线展开。</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><number id="stat-total">--</number><label>算法模块</label></div>
+        <div class="hero-stat"><number>5</number><label>认知阶段</label></div>
+        <div class="hero-stat"><number id="stat-ready">--</number><label>已可体验</label></div>
+        <div class="hero-stat"><number>0</number><label>黑盒调用</label></div>
       </div>
     </div>
-    <div class="category-grid" id="category-grid">
-      <div class="loading-placeholder">正在加载算法列表…</div>
-    </div>
 
-    <!-- 难度阶梯导航 -->
-    <div class="difficulty-ladder" id="difficulty-ladder">
-      <h3>📶 按难度学习</h3>
+    <!-- Phase Metro Lines -->
+    <div class="phase-metro" id="phase-metro"></div>
+
+    <!-- Difficulty Ladder -->
+    <div class="difficulty-bar" style="margin-top:48px">
+      <h3>📶 按难度筛选</h3>
       <div class="ladder-steps" id="ladder-steps">
-        <div class="ladder-step level-1" data-level="1">
-          <span class="step-badge">★</span>
-          <span class="step-label">入门</span>
-          <span class="step-hint">不需要任何数学基础</span>
-        </div>
-        <div class="ladder-step level-2" data-level="2">
-          <span class="step-badge">★★</span>
-          <span class="step-label">基础</span>
-          <span class="step-hint">了解基本概念即可</span>
-        </div>
-        <div class="ladder-step level-3" data-level="3">
-          <span class="step-badge">★★★</span>
-          <span class="step-label">进阶</span>
-          <span class="step-hint">涉及深度学习原理</span>
-        </div>
-        <div class="ladder-step level-4" data-level="4">
-          <span class="step-badge">★★★★</span>
-          <span class="step-label">高级</span>
-          <span class="step-hint">深度学习模型</span>
-        </div>
-        <div class="ladder-step level-5" data-level="5">
-          <span class="step-badge">★★★★★</span>
-          <span class="step-label">前沿</span>
-          <span class="step-hint">2020年后论文算法</span>
-        </div>
+        <div class="ladder-step" data-lv="1"><div class="bars">★</div><div class="label">入门</div><div class="count"></div></div>
+        <div class="ladder-step" data-lv="2"><div class="bars">★★</div><div class="label">基础</div><div class="count"></div></div>
+        <div class="ladder-step" data-lv="3"><div class="bars">★★★</div><div class="label">进阶</div><div class="count"></div></div>
+        <div class="ladder-step" data-lv="4"><div class="bars">★★★★</div><div class="label">高级</div><div class="count"></div></div>
+        <div class="ladder-step" data-lv="5"><div class="bars">★★★★★</div><div class="label">前沿</div><div class="count"></div></div>
       </div>
     </div>
   </section>
 
-  <!-- 算法详情区：iframe 承载子页面 -->
-  <div class="detail-view hidden" id="detail-view">
-    <div class="detail-header">
-      <button class="btn-back" id="btn-back" title="返回画廊">← 返回</button>
-      <span class="detail-title" id="detail-title"></span>
+  <!-- ====== DETAIL OVERLAY ====== -->
+  <div class="detail-overlay" id="detail-overlay">
+    <div class="detail-topbar">
+      <button class="btn-back" id="btn-back" title="返回首页">← 返回</button>
+      <span class="detail-name" id="detail-name"></span>
+      <span class="detail-en" id="detail-en"></span>
     </div>
-    <iframe
-      class="detail-iframe"
-      id="detail-iframe"
-      src=""
-      loading="lazy">
-    </iframe>
+    <!-- Pipeline Strip -->
+    <div class="pipeline-strip" id="pipeline-strip"></div>
+    <!-- Canvas area -->
+    <div class="detail-canvas-area" id="detail-canvas-area">
+      <iframe id="detail-iframe" src="" style="width:100%;height:100%;border:none"></iframe>
+    </div>
+    <!-- HUD Panel -->
+    <div class="hud-panel" id="hud-panel">
+      <div class="hud-header" id="hud-header">
+        <span>🎛 控制面板</span>
+        <button class="hud-toggle" id="hud-toggle">−</button>
+      </div>
+      <div class="hud-body" id="hud-body">
+        <div class="hud-control">
+          <label>参数滑块将由此模块的 JS 动态注入</label>
+        </div>
+      </div>
+    </div>
   </div>
 
-</main>
 
-<!-- Toast 消息 -->
-<div class="toast hidden" id="toast"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <script src="/static/js/utils.js"></script>
 <script src="/static/js/router.js"></script>

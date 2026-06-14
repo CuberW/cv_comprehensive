@@ -11,8 +11,9 @@
 <!-- ====== 侧边栏导航 ====== -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <h1 class="sidebar-title">👁️ 计算机视觉<br>通识教育</h1>
-    <p class="sidebar-subtitle">从零开始，看懂每一幅图像</p>
+    <div class="brand-mark" aria-hidden="true"></div>
+    <h1 class="sidebar-title">计算机视觉<br>通识教育</h1>
+    <p class="sidebar-subtitle">从像素、特征到智能模型的可视化学习路径</p>
   </div>
 
   <nav class="sidebar-nav" id="sidebar-nav">
@@ -37,13 +38,31 @@
   <!-- 首页：算法画廊 -->
   <section class="gallery" id="gallery">
     <div class="gallery-hero">
-      <h2>探索计算机视觉的世界</h2>
-      <p class="gallery-subtitle">
-        从阶段一开始，逐步深入。每个算法都从<strong>直觉</strong>开始，按学习路径展开。
-      </p>
+      <div>
+        <div class="hero-kicker">Interactive Computer Vision Curriculum</div>
+        <h2>探索计算机视觉的<span class="hero-gradient-text">世界</span></h2>
+        <p class="gallery-subtitle">
+          从像素级基础原语开始，逐步进入经典视觉、几何理解与深度学习模型。每个算法都从<strong>直觉</strong>开始，以可操作的流水线展开。
+        </p>
+      </div>
+      <aside class="hero-panel" aria-label="平台概览">
+        <div class="hero-panel-label">Learning System</div>
+        <div class="hero-metrics">
+          <div class="hero-metric"><strong>5</strong><span>学习阶段</span></div>
+          <div class="hero-metric"><strong id="hero-module-count">--</strong><span>算法模块</span></div>
+          <div class="hero-metric"><strong>0</strong><span>黑盒依赖</span></div>
+        </div>
+        <div class="hero-signal" aria-hidden="true"></div>
+      </aside>
     </div>
 
     <!-- 分类卡片网格 —— JS 动态填充 -->
+    <div class="section-heading">
+      <div>
+        <h3>学习路径</h3>
+        <p>按认知顺序组织，而不是按工具菜单堆叠。</p>
+      </div>
+    </div>
     <div class="category-grid" id="category-grid">
       <div class="loading-placeholder">正在加载算法列表…</div>
     </div>

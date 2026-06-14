@@ -67,6 +67,7 @@ const App = (() => {
       _renderSidebar(_phases);
       _renderGallery(_phases);
       _renderDifficultyLadder();
+      _renderHeroMetrics(data.total);
 
     } catch (err) {
       console.error('[App] Failed to load modules:', err);
@@ -93,8 +94,8 @@ const App = (() => {
         btn.className = 'nav-item';
         btn.dataset.moduleId = m.id;
         btn.innerHTML = `
-          <span>${m.name}${m.required ? '<i class="nav-req-dot"></i>' : ''}</span>
-          <span class="nav-difficulty">${'★'.repeat(m.difficulty)}</span>
+          <span class="nav-label">${m.name}${m.required ? '<i class="nav-req-dot"></i>' : ''}</span>
+          <span class="nav-difficulty" aria-label="难度 ${m.difficulty}/5">${_difficultyBars(m.difficulty)}</span>
         `;
         if (m.required) btn.classList.add('nav-required');
         btn.addEventListener('click', () => Router.go('/module/' + m.id));
@@ -113,14 +114,16 @@ const App = (() => {
     phases.forEach(phase => {
       const card = document.createElement('div');
       card.className = 'category-card';
-      card.style.borderLeft = `3px solid ${phase.color}`;
+      card.style.setProperty('--phase-color', phase.color);
       card.innerHTML = `
-        <div class="cat-emoji" style="color:${phase.color}">阶段 ${phase.emoji}</div>
+        <div class="cat-index">
+          <span class="cat-number">${phase.emoji}</span>
+          <span class="cat-count">${phase.modules.length} 个模块</span>
+        </div>
         <div class="cat-name">${phase.phase_name}</div>
         <div class="cat-name-en">${phase.phase_name_en}</div>
-        <div class="cat-count">${phase.modules.length} 个算法模块</div>
         <div class="category-modules">
-          ${phase.modules.map(m => `<span class="module-chip${m.required ? ' chip-required' : ''}" style="background:${phase.color}18;color:${phase.color}" data-module-id="${m.id}">${m.name}</span>`).join('')}
+          ${phase.modules.map(m => `<span class="module-chip${m.required ? ' chip-required' : ''}" data-module-id="${m.id}">${m.name}</span>`).join('')}
         </div>
       `;
 
@@ -136,6 +139,11 @@ const App = (() => {
     });
   }
 
+  function _difficultyBars(level) {
+    const n = Math.max(0, Math.min(5, Number(level) || 0));
+    return Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  }
+
   function _renderDifficultyLadder() {
     const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     _modules.forEach(m => {
@@ -148,7 +156,14 @@ const App = (() => {
       if (hint && counts[lv] > 0) {
         hint.textContent = `${counts[lv]} 个模块`;
       }
+      const badge = el.querySelector('.step-badge');
+      if (badge) badge.innerHTML = _difficultyBars(lv);
     });
+  }
+
+  function _renderHeroMetrics(total) {
+    const moduleCount = document.getElementById('hero-module-count');
+    if (moduleCount) moduleCount.textContent = String(total || _modules.length || '--');
   }
 
   // ================================================================

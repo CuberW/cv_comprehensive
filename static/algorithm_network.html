@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV 算法演进层次图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0f15;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;height:100vh;width:100vw}
+canvas{display:block;position:absolute;top:0;left:0}
+#tip{position:absolute;pointer-events:none;background:#151a22;border:1px solid #2a3040;border-radius:10px;padding:12px 16px;font-size:13px;max-width:400px;opacity:0;transition:opacity 0.12s;z-index:100;color:#d0d5dd;box-shadow:0 8px 32px rgba(0,0,0,0.7)}
+#tip.on{opacity:1}
+#tip .tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;margin-bottom:5px;color:#fff;font-weight:600}
+#tip h3{margin:0 0 3px;font-size:16px}
+#tip .en{color:#6b7280;font-size:12px;margin-bottom:4px}
+#tip .dsc{color:#9ca3af;font-size:12px;line-height:1.5;margin:4px 0}
+#tip .yr{color:#60a5fa;font-size:11px}
+#tip .rels{margin-top:8px;padding-top:8px;border-top:1px solid #2a3040;font-size:11px;line-height:1.7;max-height:200px;overflow-y:auto}
+#bar{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:50}
+#bar button{background:#151a22;border:1px solid #2a3040;color:#d0d5dd;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;transition:all 0.15s}
+#bar button:hover{border-color:#60a5fa;color:#60a5fa;background:#1a2030}
+#legend{position:absolute;top:14px;right:14px;background:#151a22;border:1px solid #2a3040;border-radius:10px;padding:12px 14px;font-size:11px;z-index:50;color:#d0d5dd;user-select:none}
+#legend b{font-size:12px}
+#legend .row{margin:3px 0;display:flex;align-items:center}
+#legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;flex-shrink:0}
+#legend .ln{display:inline-block;width:20px;height:2.5px;margin-right:6px;border-radius:1px;flex-shrink:0}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="tip"></div>
+<div id="legend">
+<b>图例</b>
+<div class="row"><span class="dot" style="background:#3B82F6"></span> 阶段一·基础原语</div>
+<div class="row"><span class="dot" style="background:#10B981"></span> 阶段二·经典CV核心</div>
+<div class="row"><span class="dot" style="background:#F59E0B"></span> 阶段三·中级视觉</div>
+<div class="row"><span class="dot" style="background:#EF4444"></span> 阶段四·深度学习</div>
+<div class="row"><span class="dot" style="background:#8B5CF6"></span> 阶段五·前沿论文</div>
+<div style="margin-top:6px;padding-top:6px;border-top:1px solid #2a3040">
+<div class="row"><span class="ln" style="background:#6b7280"></span> 依赖/使用</div>
+<div class="row"><span class="ln" style="background:#3b82f6;border-top:2px dashed #3b82f6;height:0"></span> 基于/启发</div>
+<div class="row"><span class="ln" style="background:#22c55e"></span> 改进/扩展</div>
+<div class="row"><span class="ln" style="background:#f59e0b"></span> 对比/替代</div>
+</div>
+</div>
+<div id="bar">
+<button onclick="rst()">↺ 重置视图</button>
+<button onclick="tgl()">🏷 标签显隐</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ═══════════════ DATA ═══════════════
+const PCOL = { phase1:'#3B82F6', phase2:'#10B981', phase3:'#F59E0B', phase4:'#EF4444', phase5:'#8B5CF6' };
+const PBG  = { phase1:'#3B82F618', phase2:'#10B98118', phase3:'#F59E0B18', phase4:'#EF444418', phase5:'#8B5CF618' };
+
+const NODES = [
+  // Phase 1 — 基础原语 (col 0)
+  {id:'conv',       n:'卷积操作',       en:'Convolution',       p:'phase1', y:1968, d:'滑动窗口滤波，所有CV算法的基础运算'},
+  {id:'gaussian',   n:'高斯模糊',       en:'Gaussian Blur',     p:'phase1', y:1980, d:'平滑去噪，尺度空间构建基石'},
+  {id:'sobel',      n:'Sobel梯度',      en:'Sobel Gradient',    p:'phase1', y:1968, d:'一阶导数边缘检测，梯度计算标准方法'},
+  {id:'colorspace', n:'色彩空间转换',   en:'Color Space Conv.', p:'phase1', y:1970, d:'RGB↔HSV↔Lab，多视角颜色分析'},
+  {id:'histogram',  n:'直方图',         en:'Histogram',         p:'phase1', y:1970, d:'像素分布统计，均衡化增强对比度'},
+  {id:'threshold',  n:'阈值化',         en:'Thresholding',      p:'phase1', y:1979, d:'全局/自适应/Otsu，二值化分割'},
+
+  // Phase 2 — 经典CV核心 (col 1)
+  {id:'canny',      n:'Canny边缘检测',  en:'Canny Edge',        p:'phase2', y:1986, d:'多阶段流水线：高斯→Sobel→NMS→双阈值'},
+  {id:'harris',     n:'Harris角点',     en:'Harris Corner',     p:'phase2', y:1988, d:'角点响应函数，旋转不变特征点'},
+  {id:'sift',       n:'SIFT特征',       en:'SIFT',              p:'phase2', y:1999, d:'尺度空间DoG+128维描述子'},
+  {id:'hough',      n:'Hough变换',      en:'Hough Transform',   p:'phase2', y:1962, d:'参数空间投票，直线与圆形检测'},
+  {id:'morphology', n:'形态学操作',     en:'Morphology',        p:'phase2', y:1980, d:'腐蚀/膨胀/开/闭，二值图像结构分析'},
+  {id:'contour',    n:'轮廓查找',       en:'Contour Finding',   p:'phase2', y:1985, d:'轮廓层级提取与分析'},
+
+  // Phase 3 — 中级视觉 (col 2)
+  {id:'watershed',  n:'分水岭分割',     en:'Watershed',         p:'phase3', y:1991, d:'地形浸没模拟，梯度图上的区域生长'},
+  {id:'grabcut',    n:'GrabCut',        en:'GrabCut',           p:'phase3', y:2004, d:'迭代Graph Cut+GMM，交互式前景提取'},
+  {id:'slic',       n:'SLIC超像素',     en:'SLIC Superpixel',   p:'phase3', y:2010, d:'K-means在Lab+xy空间聚类'},
+  {id:'hogsvm',     n:'HOG+SVM',        en:'HOG+SVM',           p:'phase3', y:2005, d:'梯度直方图+SVM，经典检测pipeline'},
+  {id:'optflow',    n:'光流',           en:'Optical Flow',      p:'phase3', y:1981, d:'LK稀疏/Farneback稠密，运动估计'},
+  {id:'stereo',     n:'立体匹配',       en:'Stereo Matching',   p:'phase3', y:1990, d:'视差图计算与深度重建'},
+  {id:'stitching',  n:'图像拼接',       en:'Image Stitching',   p:'phase3', y:2000, d:'SIFT匹配+单应性+融合，全景图合成'},
+
+  // Phase 4 — 深度学习时代 (col 3)
+  {id:'cnn',        n:'CNN基础',        en:'CNN Basics',        p:'phase4', y:2012, d:'卷积层→池化→全连接，端到端特征学习'},
+  {id:'resnet',     n:'ResNet',         en:'ResNet+Grad-CAM',   p:'phase4', y:2015, d:'残差连接解决退化，Grad-CAM可视化'},
+  {id:'yolo',       n:'YOLO',           en:'YOLO',              p:'phase4', y:2015, d:'单阶段检测，回归边界框+类别'},
+  {id:'unet',       n:'U-Net',          en:'U-Net',             p:'phase4', y:2015, d:'编码-解码+跳跃连接，分割经典架构'},
+  {id:'gan_base',   n:'GAN(基础)',      en:'GAN (Basic)',       p:'phase4', y:2014, d:'生成器-判别器博弈，生成模型里程碑'},
+
+  // Phase 5-A — ViT家族 + 检测新范式 (col 4)
+  {id:'vit',        n:'ViT',            en:'Vision Transformer',p:'phase5', y:2020, d:'图像→Patch→Transformer，CNN替代范式'},
+  {id:'swin',       n:'Swin Trans.',    en:'Swin Transformer',  p:'phase5', y:2021, d:'分层+窗口注意力+移位窗口，多尺度ViT'},
+  {id:'dino',       n:'DINO/DINOv2',    en:'DINO/DINOv2',      p:'phase5', y:2021, d:'自监督ViT，注意力图自动涌现语义分割'},
+  {id:'mae',        n:'MAE',            en:'MAE',               p:'phase5', y:2022, d:'随机遮盖75%图像块→重建'},
+  {id:'detr',       n:'DETR',           en:'DETR',              p:'phase5', y:2020, d:'Transformer端到端检测，Object Query+二分匹配'},
+  {id:'dino_det',   n:'DINO(检测)',     en:'DINO Detection',    p:'phase5', y:2023, d:'DETR+对比去噪+混合Query，封闭集SOTA'},
+  {id:'grdino',     n:'Grounding DINO', en:'Grounding DINO',    p:'phase5', y:2024, d:'开放词汇检测，文本条件动态Query'},
+
+  // Phase 5-B — 分割 + 多模态 + 生成式 (col 5)
+  {id:'sam',        n:'SAM',            en:'SAM',               p:'phase5', y:2023, d:'ViT+提示编码+Mask解码，分割基础模型'},
+  {id:'sam2',       n:'SAM 2',          en:'SAM 2',             p:'phase5', y:2025, d:'SAM扩展到视频，记忆注意力+时间传播'},
+  {id:'mask2former',n:'Mask2Former',    en:'Mask2Former',       p:'phase5', y:2022, d:'掩码注意力统一语义/实例/全景分割'},
+  {id:'clip',       n:'CLIP',           en:'CLIP',              p:'phase5', y:2021, d:'4亿图文对对比学习，双塔视觉-语言对齐'},
+  {id:'blip2',      n:'BLIP-2',         en:'BLIP-2',            p:'phase5', y:2023, d:'Q-Former桥接冻结ViT+LLM'},
+  {id:'ddpm',       n:'DDPM',           en:'DDPM',              p:'phase5', y:2020, d:'扩散模型奠基作，加噪→去噪逐步生成'},
+  {id:'sd',         n:'Stable Diff.',   en:'Stable Diffusion',  p:'phase5', y:2022, d:'潜空间扩散，VAE+UNet+Cross-Attn文本控制'},
+  {id:'controlnet', n:'ControlNet',     en:'ControlNet',        p:'phase5', y:2023, d:'为扩散模型增加空间控制信号'},
+  {id:'stylegan',   n:'StyleGAN',       en:'StyleGAN',          p:'phase5', y:2019, d:'风格可控生成，映射网络+AdaIN'},
+  {id:'dit',        n:'DiT',            en:'DiT',               p:'phase5', y:2023, d:'Transformer替代UNet做扩散'},
+  {id:'flux',       n:'Flux',           en:'Flux',              p:'phase5', y:2024, d:'DiT+Flow Matching+多模态引导'},
+
+  // Phase 5-C — 3D视觉 + 自监督 + 跟踪 + 姿态 (col 6)
+  {id:'nerf',       n:'NeRF',           en:'NeRF',              p:'phase5', y:2020, d:'MLP表示3D场景，体渲染新视角合成'},
+  {id:'3dgs',       n:'3D高斯Splat.',   en:'3D Gaussian Splat.',p:'phase5', y:2023, d:'3D高斯球替代MLP，实时可微光栅化'},
+  {id:'dust3r',     n:'DUSt3R',         en:'DUSt3R',            p:'phase5', y:2024, d:'无需相机参数，Transformer直接预测3D点云'},
+  {id:'simclr',     n:'SimCLR',         en:'SimCLR',            p:'phase5', y:2020, d:'大batch对比学习，强数据增强+MLP投影'},
+  {id:'moco',       n:'MoCo',           en:'MoCo',              p:'phase5', y:2020, d:'动量编码器+动态队列'},
+  {id:'byol',       n:'BYOL',           en:'BYOL',              p:'phase5', y:2020, d:'无负样本，Online-Target双网络互预测'},
+  {id:'ijepa',      n:'I-JEPA',         en:'I-JEPA',            p:'phase5', y:2023, d:'表征空间预测而非像素空间'},
+  {id:'bytetrack',  n:'ByteTrack',      en:'ByteTrack',         p:'phase5', y:2022, d:'利用低分检测框，两阶段关联策略'},
+  {id:'botsort',    n:'BotSORT',        en:'BoT-SORT',          p:'phase5', y:2022, d:'ByteTrack+CMC+ReID'},
+  {id:'openpose',   n:'OpenPose',       en:'OpenPose',          p:'phase5', y:2017, d:'PAF+关键点热力图，自底向上多人姿态'},
+  {id:'mediapipe',  n:'MediaPipe',      en:'MediaPipe Pose',    p:'phase5', y:2020, d:'轻量自顶向下，MobileNetV3+33关键点'},
+  {id:'vitpose',    n:'ViTPose',        en:'ViTPose',           p:'phase5', y:2022, d:'纯ViT姿态估计，Transformer输出关键点热力图'},
+];
+
+const EDGES = [
+  {f:'conv', t:'gaussian', ty:'uses', lb:'滑动窗口基元'},
+  {f:'gaussian', t:'sobel', ty:'uses', lb:'平滑核+导数核'},
+  {f:'colorspace', t:'histogram', ty:'uses', lb:'多通道直方图'},
+  {f:'histogram', t:'threshold', ty:'uses', lb:'Otsu基于直方图'},
+  {f:'threshold', t:'morphology', ty:'uses', lb:'二值图像输入'},
+  {f:'gaussian', t:'canny', ty:'uses', lb:'噪声抑制'},
+  {f:'sobel', t:'canny', ty:'uses', lb:'梯度计算核心'},
+  {f:'gaussian', t:'harris', ty:'uses', lb:'平滑去噪'},
+  {f:'sobel', t:'harris', ty:'uses', lb:'梯度→协方差矩阵'},
+  {f:'gaussian', t:'sift', ty:'uses', lb:'尺度空间DoG'},
+  {f:'conv', t:'sift', ty:'uses', lb:'高斯差分核卷积'},
+  {f:'canny', t:'hough', ty:'uses', lb:'边缘图→参数空间'},
+  {f:'sobel', t:'hough', ty:'uses', lb:'梯度方向辅助'},
+  {f:'sobel', t:'contour', ty:'uses', lb:'梯度边界'},
+  {f:'morphology', t:'contour', ty:'uses', lb:'去噪→干净边界'},
+  {f:'canny', t:'watershed', ty:'uses', lb:'梯度图→地形'},
+  {f:'morphology', t:'watershed', ty:'uses', lb:'标记控制'},
+  {f:'threshold', t:'watershed', ty:'uses', lb:'二值标记'},
+  {f:'gaussian', t:'optflow', ty:'uses', lb:'金字塔平滑'},
+  {f:'sobel', t:'optflow', ty:'uses', lb:'空域梯度'},
+  {f:'harris', t:'optflow', ty:'uses', lb:'特征点跟踪'},
+  {f:'sift', t:'stitching', ty:'uses', lb:'特征匹配'},
+  {f:'sift', t:'stereo', ty:'uses', lb:'特征对应'},
+  {f:'gaussian', t:'stereo', ty:'uses', lb:'平滑预处理'},
+  {f:'sift', t:'hogsvm', ty:'contrast', lb:'稀疏vs密集描述子'},
+  {f:'colorspace', t:'slic', ty:'uses', lb:'Lab颜色空间'},
+  {f:'slic', t:'grabcut', ty:'uses', lb:'超像素→图节点'},
+  {f:'colorspace', t:'grabcut', ty:'uses', lb:'GMM在RGB建模'},
+  {f:'conv', t:'cnn', ty:'based_on', lb:'卷积核→可学习滤波器'},
+  {f:'cnn', t:'resnet', ty:'improves', lb:'残差连接'},
+  {f:'cnn', t:'unet', ty:'improves', lb:'编码-解码+跳跃'},
+  {f:'cnn', t:'yolo', ty:'improves', lb:'端到端检测'},
+  {f:'cnn', t:'gan_base', ty:'improves', lb:'CNN作生成器/判别器'},
+  {f:'resnet', t:'unet', ty:'uses', lb:'ResNet作编码器'},
+  {f:'resnet', t:'yolo', ty:'uses', lb:'ResNet作backbone'},
+  {f:'cnn', t:'vit', ty:'contrast', lb:'CNN vs Transformer'},
+  {f:'cnn', t:'detr', ty:'uses', lb:'CNN骨干提取特征'},
+  {f:'gan_base', t:'stylegan', ty:'improves', lb:'风格映射+AdaIN'},
+  {f:'unet', t:'ddpm', ty:'uses', lb:'UNet预测噪声'},
+  {f:'unet', t:'sd', ty:'uses', lb:'UNet去噪核心'},
+  {f:'cnn', t:'openpose', ty:'uses', lb:'CNN两分支架构'},
+  {f:'vit', t:'swin', ty:'improves', lb:'窗口注意力+分层'},
+  {f:'vit', t:'dino', ty:'improves', lb:'自监督训练ViT'},
+  {f:'vit', t:'mae', ty:'improves', lb:'掩码预测代理任务'},
+  {f:'mae', t:'sam', ty:'uses', lb:'MAE预训练ViT编码器'},
+  {f:'dino', t:'sam', ty:'inspires', lb:'自监督→分割涌现'},
+  {f:'vit', t:'detr', ty:'based_on', lb:'Transformer检测范式'},
+  {f:'detr', t:'dino_det', ty:'improves', lb:'+对比去噪+混合Query'},
+  {f:'dino_det', t:'grdino', ty:'improves', lb:'+文本→开放词汇'},
+  {f:'clip', t:'grdino', ty:'uses', lb:'文本-图像跨模态融合'},
+  {f:'detr', t:'mask2former', ty:'inspires', lb:'Query→Mask预测'},
+  {f:'detr', t:'sam', ty:'inspires', lb:'Query→输出Token'},
+  {f:'vit', t:'sam', ty:'based_on', lb:'ViT作图像编码器'},
+  {f:'mask2former', t:'sam', ty:'inspires', lb:'动态掩码预测头'},
+  {f:'sam', t:'sam2', ty:'improves', lb:'扩展到视频'},
+  {f:'grdino', t:'sam', ty:'uses', lb:'GroundedSAM'},
+  {f:'vit', t:'clip', ty:'based_on', lb:'ViT作图像编码器'},
+  {f:'simclr', t:'clip', ty:'inspires', lb:'对比学习框架'},
+  {f:'clip', t:'blip2', ty:'improves', lb:'冻结ViT+Q-Former+LLM'},
+  {f:'moco', t:'clip', ty:'inspires', lb:'动量编码器概念'},
+  {f:'clip', t:'sd', ty:'uses', lb:'文本嵌入→Cross-Attn'},
+  {f:'ddpm', t:'sd', ty:'improves', lb:'像素→潜空间扩散'},
+  {f:'sd', t:'controlnet', ty:'improves', lb:'+零卷积空间控制'},
+  {f:'vit', t:'dit', ty:'inspires', lb:'Transformer替代UNet'},
+  {f:'ddpm', t:'dit', ty:'improves', lb:'UNet→Transformer'},
+  {f:'dit', t:'flux', ty:'improves', lb:'+Flow Matching'},
+  {f:'sd', t:'flux', ty:'improves', lb:'DiT+多模态引导'},
+  {f:'gan_base', t:'ddpm', ty:'contrast', lb:'GAN vs 扩散'},
+  {f:'stylegan', t:'sd', ty:'contrast', lb:'GAN vs 扩散生成'},
+  {f:'nerf', t:'3dgs', ty:'improves', lb:'MLP→高斯球+光栅化'},
+  {f:'3dgs', t:'dust3r', ty:'improves', lb:'SfM→端到端'},
+  {f:'stereo', t:'dust3r', ty:'based_on', lb:'立体匹配→直接3D'},
+  {f:'nerf', t:'dust3r', ty:'contrast', lb:'体渲染vs点云'},
+  {f:'simclr', t:'moco', ty:'contrast', lb:'大batch vs 队列'},
+  {f:'moco', t:'byol', ty:'improves', lb:'负样本→无负样本'},
+  {f:'simclr', t:'byol', ty:'contrast', lb:'有负样本vs无需'},
+  {f:'byol', t:'ijepa', ty:'improves', lb:'像素→表征空间'},
+  {f:'dino', t:'ijepa', ty:'inspires', lb:'自监督无标签'},
+  {f:'mae', t:'ijepa', ty:'contrast', lb:'像素重建vs表征'},
+  {f:'yolo', t:'bytetrack', ty:'uses', lb:'检测器提供bbox'},
+  {f:'bytetrack', t:'botsort', ty:'improves', lb:'+CMC+ReID'},
+  {f:'yolo', t:'botsort', ty:'uses', lb:'检测器提供bbox'},
+  {f:'cnn', t:'mediapipe', ty:'uses', lb:'MobileNetV3'},
+  {f:'openpose', t:'mediapipe', ty:'contrast', lb:'Bottom-Up vs Top-Down'},
+  {f:'vit', t:'vitpose', ty:'based_on', lb:'纯Transformer'},
+  {f:'mediapipe', t:'vitpose', ty:'contrast', lb:'轻量vs高精度'},
+  {f:'sift', t:'cnn', ty:'contrast', lb:'手工特征vs学习'},
+  {f:'hogsvm', t:'cnn', ty:'contrast', lb:'传统+分类器vs端到端'},
+  {f:'hogsvm', t:'yolo', ty:'contrast', lb:'传统检测vs DL'},
+  {f:'watershed', t:'unet', ty:'contrast', lb:'传统分割vs语义分割'},
+  {f:'canny', t:'unet', ty:'contrast', lb:'边缘检测vs学习分割'},
+];
+
+const ECO = { uses:'#6b7280', based_on:'#3b82f6', improves:'#22c55e', contrast:'#f59e0b', inspires:'#a78bfa' };
+const EDS = { uses:[], based_on:[7,3.5], improves:[], contrast:[], inspires:[5,4] };
+const TCN = { uses:'依赖', based_on:'基于', improves:'改进', contrast:'对比', inspires:'启发' };
+const TEM = { uses:'🔧', based_on:'📐', improves:'🚀', contrast:'⚡', inspires:'💡' };
+
+// ═══════════════ COLUMN ASSIGNMENT ═══════════════
+// Which column each node belongs to. col: 0-6
+const colMap = {}; // id → col index
+NODES.forEach(n => {
+  if (n.p === 'phase1') colMap[n.id] = 0;
+  else if (n.p === 'phase2') colMap[n.id] = 1;
+  else if (n.p === 'phase3') colMap[n.id] = 2;
+  else if (n.p === 'phase4') colMap[n.id] = 3;
+  else {
+    // Phase 5 → sub-columns
+    const a = ['vit','swin','dino','mae','detr','dino_det','grdino'];
+    const b = ['sam','sam2','mask2former','clip','blip2','ddpm','sd','controlnet','stylegan','dit','flux'];
+    const c = ['nerf','3dgs','dust3r','simclr','moco','byol','ijepa','bytetrack','botsort','openpose','mediapipe','vitpose'];
+    if (a.includes(n.id)) colMap[n.id] = 4;
+    else if (b.includes(n.id)) colMap[n.id] = 5;
+    else colMap[n.id] = 6;
+  }
+});
+
+// Column metadata
+const COLS = [
+  {idx:0, phase:'phase1', label:'阶段一', sub:'基础原语', color:PCOL.phase1},
+  {idx:1, phase:'phase2', label:'阶段二', sub:'经典CV核心', color:PCOL.phase2},
+  {idx:2, phase:'phase3', label:'阶段三', sub:'中级视觉', color:PCOL.phase3},
+  {idx:3, phase:'phase4', label:'阶段四', sub:'深度学习时代', color:PCOL.phase4},
+  {idx:4, phase:'phase5', label:'阶段五-A', sub:'ViT家族 · 检测新范式', color:PCOL.phase5},
+  {idx:5, phase:'phase5', label:'阶段五-B', sub:'分割 · 多模态 · 生成式', color:PCOL.phase5},
+  {idx:6, phase:'phase5', label:'阶段五-C', sub:'3D视觉 · 自监督 · 跟踪 · 姿态', color:PCOL.phase5},
+];
+
+// ═══════════════ LAYOUT ENGINE ═══════════════
+const nodeMap = {};
+NODES.forEach(n => { nodeMap[n.id] = n; });
+
+const pos = {}; // id → {x, y}
+
+const COLMARGIN = 24;    // horizontal gap between columns
+const TOP = 100;          // top padding (for header)
+const BOTTOM = 40;        // bottom padding
+const ROW_GAP = 52;       // vertical gap between nodes in same column
+const COL_WIDTH = 170;    // width of each column (for background band)
+const PHASE5_COL_WIDTH = 190; // wider for Phase 5
+
+// Compute layout: each column gets its x-center, nodes stacked vertically
+function computeLayout(){
+  // Build column→nodes mapping
+  const colNodes = [[],[],[],[],[],[],[]];
+  NODES.forEach(n => { colNodes[colMap[n.id]].push(n); });
+
+  // Compute x positions for each column
+  let cx = 120; // start x for first column
+  const colX = [];
+  colNodes.forEach((nodes, ci) => {
+    const cw = ci >= 4 ? PHASE5_COL_WIDTH : COL_WIDTH;
+    colX[ci] = cx + cw/2;
+    cx += cw + COLMARGIN;
+  });
+  const totalW = cx - COLMARGIN; // total diagram width
+
+  // Compute max nodes in any column for height
+  let maxNodes = 0;
+  colNodes.forEach(cn => { if (cn.length > maxNodes) maxNodes = cn.length; });
+  const totalH = TOP + maxNodes * ROW_GAP + BOTTOM;
+
+  // Position nodes within each column
+  colNodes.forEach((cn, ci) => {
+    const startY = TOP + (maxNodes - cn.length) * ROW_GAP / 2; // center vertically
+    cn.forEach((n, ri) => {
+      pos[n.id] = { x: colX[ci], y: startY + ri * ROW_GAP + ROW_GAP/2 };
+    });
+  });
+
+  return { totalW, totalH, colX };
+}
+
+let layout = computeLayout();
+
+// ═══════════════ CANVAS ═══════════════
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const tip = document.getElementById('tip');
+const dpr = Math.min(window.devicePixelRatio||1, 2);
+
+let vW, vH; // viewport dimensions
+
+function resizeCanvas(){
+  vW = window.innerWidth;
+  vH = window.innerHeight;
+  canvas.width = vW * dpr;
+  canvas.height = vH * dpr;
+  canvas.style.width = vW + 'px';
+  canvas.style.height = vH + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// View transform
+let vx = 0, vy = 0, zm = 1;
+let dragging = false, dragId = null;
+let panning = false, pSX=0, pSY=0, pVX=0, pVY=0;
+let showLabels = true;
+
+// Compute initial view to fit diagram
+function fitToScreen(){
+  const l = layout;
+  const scaleX = (vW - 40) / l.totalW;
+  const scaleY = (vH - 40) / l.totalH;
+  zm = Math.min(scaleX, scaleY, 1.0);
+  // Center the diagram
+  vx = (vW / zm - l.totalW) / 2;
+  vy = (vH / zm - l.totalH) / 2;
+}
+fitToScreen();
+
+// ═══════════════ RENDER ═══════════════
+function s2w(sx, sy){ return { x: sx/zm - vx, y: sy/zm - vy }; }
+function w2s(wx, wy){ return { x: (wx+vx)*zm, y: (wy+vy)*zm }; }
+
+function render(){
+  ctx.clearRect(0, 0, vW, vH);
+
+  ctx.save();
+  ctx.translate(vx * zm, vy * zm);
+  ctx.scale(zm, zm);
+
+  const l = layout;
+
+  // ── Column background bands ──
+  const colNodes = [[],[],[],[],[],[],[]];
+  NODES.forEach(n => { colNodes[colMap[n.id]].push(n); });
+  const maxNodes = Math.max(...colNodes.map(cn=>cn.length));
+  const bandH = TOP + maxNodes * ROW_GAP + BOTTOM;
+
+  colNodes.forEach((cn, ci) => {
+    const cw = ci >= 4 ? PHASE5_COL_WIDTH : COL_WIDTH;
+    const bx = l.colX[ci] - cw/2 + 10;
+
+    // Rounded rect background
+    const r = 8;
+    ctx.beginPath();
+    ctx.moveTo(bx+r, 20); ctx.lineTo(bx+cw-20-r, 20);
+    ctx.arcTo(bx+cw-20, 20, bx+cw-20, 20+r, r);
+    ctx.lineTo(bx+cw-20, bandH-r);
+    ctx.arcTo(bx+cw-20, bandH, bx+cw-20-r, bandH, r);
+    ctx.lineTo(bx+r, bandH);
+    ctx.arcTo(bx, bandH, bx, bandH-r, r);
+    ctx.lineTo(bx, 20+r);
+    ctx.arcTo(bx, 20, bx+r, 20, r);
+    ctx.closePath();
+
+    const col = COLS[ci];
+    ctx.fillStyle = col.color + '0d';
+    ctx.fill();
+    ctx.strokeStyle = col.color + '30';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Column header
+    ctx.fillStyle = col.color;
+    ctx.font = 'bold 13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(col.label, l.colX[ci], 48);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '11px system-ui';
+    ctx.fillText(col.sub, l.colX[ci], 66);
+  });
+
+  // ── Draw edges ──
+  EDGES.forEach(e => {
+    const fp = pos[e.f], tp = pos[e.t];
+    if (!fp || !tp) return;
+
+    const fc = colMap[e.f], tc = colMap[e.t];
+    const isForward = tc > fc;
+    const isSameCol = fc === tc;
+
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = ECO[e.ty] || '#666';
+    ctx.lineWidth = (e.ty==='improves'||e.ty==='based_on') ? 1.8 : 1;
+    ctx.setLineDash(EDS[e.ty] || []);
+    ctx.beginPath();
+
+    if (isSameCol) {
+      // Same column: draw an arc going out and back
+      const midX = fp.x + 30;
+      const midY = (fp.y + tp.y) / 2;
+      ctx.moveTo(fp.x, fp.y);
+      ctx.quadraticCurveTo(midX, fp.y, midX, midY);
+      ctx.quadraticCurveTo(midX, tp.y, tp.x, tp.y);
+    } else if (isForward) {
+      // Forward edge: smooth bezier
+      const dx = tp.x - fp.x;
+      const cp1x = fp.x + dx * 0.4;
+      const cp2x = fp.x + dx * 0.6;
+      ctx.moveTo(fp.x, fp.y);
+      ctx.bezierCurveTo(cp1x, fp.y, cp2x, tp.y, tp.x, tp.y);
+    } else {
+      // Backward edge (rare): arc upward
+      const midX = (fp.x + tp.x) / 2;
+      const midY = Math.min(fp.y, tp.y) - 25;
+      ctx.moveTo(fp.x, fp.y);
+      ctx.quadraticCurveTo(midX, midY, tp.x, tp.y);
+    }
+
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrowhead on forward/same-col edges
+    if (isForward || isSameCol) {
+      let ax, ay, ang;
+      if (isForward) {
+        const dx = tp.x - fp.x;
+        // Point on bezier near target
+        const t = 0.92;
+        const mt = 1-t;
+        const cp1x = fp.x + dx*0.4, cp2x = fp.x + dx*0.6;
+        ax = mt*mt*mt*fp.x + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*tp.x;
+        ay = mt*mt*mt*fp.y + 3*mt*mt*t*fp.y + 3*mt*t*t*tp.y + t*t*t*tp.y;
+        // Derivative at t
+        const dax = 3*mt*mt*(cp1x-fp.x) + 6*mt*t*(cp2x-cp1x) + 3*t*t*(tp.x-cp2x);
+        const day = 3*mt*mt*(fp.y-fp.y) + 6*mt*t*(tp.y-fp.y) + 3*t*t*(tp.y-tp.y);
+        // Actually let's simplify: use direction toward target near the end
+        ang = Math.atan2(tp.y - ay, tp.x - ax);
+      } else {
+        ax = tp.x; ay = tp.y;
+        ang = Math.atan2(tp.y - fp.y, tp.x - fp.x);
+      }
+      const al = 6;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax-al*Math.cos(ang-0.5), ay-al*Math.sin(ang-0.5));
+      ctx.lineTo(ax-al*Math.cos(ang+0.5), ay-al*Math.sin(ang+0.5));
+      ctx.closePath();
+      ctx.fillStyle = ECO[e.ty] || '#666';
+      ctx.fill();
+    }
+
+    // Edge label (only when zoomed in)
+    if (showLabels && zm > 0.45) {
+      const mx = (fp.x+tp.x)/2, my = (fp.y+tp.y)/2;
+      ctx.globalAlpha = 0.5;
+      ctx.font = '8px system-ui';
+      ctx.fillStyle = ECO[e.ty] || '#666';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.lb, mx, my - 4);
+    }
+  });
+
+  // ── Draw nodes ──
+  NODES.forEach(n => {
+    const p = pos[n.id];
+    if (!p) return;
+    const color = PCOL[n.p];
+    const r = 8;
+
+    // Shadow
+    ctx.beginPath();
+    ctx.arc(p.x, p.y+1, r, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fill();
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // White border
+    ctx.strokeStyle = '#fff3';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Drag highlight
+    if (dragId === n.id) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r+4, 0, Math.PI*2);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    // Label
+    if (showLabels && zm > 0.35) {
+      const fs = Math.min(13, Math.max(9, 11/zm));
+      ctx.font = `bold ${fs}px system-ui`;
+      ctx.fillStyle = '#e5e7eb';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.n, p.x, p.y - r - 6);
+    }
+  });
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ═══════════════ INTERACTION ═══════════════
+function findNode(sx, sy){
+  const w = s2w(sx, sy);
+  // Search in reverse to pick topmost (last drawn)
+  for (let i = NODES.length-1; i >= 0; i--) {
+    const n = NODES[i], p = pos[n.id];
+    if (!p) continue;
+    const dx = w.x-p.x, dy = w.y-p.y;
+    if (dx*dx+dy*dy < 15*15) return n;
+  }
+  return null;
+}
+
+function getRelations(node){
+  const rels = [];
+  EDGES.forEach(e => {
+    if (e.f === node.id) rels.push({dir:'→', other:nodeMap[e.t], ty:e.ty, lb:e.lb});
+    if (e.t === node.id) rels.push({dir:'←', other:nodeMap[e.f], ty:e.ty, lb:e.lb});
+  });
+  return rels;
+}
+
+function showTip(sx, sy, node, rels){
+  const color = PCOL[node.p];
+  let rh = '';
+  rels.slice(0,10).forEach(r => {
+    rh += `<div>${r.dir} <b>${r.other.n}</b> <span style="color:${ECO[r.ty]}">${TEM[r.ty]}${TCN[r.ty]}</span> · ${r.lb}</div>`;
+  });
+  if (rels.length>10) rh += `<div style="color:#6b7280">…还有 ${rels.length-10} 条关系</div>`;
+
+  tip.innerHTML = `<span class="tag" style="background:${color}">${node.p==='phase5'?'阶段五·前沿论文':COLS.find(c=>c.phase===node.p)?.label+'·'+COLS.find(c=>c.phase===node.p)?.sub||node.p}</span>
+    <h3>${node.n}</h3>
+    <div class="en">${node.en}</div>
+    <div class="dsc">${node.d}</div>
+    <div class="yr">📅 ${node.y}</div>
+    ${rh?'<div class="rels">'+rh+'</div>':''}`;
+  tip.className = 'on';
+
+  let tx=sx+16, ty=sy+16;
+  if (tx+420>vW) tx=sx-420;
+  if (ty+300>vH) ty=sy-310;
+  tip.style.left=tx+'px'; tip.style.top=ty+'px';
+}
+function hideTip(){ tip.className=''; }
+
+canvas.addEventListener('mousedown', e => {
+  const node = findNode(e.clientX, e.clientY);
+  if (node) {
+    dragging=true; dragId=node.id;
+    canvas.style.cursor='grabbing';
+  } else {
+    panning=true; pSX=e.clientX; pSY=e.clientY; pVX=vx; pVY=vy;
+    canvas.style.cursor='grabbing';
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  if (dragging && dragId) {
+    const w = s2w(e.clientX, e.clientY);
+    pos[dragId].x=w.x; pos[dragId].y=w.y;
+    hideTip();
+  } else if (panning) {
+    vx = pVX + (e.clientX-pSX)/zm;
+    vy = pVY + (e.clientY-pSY)/zm;
+    hideTip();
+  } else {
+    const node = findNode(e.clientX, e.clientY);
+    if (node) {
+      canvas.style.cursor='pointer';
+      showTip(e.clientX, e.clientY, node, getRelations(node));
+    } else {
+      canvas.style.cursor='grab';
+      hideTip();
+    }
+  }
+});
+canvas.addEventListener('mouseup', ()=>{ dragging=false; dragId=null; panning=false; canvas.style.cursor='grab'; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const zf = e.deltaY<0 ? 1.07 : 0.93;
+  const nz = Math.max(0.2, Math.min(2.5, zm*zf));
+  vx = e.clientX/nz - (e.clientX/zm - vx);
+  vy = e.clientY/nz - (e.clientY/zm - vy);
+  zm = nz;
+}, {passive:false});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length===1){
+    const n=findNode(e.touches[0].clientX, e.touches[0].clientY);
+    if(n){ dragging=true; dragId=n.id; e.preventDefault(); }
+    else { panning=true; pSX=e.touches[0].clientX; pSY=e.touches[0].clientY; pVX=vx; pVY=vy; }
+  }
+});
+canvas.addEventListener('touchmove', e => {
+  if(dragging&&dragId){ e.preventDefault(); const w=s2w(e.touches[0].clientX, e.touches[0].clientY); pos[dragId].x=w.x; pos[dragId].y=w.y; }
+  else if(panning){ vx=pVX+(e.touches[0].clientX-pSX)/zm; vy=pVY+(e.touches[0].clientY-pSY)/zm; }
+});
+canvas.addEventListener('touchend', ()=>{ dragging=false; dragId=null; panning=false; });
+
+// Controls
+window.rst = function(){ fitToScreen(); };
+window.tgl = function(){ showLabels=!showLabels; };
+
+// Also refit on resize
+window.addEventListener('resize', ()=>{
+  resizeCanvas();
+  fitToScreen();
+});
+
+// ═══════════════ MAIN LOOP ═══════════════
+function loop(){
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

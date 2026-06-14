@@ -1,0 +1,457 @@
+/* ============================================================
+   Cvtoolkits iframe theme
+   Unifies all algorithm pages with the premium dark shell.
+   Loaded after page-local styles, so it intentionally overrides
+   older standalone page CSS without changing algorithm logic.
+   ============================================================ */
+
+:root {
+  --cv-bg: #070a12;
+  --cv-bg-2: #0a1020;
+  --cv-panel: rgba(13, 18, 32, 0.78);
+  --cv-panel-2: rgba(18, 25, 43, 0.88);
+  --cv-panel-3: rgba(255, 255, 255, 0.055);
+  --cv-border: rgba(148, 163, 184, 0.16);
+  --cv-border-strong: rgba(226, 232, 240, 0.28);
+  --cv-text: #f8fafc;
+  --cv-muted: #aab6c8;
+  --cv-faint: #64748b;
+  --cv-accent: #66f2c2;
+  --cv-accent-2: #38bdf8;
+  --cv-accent-3: #8b5cf6;
+  --cv-danger: #fb7185;
+  --cv-warning: #fbbf24;
+  --cv-success: #66f2c2;
+  --cv-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+  --cv-radius: 8px;
+  --cv-radius-sm: 6px;
+  --app-gradient:
+    linear-gradient(180deg, rgba(102, 242, 194, 0.07), transparent 30%),
+    linear-gradient(135deg, #070a12 0%, #0a1020 48%, #05070d 100%) !important;
+  --panel: var(--cv-panel) !important;
+  --border: var(--cv-border) !important;
+  --text: var(--cv-text) !important;
+  --muted: var(--cv-muted) !important;
+  --accent: var(--cv-accent) !important;
+  --shadow: var(--cv-shadow) !important;
+}
+
+html,
+body {
+  color: var(--cv-text) !important;
+  background:
+    radial-gradient(circle at 16% 4%, rgba(56, 189, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 88% 10%, rgba(139, 92, 246, 0.16), transparent 25%),
+    var(--app-gradient) !important;
+  font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 82%);
+}
+
+.page,
+.match-page {
+  width: min(1440px, calc(100% - 36px)) !important;
+  padding-top: 24px !important;
+  padding-bottom: 36px !important;
+}
+
+.glass,
+.top-panel,
+.pipeline-section,
+.history-section,
+.content-wrapper,
+.match-header > div,
+.match-console,
+.match-stage,
+.match-result-section,
+.upload-section,
+.metrics-bar,
+.step-card,
+.profile-card,
+.module-selector,
+.topbar,
+.param-panel,
+.overlay-readout,
+.formula-card,
+.settings-panel,
+.canvas-panel,
+.panel,
+.card {
+  border: 1px solid var(--cv-border) !important;
+  border-radius: var(--cv-radius) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--cv-panel) !important;
+  box-shadow: var(--cv-shadow) !important;
+  color: var(--cv-text) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.page-header,
+.hero-copy,
+.match-header > div {
+  position: relative;
+  overflow: hidden;
+}
+
+.page-header::before,
+.hero-copy::before,
+.match-header > div::before {
+  content: "Algorithm Studio";
+  display: inline-flex;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  border: 1px solid rgba(102, 242, 194, 0.22);
+  border-radius: 999px;
+  color: #b8ffe4;
+  background: rgba(102, 242, 194, 0.08);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-header {
+  margin-bottom: 18px !important;
+  padding: 24px !important;
+  border: 1px solid var(--cv-border) !important;
+  border-radius: var(--cv-radius) !important;
+  background:
+    linear-gradient(135deg, rgba(102, 242, 194, 0.10), transparent 42%),
+    rgba(13, 18, 32, 0.70) !important;
+  box-shadow: var(--cv-shadow);
+}
+
+.page-header h1,
+.page-title,
+.hero h1,
+.match-header h1,
+.topbar h1 {
+  color: #ffffff !important;
+  font-size: clamp(1.72rem, 3.4vw, 3.3rem) !important;
+  line-height: 1.02 !important;
+  font-weight: 820 !important;
+  letter-spacing: 0 !important;
+}
+
+.page-header .subtitle,
+.page-subtitle,
+.hero p,
+.match-header p,
+.section-heading span,
+.pipeline-title span,
+.profile-subtitle,
+.empty-hint,
+.upload-info,
+.status-text,
+.progress-text,
+.math-panel p,
+.thresholds-note,
+.thresholds-hint {
+  color: var(--cv-muted) !important;
+}
+
+.page-header p,
+.page-subtitle,
+.match-header p {
+  max-width: 760px;
+  line-height: 1.75 !important;
+}
+
+.status,
+.module-status,
+.impl-status span,
+.pipeline-meta,
+.history-clear-btn,
+.view-tab,
+.stage-tabs button,
+.algo-btn {
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: var(--cv-muted) !important;
+}
+
+.status.ready,
+.module-status.ready,
+.view-tab.active,
+.stage-tabs button.active,
+.algo-btn.active,
+.btn-primary,
+.upload-btn,
+.match-console button,
+.play-btn {
+  border-color: rgba(102, 242, 194, 0.34) !important;
+  background: linear-gradient(135deg, rgba(102, 242, 194, 0.95), rgba(56, 189, 248, 0.86)) !important;
+  color: #04110d !important;
+  box-shadow: 0 18px 40px rgba(102, 242, 194, 0.16) !important;
+}
+
+.upload-section,
+.upload-pane,
+.upload-box,
+.file-picker,
+.upload-button,
+.thresholds,
+.thresholds-pair > *,
+.algo-row,
+.impl-status span,
+.ratio-control,
+.select-control,
+.math-card {
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: var(--cv-text) !important;
+  box-shadow: none !important;
+}
+
+.upload-section {
+  border-style: dashed !important;
+  padding: 20px !important;
+}
+.upload-section.dragover,
+.upload-section.has-file,
+.file-picker:hover,
+.upload-button:hover {
+  border-color: rgba(102, 242, 194, 0.48) !important;
+  background: rgba(102, 242, 194, 0.07) !important;
+}
+
+.upload-btn,
+.btn,
+.history-clear-btn,
+.view-tab,
+.stage-tabs button,
+.match-console button,
+.file-picker-btn,
+.actions-row button,
+.anim-controls button {
+  min-height: 36px;
+  border-radius: 7px !important;
+  font-weight: 720 !important;
+  font-family: inherit !important;
+}
+
+input,
+select,
+textarea,
+input[type="number"] {
+  border: 1px solid rgba(148, 163, 184, 0.20) !important;
+  border-radius: 7px !important;
+  background: rgba(2, 6, 23, 0.44) !important;
+  color: var(--cv-text) !important;
+  accent-color: var(--cv-accent) !important;
+}
+
+input[type="range"] {
+  accent-color: var(--cv-accent) !important;
+}
+
+.filename,
+.file-picker-name,
+.upload-name,
+.threshold-value,
+.metric-value,
+.impl-status strong,
+.profile-item span:last-child,
+.math-card strong,
+.math-panel h2,
+.section-heading h2,
+.section-heading h3,
+.pipeline-title h2,
+.history-head h3,
+.step-title,
+.step-name {
+  color: var(--cv-text) !important;
+}
+
+.metric-item .metric-label,
+.step-desc,
+.profile-item span:first-child,
+.algo-label,
+.match-console label,
+.ratio-control small,
+.upload-info .hint {
+  color: var(--cv-faint) !important;
+}
+
+.metrics-bar {
+  gap: 10px !important;
+  background:
+    linear-gradient(135deg, rgba(102, 242, 194, 0.10), rgba(56, 189, 248, 0.035)),
+    rgba(13, 18, 32, 0.62) !important;
+}
+.metric-item {
+  min-width: 110px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.steps-grid,
+.pipeline-track,
+.history-grid {
+  gap: 14px !important;
+}
+
+.step-card {
+  overflow: hidden;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 180ms, box-shadow 180ms;
+}
+.step-card:hover,
+.pipeline-card:hover,
+.history-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(102, 242, 194, 0.30) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.44) !important;
+}
+.step-card.step-input {
+  border-left: 3px solid var(--cv-accent-2) !important;
+}
+.step-card.step-output {
+  border-left: 3px solid var(--cv-accent) !important;
+}
+.step-card .img-area,
+.image-panel,
+.anim-canvas-wrap,
+.preview-box,
+.canvas-row,
+.match-result-image,
+.viewport {
+  border: 1px solid rgba(148, 163, 184, 0.13) !important;
+  border-radius: 7px !important;
+  background: #050812 !important;
+}
+.step-card .info {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.top-panel {
+  grid-template-columns: minmax(330px, 0.82fr) minmax(420px, 1.18fr);
+  gap: 14px !important;
+  padding: 14px !important;
+}
+
+.pipeline-section,
+.history-section,
+.match-stage,
+.match-result-section {
+  padding: 16px !important;
+}
+
+.step-info-bar,
+.anim-controls,
+.progress-wrap,
+.stage-tabs,
+.view-tabs {
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  border-radius: var(--cv-radius) !important;
+  background: rgba(13, 18, 32, 0.62) !important;
+  box-shadow: var(--cv-shadow);
+  padding: 10px !important;
+}
+.view-tabs,
+.stage-tabs {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.progress-dots .dot,
+.progress-dot,
+.dot {
+  border-radius: 999px !important;
+}
+
+.loading .spinner,
+.spinner {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  border-top-color: var(--cv-accent) !important;
+}
+
+.error-box {
+  border: 1px solid rgba(251, 113, 133, 0.28) !important;
+  border-radius: 7px !important;
+  background: rgba(251, 113, 133, 0.10) !important;
+  color: #fecdd3 !important;
+}
+
+/* Feature matching page */
+.match-console {
+  gap: 10px !important;
+}
+.match-console select,
+.match-console button {
+  background: rgba(2, 6, 23, 0.44) !important;
+}
+.image-panel span,
+.point-tip,
+.ratio-tip {
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  border-radius: 7px !important;
+  background: rgba(7, 10, 18, 0.82) !important;
+  color: var(--cv-text) !important;
+  backdrop-filter: blur(16px);
+}
+
+/* Full-screen convolution pages */
+.topbar {
+  background: rgba(7, 10, 18, 0.86) !important;
+}
+.main-area,
+.viewport {
+  background: transparent !important;
+}
+.resizer,
+.panel-resizer {
+  background: rgba(148, 163, 184, 0.18) !important;
+}
+.legend,
+.formula-card,
+.overlay-readout {
+  color: var(--cv-muted) !important;
+}
+
+/* Tables / code-like panels */
+table,
+.table,
+pre,
+code,
+.math-panel,
+.knowledge-card,
+.formula-block {
+  color: var(--cv-text) !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+  background: rgba(2, 6, 23, 0.35) !important;
+}
+
+@media (max-width: 920px) {
+  .page,
+  .match-page {
+    width: min(100% - 24px, 1440px) !important;
+    padding-top: 16px !important;
+  }
+  .hero,
+  .top-panel,
+  .match-header,
+  .match-stage {
+    grid-template-columns: 1fr !important;
+  }
+  .match-console {
+    grid-template-columns: 1fr !important;
+  }
+}

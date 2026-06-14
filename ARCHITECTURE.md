@@ -22,90 +22,20 @@
 ## 二、整体架构
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      前端 (Browser)                           │
-│                                                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
-│  │ 阶段画廊 │  │ 算法详情 │  │ 难度阶梯 │  │   全局搜索   │ │
-│  │ (Gallery)│  │ (Detail) │  │ (Ladder) │  │   (Search)   │ │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘ │
-│       └──────────────┴─────────────┴───────────────┘         │
-│                          │                                     │
-│                    ┌─────┴─────┐                              │
-│                    │ 渲染引擎   │                              │
-│                    │ Canvas 2D  │  ← 热力图、梯度图、特征图      │
-│                    │ + SVG      │  ← 连线、高亮框、方向箭头      │
-│                    └─────┬─────┘                              │
-│                          │                                     │
-│              ┌───────────┴───────────┐                        │
-│              │                       │                        │
-│        ┌─────┴─────┐          ┌─────┴─────┐                  │
-│        │ 静态页面   │          │ API 客户端 │                  │
-│        │ (iframe)  │          │  (fetch)   │                  │
-│        └───────────┘          └─────┬─────┘                  │
-└─────────────────────────────────────┼────────────────────────┘
-                                      │ HTTP/JSON
-┌─────────────────────────────────────┼────────────────────────┐
-│                      后端 (Python)                            │
-│                                     │                         │
-│                          ┌─────────┴─────────┐               │
-│                          │  Flask + CORS      │               │
-│                          └─────────┬─────────┘               │
-│                                    │                          │
-│              ┌─────────────────────┼─────────────────────┐   │
-│              │                     │                     │   │
-│        ┌─────┴─────┐        ┌─────┴─────┐        ┌─────┴──┐│
-│        │  NumPy    │        │ imageio   │        │ Pillow  ││
-│        │ (核心计算)│        │ (图像IO)  │        │(base64) ││
-│        └───────────┘        └───────────┘        └────────┘│
-│                                                               │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │              模块注册系统 (Module Registry)               │ │
-│  │  importlib 自动扫描 phase1~5 目录 → AlgorithmModule 子类 │ │
-│  │  自动注册 → /api/modules 返回阶段式导航数据               │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 技术栈纯洁性约束
-
-| 层面 | 允许 | 禁止 |
-|---|---|---|
-| **前端** | HTML5, CSS3, Vanilla JS, Canvas 2D, SVG | React, Vue, ECharts, Chart.js, 任何外部 UI/图表库 |
-| **后端** | Python 3.x, Flask, NumPy, imageio, Pillow | OpenCV, scikit-image, PyTorch, 任何高层 CV 库 |
-| **算法** | 纯 NumPy 手写矩阵运算 | `cv2.Canny()`, `cv2.SIFT_create()` 等黑盒调用 |
-
----
-
-## 三、信息架构（三层模型 + 五阶段叙事）
-
-### 第一层：阶段画廊（顶层导航）
-
-按**学习路径的阶段**组织，而非按数学类别。用户从左到右、从上到下就是一条完整的学习曲线：
-
-```
 ┌──────────────────────────────────────────────────────────┐
-│                 CV 通识教育 — 学习路径                      │
+│                 CV 通识教育 — 学习路径（五阶段）              │
 │                                                            │
-│  ┌──────────────────┐  ┌──────────────────┐               │
-│  │  阶段一: 基础原语  │  │  阶段二: 经典CV   │               │
-│  │  ▸ 灰度转换       │  │  ▸ 边缘检测      │               │
-│  │  ▸ 基础卷积       │  │  ▸ Harris 角点   │               │
-│  │  ▸ 实时滤镜       │  │  ▸ SIFT 特征     │               │
-│  └──────────────────┘  └──────────────────┘               │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│  │ 阶段一:基础原语│ │阶段二:经典特征│ │阶段三:中级视觉│      │
+│  │ 像素/滤波/梯度 │ │边缘/SIFT/模板│ │分割/识别/3D  │      │
+│  │   9 modules   │ │   9 modules  │ │  14 modules  │      │
+│  └──────────────┘ └──────────────┘ └──────────────┘      │
 │                                                            │
-│  ┌──────────────────┐  ┌──────────────────┐               │
-│  │  阶段三: 中级视觉  │  │  阶段四: 深度学习  │               │
-│  │  ▸ 特征匹配+拼接  │  │  ▸ LeNet-5       │               │
-│  │  ▸ 频域分析       │  │  ▸ 目标检测 [待]  │               │
-│  │                   │  │  ▸ 语义分割 [待]  │               │
-│  │                   │  │  ▸ 实例分割 [待]  │               │
-│  └──────────────────┘  └──────────────────┘               │
-│                                                            │
-│  ┌──────────────────┐                                     │
-│  │  阶段五: 前沿论文  │  ← ViT, DETR, SAM, NeRF, ...       │
-│  │  (预留扩展)       │                                     │
-│  └──────────────────┘                                     │
+│  ┌──────────────────────┐ ┌──────────────────────────────┐│
+│  │   阶段四: 深度学习时代 │ │   阶段五: 基础模型与前沿感知  ││
+│  │ CNN/FCN/Faster R-CNN  │ │ ViT/Diffusion/SAM/NeRF      ││
+│  │      9 modules        │ │        36 modules           ││
+│  └──────────────────────┘ └──────────────────────────────┘│
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -208,129 +138,275 @@
 
 ## 六、算法覆盖范围与分阶段计划
 
-### 阶段一：基础原语（先行建设，后续算法全都依赖）
+> **对照基准**：已完整覆盖 `Hands-on-CV`（第2–19章）全部教学内容 + 具身智能与 VLA 前沿方向。
+> 标注 🆕 的为新增算法。
 
-| 算法 | 说明 | 计算位置 |
+### 阶段一：基础原语（9 项 — 像素级原子操作）
+
+> 核心理念：像素是 CV 的原子。学会操控像素、理解噪声、掌握滤波，后续所有算法都建立在这些基元之上。
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 1 | **色彩空间转换** | RGB ↔ HSV ↔ Lab ↔ 灰度。不同色彩空间揭示图像的不同侧面 | 浏览器 |
+| 2 | **直方图与均衡化** | 像素统计分布 + CLAHE 对比度增强。Otsu 阈值的前置基础 | 浏览器 |
+| 3 | **阈值化** | 全局 / 自适应 / Otsu。最简单的分割，却是形态学/轮廓的前置 | 浏览器 |
+| 4 | **噪声模型** 🆕 | 椒盐噪声、高斯噪声的生成与特性。理解「为什么要滤波」的前提。→ 具身应用中域随机化的视觉基础 | 浏览器 |
+| 5 | **卷积操作** | 1D→2D 滑动窗口，kernel 翻转，padding 策略。**整个 CV 的数学核心** | 浏览器 |
+| 6 | **高斯模糊** | 高斯核的数学构造、σ 与窗口尺寸的关系。尺度空间基石 | 浏览器 |
+| 7 | **Sobel 梯度** | 一阶导数算子，梯度幅值与方向。边缘/角点/光流都依赖它 | 浏览器 |
+| 8 | **中值滤波** 🆕 | 非线性滤波，对椒盐噪声特效。与高斯模糊形成「线性 vs 非线性」对比 | 浏览器 |
+| 9 | **双边滤波** 🆕 | 空间+色彩双高斯核，**保边平滑**。SLIC、GrabCut 等分割算法的前置 | 浏览器 |
+
+> 此外，**Unsharp Masking 锐化** 🆕（高斯模糊→高频提取→叠加增强）作为「滤波组合」的典型案例，在阶段一末尾演示「多个基础操作的组合产生新能力」。
+
+### 阶段二：经典特征检测（9 项 — 从像素到结构）
+
+> 核心理念：找到图像中的关键点、边缘和形状。这些是后续所有高层任务（匹配/拼接/3D重建/识别）的输入。
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 1 | **Canny 边缘检测** | 五步流水线：高斯→Sobel→NMS→双阈值→滞后追踪。**最经典的CV算法**，教科书级展示 | 浏览器 |
+| 2 | **Harris 角点检测** | 结构张量 M → 角点响应 R = det−k·trace²。特征值分析：角点/边缘/平坦三分法 | 浏览器 |
+| 3 | **Shi-Tomasi 角点** 🆕 | Harris 的改进：R = min(λ₁, λ₂)。光流特征点追踪的首选（`goodFeaturesToTrack`） | 浏览器 |
+| 4 | **SIFT 特征** | 完整四阶段：DoG尺度空间 → 极值检测+亚像素定位 → 主方向分配 → 128维描述子。**手工特征的巅峰** | 浏览器 |
+| 5 | **模板匹配** 🆕 | 互相关(CCORR) / 归一化互相关(NCC) 滑窗匹配。单目标+多目标+Quickselect阈值 | 浏览器 |
+| 6 | **Hough 变换** | 直线(ρ,θ)/圆形(x,y,r) 参数空间投票。边缘图→参数空间的维度跳跃思维 | 浏览器 |
+| 7 | **形态学操作** | 腐蚀/膨胀/开运算/闭运算/梯度/顶帽/黑帽。结构元素(SE)设计与二值图像处理 | 浏览器 |
+| 8 | **轮廓查找** | 轮廓层级树、面积/周长/凸包/矩形度等几何属性分析 | 浏览器 |
+| 9 | **非极大值抑制 (NMS)** | 从 Canny（边缘细化）、角点、到目标检测（边界框去重）的通用后处理技术 | 浏览器 |
+
+### 阶段三：中级视觉（14 项 — 四大任务线）
+
+> 核心理念：将阶段二的「特征」组合成完整的视觉任务。分四条任务线展开。
+
+#### 3A. 图像分割（5 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 1 | **K-Means 分割** 🆕 | RGB 像素聚类。K 值选择+颜色映射。最简单的无监督分割入口 | 浏览器 |
+| 2 | **Normalized Cuts** 🆕 | 图割+谱聚类：相似度矩阵→归一化拉普拉斯→Fiedler向量。谱方法入门 | 服务端 |
+| 3 | **分水岭分割** | 梯度图→地形浸没模拟。距离变换+标记控制解决过分割 | 浏览器/服务端 |
+| 4 | **GrabCut** | Graph Cut + 迭代GMM。GMM建模颜色分布→Min-Cut能量最小化→交互式抠图。SLIC超像素可加速4-9倍 | 服务端 |
+| 5 | **SLIC 超像素** | K-means在Lab+xy五维空间聚类。紧凑性参数控制。用作GrabCut/GraphCut的预处理 | 浏览器 |
+
+#### 3B. 传统识别管线（3 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 6 | **HOG + SVM** | 梯度方向直方图(密集网格)→Linear SVM分类。Dalal-Triggs行人检测经典 | 服务端 |
+| 7 | **BoVW + SPM** 🆕 | SIFT特征→K-Means视觉词汇→硬分配直方图→Spatial Pyramid Matching(多级网格加权)→Chi2 SVM。**手工特征时代的完整分类管线** | 服务端 |
+| 8 | **SIFT 匹配 + RANSAC** | SIFT描述子L2距离→Lowe's ratio test→RANSAC鲁棒估计单应性。是图像拼接、3D重建的通用前端 | 浏览器/服务端 |
+
+#### 3C. 运动估计（1 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 9 | **光流** | Lucas-Kanade（稀疏，最小二乘）+ Farneback（稠密，多项式展开）+ 高斯金字塔 coarse-to-fine。Shi-Tomasi特征点+LK追踪 | 浏览器 |
+
+#### 3D. 几何视觉（5 项 — 从2D像素恢复3D世界）
+
+> 这是连接经典CV与前沿NeRF/3DGS的**核心桥梁**，也是CV赋能具身智能等下游应用的空间认知基础。Hands-on-CV第16-19章的完整几何管线。
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 10 | **相机标定** 🆕 | 针孔相机模型→内参矩阵K(fx,fy,cx,cy)→外参[R\|t]→径向+切向畸变。棋盘格角点→DLT归一化→SVD求解→Cholesky得K→重投影误差评估 | 浏览器/服务端 |
+| 11 | **对极几何** 🆕 | 本质矩阵E（编码相对位姿R,t）← 基础矩阵F（编码对极约束 p'ᵀFp=0）。归一化8点法+RANSAC→SVD强制秩2。从匹配点对复原相机姿态 | 服务端 |
+| 12 | **立体匹配** | 三角测量原理 Z=fB/d。SAD(绝对差)/SSD(平方差) 🆕 匹配代价→视差图→深度图。窗口尺寸效应、置信度过滤 | 服务端 |
+| 13 | **三角测量与SfM** 🆕 | 已知R,t后→构建投影矩阵P₀,P₁→SVD求解3D点→完整SfM管线。连接：SIFT匹配→F→E→R,t→三角测量→稀疏点云 | 服务端 |
+| 14 | **图像拼接** | 特征匹配+单应性(warpPerspective)+重叠区融合。RANSAC剔除外点+内点可视化 | 服务端 |
+
+### 阶段四：深度学习时代（9 项 — 五大任务方向）
+
+> 核心理念：端到端可学习特征取代手工设计。CNN→ResNet→FCN→Faster R-CNN→Mask R-CNN 形成完整的架构演进链。
+
+#### 4A. 基础架构（2 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 1 | **CNN 基础** | Conv→ReLU→Pool→FC。卷积层可视化（滤波器/激活图/感受野）。**将阶段一的「卷积」升华为可学习** | 服务端 |
+| 2 | **ResNet + Grad-CAM** | 残差连接 F(x)+x 解决退化→152层可训练。Grad-CAM梯度加权激活图→解释模型「在看哪里」 | 服务端 |
+
+#### 4B. 语义分割（2 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 3 | **FCN** 🆕 | 全卷积网络，**语义分割开山之作**。VGG/ResNet骨干→1×1替换FC→转置卷积上采样→跳跃连接融合(FCN-8s)。mIoU评估 | 服务端 |
+| 4 | **U-Net** | 对称编码-解码+长跳跃连接。FCN的改进：更深的解码器、更丰富的特征融合。生物医学分割经典 | 服务端 |
+
+#### 4C. 目标检测（2 项 — 两阶段 vs 单阶段对比）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 5 | **Faster R-CNN + FPN** 🆕 | **两阶段检测代表**。RPN(锚框+二分类+回归)→RoI Pooling→分类+回归。FPN特征金字塔多尺度融合。mAP评估 | 服务端 |
+| 6 | **YOLO** | **单阶段检测代表**。图像→网格→直接回归(x,y,w,h,class,confidence)。与Faster R-CNN形成「速度vs精度」教学对比 | 服务端 |
+
+#### 4D. 实例分割（1 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 7 | **Mask R-CNN** 🆕 | Faster R-CNN + 掩码分支。RoIAlign(双线性插值，无量化误差)→逐类28×28二值掩码。多任务损失 L=Lrpn+Lbbox+Lmask。COCO 80类 | 服务端 |
+
+#### 4E. 生成模型（2 项）
+
+| # | 算法 | 说明 | 计算位置 |
+|---|---|---|---|
+| 8 | **GAN（基础）** | 生成器/判别器博弈、模式坍塌问题。CNN作生成器+判别器(DCGAN)。生成模型第一范式 | 服务端 |
+| 9 | **扩散模型（基础概念）** | 前向加噪(逐渐破坏)→反向去噪(学习恢复)。与GAN形成两大生成范式对比。详细内容见阶段五·5.5。→ 扩散 Transformer 也被用于 VLA 动作生成 | 服务端 |
+
+---
+
+### 阶段五：基础模型与前沿感知（2020-2025）— 理解与生成
+
+> **重新定位**：阶段五聚焦于视觉的「**理解**」与「**生成**」——用基础模型理解图像、生成新内容、把握3D空间与时间。
+> CV 的终极价值在于赋能行动——§5.10 概述了视觉理解如何支撑具身智能等下游应用。
+> 共 9 个子类 36 项算法。
+
+#### 5.1 视觉骨干网络（4 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 1 | **ViT** | Dosovitskiy et al., ICLR 2021 | 图像→Patch序列→Transformer。可视化 Patch Embedding、位置编码、各层自注意力图。**CNN 之后的新范式** | 服务端 |
+| 2 | **Swin Transformer** | Liu et al., ICCV 2021 | 分层+窗口注意力+移位窗口。多尺度ViT，检测/分割的通用骨干。局部窗口→全局感受野的渐进式设计 | 服务端 |
+| 3 | **DINO / DINOv2** | Caron et al., ICCV 2021/2023 | 自监督ViT。注意力图自动涌现语义分割——无标签的「免费」分割。与阶段三传统分割方法形成对比 | 服务端 |
+| 4 | **MAE** | He et al., CVPR 2022 | 随机遮盖75%→重建。非对称编码-解码。是 SAM 图像编码器的预训练方法。与 I-JEPA 形成「像素重建 vs 表征预测」对比 | 服务端 |
+
+#### 5.2 现代检测范式（3 项）— DETR 家族进化树
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 5 | **DETR** | Carion et al., ECCV 2020 | Transformer端到端检测。Object Query+匈牙利匹配→去掉NMS/Anchor。收敛慢（500epoch）但是范式革命。与阶段四的 Faster R-CNN/YOLO 形成三足鼎立 | 服务端 |
+| 6 | **DINO** | Zhang et al., ICLR 2023 | DETR+对比去噪+混合Query。首次让Transformer检测器超越所有传统方法（COCO 63.3 AP）。收敛从500epoch→50epoch | 服务端 |
+| 7 | **Grounding DINO** | Liu et al., ECCV 2024 | 开放词汇检测：文字描述→检测任意物体。文本-图像跨模态融合。与SAM组合为Grounded SAM → **可作为 VLA 的感知前端** | 服务端 |
+
+#### 5.3 通用分割（3 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 8 | **Mask2Former** | Cheng et al., CVPR 2022 | 掩码注意力统一语义/实例/全景分割。单一架构三项SOTA。基于 DETR 的 Query 机制 | 服务端 |
+| 9 | **SAM** | Kirillov et al., ICCV 2023 | ViT+提示编码+掩码解码。分割基础模型。MAE预训练→ViT编码→提示驱动解码。→ **可作为机器人感知的基础组件** | 服务端 |
+| 10 | **SAM 2** | Ravi et al., 2025 | SAM扩展到视频。记忆注意力+时间传播。流式视频分割→与具身智能的时序决策需求衔接 | 服务端 |
+
+#### 5.4 多模态视觉-语言（2 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 11 | **CLIP** | Radford et al., ICML 2021 | 4亿图文对对比学习。双塔架构：ViT图像编码+Transformer文本编码。零样本分类。是Stable Diffusion的文本编码器。→ **可作为 VLA 的语言理解基础** | 服务端 |
+| 12 | **BLIP-2** | Li et al., ICML 2023 | Q-Former桥接冻结ViT+冻结LLM。只有188M可训练参数。启发了LLaVA/MiniGPT-4。→ **为 VLA 奠定了多模态融合范式** | 服务端 |
+
+#### 5.5 生成式模型（6 项）— 扩散模型进化树
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 13 | **DDPM** | Ho et al., NeurIPS 2020 | 扩散模型奠基作。前向加噪(马尔可夫链)→反向去噪(U-Net预测噪声)。逐步生成的可视化是最大教学亮点 | 服务端 |
+| 14 | **Stable Diffusion (LDM)** | Rombach et al., CVPR 2022 | 潜空间扩散。VAE压缩→UNet去噪+CLIP Cross-Attention文本控制。**像素空间→潜空间的范式跃迁** | 服务端 |
+| 15 | **ControlNet** | Zhang et al., ICCV 2023 | 零卷积+冻结SD副本。Canny/HED/Depth/OpenPose→空间控制信号。→ **可用于生成具身智能的域随机化训练数据** | 服务端 |
+| 16 | **DiT** | Peebles & Xie, ICCV 2023 | Transformer替代UNet做扩散。AdaLN-Zero条件注入。Sora的基石。→ 扩散Transformer也是 π₀/GR00T N1 动作生成的核心架构 | 服务端 |
+| 17 | **Flux** | Black Forest Labs, 2024 | DiT+Flow Matching+多模态引导。**Flow Matching 也被 π₀ 等 VLA 用于动作生成** | 服务端 |
+| 18 | **StyleGAN** | Karras et al., CVPR 2019-2021 | 风格可控生成v1→v2→v3。映射网络+AdaIN→权重解调→抗混叠。可视化隐空间插值、风格混合、解耦表征 | 服务端 |
+
+#### 5.6 自监督学习（4 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 19 | **SimCLR** | Chen et al., ICML 2020 | 对比学习经典。大batch+强数据增强+MLP投影+NT-Xent损失。需要大量负样本→batch size敏感。→ 启发了 CLIP | 服务端 |
+| 20 | **MoCo** | He et al., CVPR 2020 | 动量编码器+动态队列(65K负样本)。**解耦了batch size与负样本数量**。→ 动量编码器思想被 BYOL/π₀ 等广泛采用 | 服务端 |
+| 21 | **BYOL** | Grill et al., NeurIPS 2020 | **无需负样本**！Online网络预测Target网络(EMA)。不对称架构+stop-grad防止坍塌。→ EMA 更新机制被 DreamerV3 等视觉RL模型广泛采用 | 服务端 |
+| 22 | **I-JEPA** | Assran et al., CVPR 2023 | **在表征空间预测**而非像素空间。上下文块→预测目标块的表征。比像素重建(MAE)学到了更高级的语义。→ JEPA 架构被扩展到视频和机器人领域（V-JEPA） | 服务端 |
+
+#### 5.7 神经3D与空间感知（7 项）🆕 合并原5.6+5.10
+
+> 从「看平面图像」到「理解三维空间」——这是视觉通向具身智能等下游应用的认知桥梁。
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 23 | **NeRF** | Mildenhall et al., ECCV 2020 | MLP隐式表示3D场景。采样射线→位置编码→MLP(密度+颜色)→体渲染积分。可微渲染。→ 为机器人提供新视角的3D场景理解 | 服务端 |
+| 24 | **3D Gaussian Splatting** | Kerbl et al., SIGGRAPH 2023 | 显式3D高斯椭球→可微光栅化。**实时渲染**！→ 实时3D重建对机器人Sim2Real至关重要 | 服务端 |
+| 25 | **DUSt3R** | Wang et al., CVPR 2024 | 无需相机参数！任意图像对→Transformer→直接3D点云。连接了经典立体匹配(阶段三)与端到端学习 | 服务端 |
+| 26 | **PointNet** 🆕 | Qi et al., CVPR 2017 | 点云深度学习开山之作。对称函数(MaxPool)解决无序性、T-Net学习变换不变性。**3D深度学习的入口** → 机器人处理LiDAR/深度相机点云的基础 | 服务端 |
+| 27 | **ORB-SLAM3** 🆕 | Campos et al., T-RO 2021 | 视觉SLAM三线程：跟踪+局部建图+回环检测。**空间计算的基石**。→ 移动机器人/AR/VR的核心定位技术 | 服务端 |
+| 28 | **BEV Perception** 🆕 | LSS: Philion & Fidler, ECCV 2020 | 环视多相机→深度分布预测→Lift-Splat→鸟瞰图(BEV)。**自动驾驶感知的标准范式**。→ 具身导航的空间表征基础 | 服务端 |
+| 29 | **Occupancy Networks** 🆕 | Tesla AI Day 2022 / CVPR 2023 | 体素占据预测。比3D框更精细：可处理不规则障碍物。→ 机器人安全导航的3D世界模型 | 服务端 |
+
+#### 5.8 时序理解（3 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 30 | **C3D** 🆕 | Tran et al., ICCV 2015 | 3D卷积(时空核)+8conv+3FC。UCF101 101类动作。**视频深度学习的入门模型**。→ 具身智能中的时序动作理解 | 服务端 |
+| 31 | **ByteTrack** | Zhang et al., ECCV 2022 | 利用低分检测框做MOT。高分+低分两阶段关联。→ 具身智能中的动态场景理解 | 服务端 |
+| 32 | **BoT-SORT** | Aharon et al., 2022 | ByteTrack + 相机运动补偿 + ReID。→ 移动机器人/自动驾驶的关键组件 | 服务端 |
+
+#### 5.9 人体姿态（4 项）
+
+| # | 算法 | 论文 | 说明 | 计算位置 |
+|---|---|---|---|---|
+| 33 | **DeepPose** 🆕 | Toshev & Szegedy, CVPR 2014 | **深度学习姿态估计的起点**。级联回归：CNN→(x,y)。→ 具身智能中的人机交互感知基础 | 服务端 |
+| 34 | **OpenPose** | Cao et al., TPAMI 2019 | 自底向上：PAF+关键点热力图→二分图匹配。→ 为机器人提供多人场景中的人体关键点 | 浏览器/服务端 |
+| 35 | **MediaPipe Pose** | Google, 2020 | 自顶向下轻量级。MobileNetV3→33关键点。30+FPS移动端实时。→ 机器人机载实时姿态感知 | 浏览器 |
+| 36 | **ViTPose** | Xu et al., NeurIPS 2022 | 纯ViT做姿态估计。Transformer直接输出关键点热力图。无CNN骨干的端到端 | 服务端 |
+
+> **注**：阶段五全部需要服务端 GPU 计算，预计算缓存策略尤为重要。
+
+---
+
+
+### 5.10 CV 与具身智能（Embodied AI 中的视觉）
+
+> 具身智能是 CV 的重要下游应用场景。本节概述视觉感知如何赋能机器人「看懂世界并与之交互」，
+> 仅聚焦**视觉相关**的内容。机器人控制、强化学习策略优化等非 CV 内容仅一笔带过。
+
+**视觉在具身智能中的几个核心角色：**
+
+| 角色 | 涉及 CV 技术 | 简要说明 |
 |---|---|---|
-| **卷积操作** | 滑动窗口可视化，所有后续算法的基础 | 浏览器 |
-| **高斯模糊** | 平滑去噪 | 浏览器 |
-| **Sobel 梯度** | 一阶导数，边缘检测基础 | 浏览器 |
-| **色彩空间转换** | RGB ↔ HSV ↔ Lab | 浏览器 |
-| **直方图** | 计算与均衡化 | 浏览器 |
-| **阈值化** | 全局 / 自适应 / Otsu | 浏览器 |
+| **场景理解** | SAM、CLIP、BEV、Occupancy Networks | 分割出可交互物体、识别物体语义、构建3D空间地图——这些都是阶段五已覆盖的纯视觉任务 |
+| **空间定位** | ORB-SLAM3、NeRF、3DGS | 视觉SLAM进行实时定位与建图，神经渲染用于新视角合成——已在阶段五·5.7详述 |
+| **人体理解** | OpenPose、ViTPose、MediaPipe | 机器人与人交互时需要理解人的姿态与动作——已在阶段五·5.9详述 |
+| **视觉-语言-动作（VLA）** | CLIP、DINOv2、SigLIP（视觉编码器） | VLA 模型（如 RT-2、OpenVLA、π₀）将图像+语言指令映射为机器人动作。**其中视觉编码部分直接复用 CLIP 等 CV 基础模型**——视觉是 VLA 的「眼睛」，动作生成则属于机器人学范畴 |
+| **视觉导航（VLN）** | CLIP + BEV + 时序跟踪 | 跟随自然语言指令在3D环境中导航——本质是 CV 多模态理解 + 空间感知 + 时序推理的融合 |
+| **Sim2Real 中的视觉** | 域随机化（纹理/光照/颜色扰动） | 仿真器中训练视觉策略时，随机化渲染参数以弥合 sim/real 视觉差距——与阶段一的噪声模型类似思路 |
 
-### 阶段二：经典 CV 核心算法
+**CV → 具身智能的认知链：**
 
-| 算法 | 说明 | 计算位置 |
-|---|---|---|
-| **Canny 边缘检测** | 多阶段流水线，非常适合展示 | 浏览器 |
-| **Harris 角点检测** | 角点响应可视化 | 浏览器 |
-| **SIFT 特征** | 尺度空间 + 关键点描述 | 浏览器 |
-| **Hough 变换** | 直线与圆形检测，参数空间可视化 | 浏览器 |
-| **形态学操作** | 腐蚀 / 膨胀 / 开 / 闭 | 浏览器 |
-| **轮廓查找** | 轮廓层级与分析 | 浏览器 |
+```
+阶段一~四（经典CV+深度学习）
+    → 阶段五（基础模型：SAM分割万物、CLIP理解语义、BEV构建空间、NeRF渲染新视角）
+        → 具身应用（VLA用这些视觉特征驱动机械臂、VLN用空间感知实现导航）
+```
 
-### 阶段三：中级视觉
+> **注**：VLA 模型（RT-2、Octo、OpenVLA、π₀、Helix、GR00T N1 等）的动作生成头（扩散/Flow Matching）、
+> 强化学习训练（DrQ-v2、DreamerV3）、Sim2Real 参数校准（域随机化/系统辨识/EASI-DEAL）
+> 等内容偏向机器人控制与仿真方向，不属于 CV 教学范畴，此处不展开。
 
-| 算法 | 说明 | 计算位置 |
-|---|---|---|
-| **分水岭分割** | 地形浸没模拟 | 浏览器/服务端 |
-| **GrabCut** | 交互式前景提取 | 服务端 |
-| **SLIC 超像素** | 聚类可视化 | 浏览器 |
-| **HOG + SVM** | 经典目标检测流程 | 服务端 |
-| **光流** | Lucas-Kanade / Farneback | 浏览器 |
-| **立体匹配** | 视差图与深度重建 | 服务端 |
-| **图像拼接** | 特征匹配 + 单应性 + 融合 | 服务端 |
+---
 
-### 阶段四：深度学习时代
+### 阶段间依赖关系总览
 
-| 算法 | 说明 | 计算位置 |
-|---|---|---|
-| **CNN 基础** | 卷积层可视化，滤波器激活图 | 服务端 |
-| **图像分类** | ResNet + Grad-CAM 热力图 | 服务端 |
-| **YOLO** | 检测流水线可视化 | 服务端 |
-| **U-Net** | 分割跳跃连接可视化 | 服务端 |
-| **GAN** | 生成器/判别器博弈过程 | 服务端 |
-| **扩散模型** | 去噪步骤逐步可视化 | 服务端 |
+```
+阶段一 ──→ 阶段二 ──→ 阶段三 ──→ 阶段四 ──→ 阶段五
+基础原语   经典特征   中级视觉   深度学习   基础模型与前沿感知
+ (9)       (9)       (14)      (9)        (36)
 
-### 阶段五：前沿论文算法（2020-2025）
+  「看」←───「理解」───→「生成」───→「行动」（CV 赋能具身智能）
 
-#### 5.1 视觉 Transformer 家族
+═══════════════════════════════════════════════════════════════════
+核心依赖链：
+═══════════════════════════════════════════════════════════════════
 
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **ViT** | *An Image is Worth 16x16 Words* (Dosovitskiy et al., ICLR 2021) | 将图像切成 Patch，像 NLP 的 Token 一样送入 Transformer。可视化 Patch 划分、位置编码、自注意力图 | 服务端 |
-| **Swin Transformer** | *Swin Transformer* (Liu et al., ICCV 2021) | 分层 Transformer，引入窗口注意力和移位窗口。可视化窗口划分、层级特征图 | 服务端 |
-| **DINO / DINOv2** | *Emerging Properties in Self-Supervised Vision Transformers* (Caron et al., ICCV 2021 / 2023) | 自监督 ViT，注意力图自动形成语义分割。可视化无标签训练过程、注意力涌现的语义区域 | 服务端 |
-| **MAE** | *Masked Autoencoders* (He et al., CVPR 2022) | 随机遮盖 75% 图像块，让模型重建。可视化遮盖→编码→解码→重建的完整流程 | 服务端 |
+卷积 → 高斯 → Sobel → Canny → Hough（边缘→形状线）
+卷积 → 高斯 → DoG → SIFT → 匹配 → RANSAC → 拼接 / 对极几何 → 三角测量 → 3D重建
+SIFT → BoVW+SPM → SVM（手工特征分类线）
+卷积 → CNN → ResNet → FCN/U-Net/Faster R-CNN/Mask R-CNN（深度学习架构线）
+CNN → GAN → StyleGAN（生成对抗线）
+CNN → ViT → DETR/DINO/SAM/Swin（Transformer 检测/分割线）
+U-Net → DDPM → Stable Diffusion → ControlNet → DiT → Flux（扩散模型线）
+SfM管线(标定→对极几何→三角测量) → NeRF → 3DGS → DUSt3R（3D视觉线）
+Harris → Shi-Tomasi → LK光流 → 金字塔LK（运动估计线）
+DeepPose → OpenPose/MediaPipe → ViTPose（姿态估计线）
+C3D → ByteTrack → BoT-SORT（视频理解线）
+CLIP + SAM + BEV + NeRF → VLA视觉前端 / VLN导航（CV → 具身智能）
+```
 
-#### 5.2 检测新范式
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **DETR** | *End-to-End Object Detection with Transformers* (Carion et al., ECCV 2020) | 用 Transformer 直接输出检测框，去掉 NMS/Anchor。可视化 Object Query 的注意力演化、二分图匹配 | 服务端 |
-| **DINO** | *DINO: DETR with Improved DeNoising Anchor Boxes* (Zhang et al., ICLR 2023) | DETR 改进版，收敛更快。可视化对比去噪训练与标准训练的差异 | 服务端 |
-| **Grounding DINO** | *Grounding DINO* (Liu et al., ECCV 2024) | 开放词汇检测，输入文字描述即可检测任意物体。可视化文本-图像特征融合过程 | 服务端 |
-
-#### 5.3 分割大一统
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **SAM** | *Segment Anything* (Kirillov et al., ICCV 2023) | Meta 的分割基础模型。可视化 Prompt Encoder（点/框/掩码）→ Image Encoder → Mask Decoder 的全流程 | 服务端 |
-| **SAM 2** | *SAM 2: Segment Anything in Images and Videos* (Ravi et al., 2025) | 扩展到视频。可视化记忆注意力机制、时间传播过程 | 服务端 |
-| **Mask2Former** | *Masked-attention Mask Transformer* (Cheng et al., CVPR 2022) | 统一分割架构（语义/实例/全景）。可视化掩码注意力与多尺度特征融合 | 服务端 |
-
-#### 5.4 多模态·视觉-语言
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **CLIP** | *Learning Transferable Visual Models* (Radford et al., ICML 2021) | 4亿图文对训练的对比学习模型。可视化文本-图像双塔架构、对比损失、零样本分类流程 | 服务端 |
-| **BLIP-2** | *BLIP-2* (Li et al., ICML 2023) | 用 Q-Former 桥接视觉编码器和 LLM。可视化 Q-Former 的查询-键交互机制 | 服务端 |
-
-#### 5.5 生成式模型前沿
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **DDPM** | *Denoising Diffusion Probabilistic Models* (Ho et al., NeurIPS 2020) | 扩散模型奠基之作。可视化加噪过程→去噪过程，每一步的噪声预测 | 服务端 |
-| **Stable Diffusion (LDM)** | *High-Resolution Image Synthesis with Latent Diffusion Models* (Rombach et al., CVPR 2022) | 在潜空间做扩散，大幅降低计算量。可视化 VAE 编解码 + UNet 去噪 + Cross-Attention 文本控制 | 服务端 |
-| **ControlNet** | *Adding Conditional Control to Text-to-Image Diffusion Models* (Zhang et al., ICCV 2023) | 为扩散模型增加空间控制信号（边缘/深度/姿态）。可视化控制信号如何引导生成过程 | 服务端 |
-| **StyleGAN** | *A Style-Based Generator Architecture* (Karras et al., CVPR 2019/2020/2021) | 风格可控的人脸生成。可视化风格混合、隐空间插值、解耦表征 | 服务端 |
-| **DiT** | *Scalable Diffusion Models with Transformers* (Peebles & Xie, ICCV 2023) | 用 Transformer 替代 UNet 做扩散。可视化 Patch 化潜空间 + Transformer 去噪 | 服务端 |
-| **Flux** | (Black Forest Labs, 2024) | DiT + Flow Matching + 多模态引导。可视化 Flow Matching 与 DDPM 的路径差异 | 服务端 |
-
-#### 5.6 3D 视觉与神经渲染
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **NeRF** | *NeRF: Representing Scenes as Neural Radiance Fields* (Mildenhall et al., ECCV 2020) | 用 MLP 表示 3D 场景，体渲染生成新视角。可视化采样射线→位置编码→MLP→体渲染的完整管线 | 服务端 |
-| **3D Gaussian Splatting** | *3D Gaussian Splatting* (Kerbl et al., SIGGRAPH 2023) | 用3D高斯球替代 MLP，实时渲染。可视化 SfM 初始化→高斯致密化→可微光栅化 | 服务端 |
-| **DUSt3R** | *DUSt3R* (Wang et al., CVPR 2024) | 无需相机参数，从任意图像对直接预测 3D 点云。可视化 Transformer 如何联合推断几何与位姿 | 服务端 |
-
-#### 5.7 自监督 / 对比学习
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **SimCLR** | *A Simple Framework for Contrastive Learning* (Chen et al., ICML 2020) | 对比学习经典框架。可视化数据增强→正负样本对→对比损失的直观过程 | 服务端 |
-| **MoCo** | *Momentum Contrast* (He et al., CVPR 2020) | 动量队列实现大规模对比学习。可视化动态字典、动量编码器更新的机制 | 服务端 |
-| **BYOL** | *Bootstrap Your Own Latent* (Grill et al., NeurIPS 2020) | 无需负样本的自监督学习。可视化 Online/Target 双网络互相预测的过程 | 服务端 |
-| **I-JEPA** | *Image Joint Embedding Predictive Architecture* (Assran et al., CVPR 2023) | 在表征空间而非像素空间做预测。可视化上下文块→目标块表征预测的抽象过程 | 服务端 |
-
-#### 5.8 跟踪与视频理解
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **ByteTrack** | *ByteTrack* (Zhang et al., ECCV 2022) | 利用低分检测框做多目标跟踪。可视化高分/低分框的关联策略和数据流 | 服务端 |
-| **BotSORT** | *BoT-SORT* (Aharon et al., 2022) | 融合 ReID 特征 + 相机运动补偿的跟踪器。可视化外观特征匹配与运动预测的融合 | 服务端 |
-
-#### 5.9 姿态估计
-
-| 算法 | 论文 | 说明 | 计算位置 |
-|---|---|---|---|
-| **OpenPose** | *OpenPose* (Cao et al., TPAMI 2019) | 实时多人 2D 姿态估计。可视化 PAF（部分亲和场）+ 关键点热力图 → 二分图匹配 | 浏览器/服务端 |
-| **MediaPipe Pose** | (Google, 2020) | 轻量级姿态估计。可视化轻量检测+跟踪的两阶段流水线 | 浏览器 |
-| **ViTPose** | *ViTPose* (Xu et al., NeurIPS 2022) | 用纯 ViT 做姿态估计。可视化 Transformer 如何直接输出关键点热力图 | 服务端 |
-
-> **注**：阶段五的算法全部需要服务端 GPU 计算，且每个算法的预计算缓存策略尤为重要——对精选示例图像预先跑完所有中间状态，用户打开页面即可看到完整的流水线可视化，无需等待。
+---
 
 ### 前沿算法的特殊可视化设计
 
@@ -417,7 +493,60 @@ Stable Diffusion 潜空间之旅：
 - 用户拖动时间轴滑块，看到同类图像的聚类从散乱到聚拢的过程
 - 这与只看最终结果完全不同——它展示了「学习」本身
 
----
+#### 5.G 几何视觉管线可视化（阶段三·3D 核心）
+
+这是连接经典 CV 与 NeRF/3DGS 的关键桥梁：
+
+**相机标定可视化：**
+```
+[棋盘格图像] → [角点检测] → [DLT归一化+SVD] → [内参矩阵K]
+                                                   ├── fx, fy (焦距，像素)
+                                                   ├── cx, cy (主点)
+                                                   └── k1,k2,p1,p2 (畸变系数)
+[角点+已知3D坐标] → [P'=K[R|t]P] → [重投影误差] → [标定质量评估]
+```
+
+**对极几何可视化：**
+```
+[左右图匹配点对] → [归一化8点法] → [基础矩阵F] → [对极线验证] → [已知K] → [本质矩阵E] → [SVD得R,t]
+```
+
+**SfM 完整管线可视化：**
+```
+[SIFT匹配] → [F估计(RANSAC)] → [E恢复R,t] → [三角测量] → [稀疏点云] → [360°旋转查看器]
+```
+
+#### 5.H CV 赋能具身智能可视化
+
+> 仅展示视觉在具身智能中的角色，不涉及机器人控制细节。
+
+**VLA 中视觉编码的可视化：**
+```
+[机器人相机RGB图像] → [CLIP/SigLIP/DINOv2 视觉编码器] → [视觉特征向量]
+                                                              ↓
+                                              [与语言指令特征融合]
+                                                              ↓
+                                              [动作头 → 机器人动作]
+                                                              ↓
+                                                         (非CV范畴)
+
+可视化重点：
+· 展示同一场景下，不同 CV 模型（CLIP vs SAM vs DINO）提取的视觉特征差异
+· 展示「语义注意力」——VLA 在执行指令时，视觉注意力聚焦在哪个物体上
+```
+
+**VLN 视觉导航可视化：**
+```
+[第一视角RGB] → [CLIP 理解"走到厨房水槽旁"] → [BEV 构建空间地图] → [路径规划]
+                                                                    ↓
+                                                              (导航执行，非CV)
+
+可视化重点：
+· 导航过程中视觉观测的变化（第一人称视角序列）
+· BEV 空间地图如何从多帧视觉观测逐步构建
+```
+
+> **注**：阶段五全部需要服务端 GPU 计算，预计算缓存策略尤为重要。
 
 ## 七、模块数据模型
 
@@ -430,7 +559,7 @@ class AlgorithmModule:
     module_id: str = ''          # 唯一标识, 如 'edge'
     name: str = ''               # 显示名称
     name_en: str = ''            # 英文名
-    phase: str = ''              # 所属阶段: phase1_fundamentals / phase2_classical / ...
+    phase: str = ''              # 所属阶段: phase1_fundamentals ... phase5_frontier
     difficulty: int = 1          # 难度 1-5
     description: str = ''        # 一句话描述
     dependencies: list = None    # 前置模块 id 列表
@@ -467,23 +596,75 @@ phase{N}_{name}/
       "phase_id": "phase1_fundamentals",
       "phase_name": "基础原语",
       "phase_name_en": "Fundamentals",
-      "emoji": "1",
+      "emoji": "🔰",
       "color": "#3B82F6",
       "order": 1,
-      "modules": [
-        {
-          "id": "grayscale",
-          "name": "灰度转换",
-          "name_en": "Grayscale Conversion",
-          "difficulty": 1,
-          "description": "...",
-          "dependencies": [],
-          "page": "grayscale.html"
-        }
-      ]
+      "subcategories": null,
+      "module_count": 9
+    },
+    {
+      "phase_id": "phase2_classical",
+      "phase_name": "经典特征检测",
+      "phase_name_en": "Classical Features",
+      "emoji": "🔍",
+      "color": "#10B981",
+      "order": 2,
+      "subcategories": null,
+      "module_count": 9
+    },
+    {
+      "phase_id": "phase3_intermediate",
+      "phase_name": "中级视觉",
+      "phase_name_en": "Intermediate Vision",
+      "emoji": "🎯",
+      "color": "#F59E0B",
+      "order": 3,
+      "subcategories": [
+        {"id": "phase3a_segmentation", "name": "图像分割", "count": 5},
+        {"id": "phase3b_recognition", "name": "传统识别", "count": 3},
+        {"id": "phase3c_motion", "name": "运动估计", "count": 1},
+        {"id": "phase3d_geometry", "name": "几何视觉", "count": 5}
+      ],
+      "module_count": 14
+    },
+    {
+      "phase_id": "phase4_deep_learning",
+      "phase_name": "深度学习时代",
+      "phase_name_en": "Deep Learning Era",
+      "emoji": "🧠",
+      "color": "#EF4444",
+      "order": 4,
+      "subcategories": [
+        {"id": "phase4a_foundations", "name": "基础架构", "count": 2},
+        {"id": "phase4b_semantic", "name": "语义分割", "count": 2},
+        {"id": "phase4c_detection", "name": "目标检测", "count": 2},
+        {"id": "phase4d_instance", "name": "实例分割", "count": 1},
+        {"id": "phase4e_generation", "name": "生成模型", "count": 2}
+      ],
+      "module_count": 9
+    },
+    {
+      "phase_id": "phase5_frontier",
+      "phase_name": "基础模型与前沿感知",
+      "phase_name_en": "Foundation Models & Perception",
+      "emoji": "🚀",
+      "color": "#8B5CF6",
+      "order": 5,
+      "subcategories": [
+        {"id": "phase5_1", "name": "视觉骨干", "count": 4},
+        {"id": "phase5_2", "name": "现代检测", "count": 3},
+        {"id": "phase5_3", "name": "通用分割", "count": 3},
+        {"id": "phase5_4", "name": "多模态VL", "count": 2},
+        {"id": "phase5_5", "name": "生成式模型", "count": 6},
+        {"id": "phase5_6", "name": "自监督学习", "count": 4},
+        {"id": "phase5_7", "name": "神经3D与空间", "count": 7},
+        {"id": "phase5_8", "name": "时序理解", "count": 3},
+        {"id": "phase5_9", "name": "人体姿态", "count": 4}
+      ],
+      "module_count": 36
     }
   ],
-  "total": 12
+  "total": 77
 }
 ```
 
@@ -495,12 +676,11 @@ phase{N}_{name}/
 
 ### 1. 阶段卡片网格（已实现）
 ```
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  阶段一       │ │  阶段二       │ │  阶段三       │ │  阶段四       │
-│  基础原语     │ │  经典CV核心   │ │  中级视觉     │ │  深度学习     │
-│  3 modules   │ │  3 modules   │ │  2 modules   │ │  4 modules   │
-│  [灰度][卷积] │ │ [边缘][角点]  │ │ [匹配][频域]  │ │ [LeNet]...   │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  阶段一       │ │  阶段二       │ │  阶段三       │ │  阶段四       │ │  阶段五       │
+│  基础原语     │ │  经典特征检测 │ │  中级视觉     │ │  深度学习时代 │ │  前沿感知     │
+│  9 modules   │ │  9 modules   │ │  14 modules  │ │  9 modules   │ │  36 modules  │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 每张卡片带有阶段色标，点击模块芯片直接进入，点击卡片跳转侧边栏。
 
@@ -594,22 +774,24 @@ phase{N}_{name}/
 
 | 阶段 | 模块 | 骨架 | 算法 | 前端页面 |
 |---|---|---|---|---|
-| **阶段一: 基础原语** | | | | |
-| | grayscale (灰度转换) | ✅ | ✅ 6种方案 | ⬜ |
+| **阶段一: 基础原语** (规划9项) | | | | |
+| | grayscale (色彩空间转换) | ✅ | ✅ 6种方案 | ⬜ |
 | | convolution (基础卷积) | ✅ | ✅ 带trace | ⬜ |
 | | live (实时滤镜) | ✅ | ⬜ | ⬜ |
-| **阶段二: 经典CV** | | | | |
+| **阶段二: 经典特征检测** (规划9项) | | | | |
 | | edge (边缘检测) | ✅ | ✅ Sobel+Canny | ⬜ |
 | | corner (角点检测) | ✅ | ✅ Harris | ⬜ |
 | | sift (SIFT特征) | ✅ | ✅ 完整流水线 | ⬜ |
-| **阶段三: 中级视觉** | | | | |
-| | match (特征匹配) | ✅ | ✅ 匹配+拼接 | ⬜ |
+| **阶段三: 中级视觉** (规划14项) | | | | |
+| | match (特征匹配+拼接) | ✅ | ✅ 匹配+拼接 | ⬜ |
 | | frequency (频域分析) | ✅ | ⬜ | ⬜ |
-| **阶段四: 深度学习** | | | | |
+| **阶段四: 深度学习时代** (规划9项) | | | | |
 | | lenet (LeNet-5) | ✅ | ✅ 推理+trace | ⬜ |
-| | detection (目标检测) | ✅ | ⬜ [新增] | ⬜ |
-| | semantic (语义分割) | ✅ | ⬜ [新增] | ⬜ |
-| | instance (实例分割) | ✅ | ⬜ [新增] | ⬜ |
+| | detection (目标检测) | ✅ | ⬜ | ⬜ |
+| | semantic (语义分割) | ✅ | ⬜ | ⬜ |
+| | instance (实例分割) | ✅ | ⬜ | ⬜ |
+| **阶段五: 基础模型与前沿感知** (规划36项) | | | | |
+| | (全部预留 — §5.10 CV与具身智能为概述性质) | ⬜ | ⬜ | ⬜ |
 
 ### 已验证的核心能力
 - ✅ Flask 应用工厂 + 自动模块发现
@@ -618,15 +800,20 @@ phase{N}_{name}/
 - ✅ iframe 子页面加载 + postMessage 通信
 - ✅ 7 个算法的纯 NumPy 实现（可独立导入和测试）
 - ✅ 每个算法有对应的 processor 流水线构建器
+- ✅ 算法关系网络图
 
-### 待建设
-- ⬜ 所有模块的算法详情 HTML 页面
-- ⬜ 3 个新增模块（detection/semantic/instance）的算法实现
-- ⬜ 对比模式页面
-- ⬜ 交互式游乐场
-- ⬜ 预计算缓存机制
+### 待建设（按优先级）
 
----
+| 优先级 | 任务 | 涉及算法数 |
+|---|---|---|
+| P0 | 填充 detection/semantic/instance：Faster R-CNN / FCN / Mask R-CNN | 3 |
+| P0 | 已实现模块的算法详情 HTML 页面 | ~10 |
+| P1 | 阶段一～三扩充：噪声/中值/双边/K-Means/Ncuts/BoVW+SPM/相机标定/对极几何/SfM 等 | 12 |
+| P2 | 示例图像 + 预计算缓存 | — |
+| P2 | 安装说明 + 保证书 | — |
+| P3 | 对比模式页面 | — |
+| P3 | 演示视频 | — |
+| P3 | 交互式游乐场 | — |
 
 ## 十二、快速提升可理解性的设计细节
 
@@ -656,23 +843,71 @@ cv_comprehensive/
 │   ├── modules/
 │   │   ├── __init__.py            # 模块注册表 + importlib 自动扫描 + get_modules_by_phase()
 │   │   ├── base.py                # AlgorithmModule 基类 (__init_subclass__ 自动注册)
-│   │   ├── phase1_fundamentals/   # 阶段一: 基础原语
-│   │   │   ├── grayscale/         #   灰度转换 (algorithm + processor)
-│   │   │   ├── convolution/       #   基础卷积 (algorithm)
-│   │   │   └── live/              #   实时滤镜 (空壳)
-│   │   ├── phase2_classical/      # 阶段二: 经典CV核心算法
-│   │   │   ├── edge/              #   边缘检测 (algorithm + processor)
-│   │   │   ├── corner/            #   Harris角点 (algorithm + processor)
-│   │   │   └── sift/              #   SIFT特征 (algorithm + processor)
-│   │   ├── phase3_intermediate/   # 阶段三: 中级视觉
-│   │   │   ├── match/             #   特征匹配+拼接 (algorithm)
-│   │   │   └── frequency/         #   频域分析 (空壳)
-│   │   ├── phase4_deep_learning/  # 阶段四: 深度学习时代
-│   │   │   ├── lenet/             #   LeNet-5 (algorithm + processor)
-│   │   │   ├── detection/         #   目标检测 (空壳) [新增]
-│   │   │   ├── semantic/          #   语义分割 (空壳) [新增]
-│   │   │   └── instance/          #   实例分割 (空壳) [新增]
-│   │   └── phase5_frontier/       # 阶段五: 前沿论文算法 (预留)
+│   │   ├── phase1_fundamentals/   # 阶段一: 基础原语 (9项)
+│   │   │   ├── grayscale/         #   色彩空间转换 (✅)
+│   │   │   ├── histogram/         #   直方图与均衡化 [🆕]
+│   │   │   ├── threshold/         #   阈值化 [🆕]
+│   │   │   ├── noise/             #   噪声模型 [🆕]
+│   │   │   ├── convolution/       #   卷积操作 (✅)
+│   │   │   ├── gaussian/          #   高斯模糊 [🆕]
+│   │   │   ├── sobel/             #   Sobel梯度 [🆕]
+│   │   │   ├── median/            #   中值滤波 [🆕]
+│   │   │   ├── bilateral/         #   双边滤波 [🆕]
+│   │   │   └── live/              #   实时滤镜
+│   │   ├── phase2_classical/      # 阶段二: 经典特征检测 (9项)
+│   │   │   ├── canny/             #   Canny边缘检测
+│   │   │   ├── harris/            #   Harris角点 (✅)
+│   │   │   ├── shitomasi/         #   Shi-Tomasi角点 [🆕]
+│   │   │   ├── sift/              #   SIFT特征 (✅)
+│   │   │   ├── template_match/    #   模板匹配 [🆕]
+│   │   │   ├── hough/             #   Hough变换 [🆕]
+│   │   │   ├── morphology/        #   形态学操作 [🆕]
+│   │   │   ├── contour/           #   轮廓查找 [🆕]
+│   │   │   └── nms/               #   非极大值抑制 [🆕]
+│   │   ├── phase3_intermediate/   # 阶段三: 中级视觉 (14项)
+│   │   │   ├── phase3a_segmentation/  # 3A.图像分割
+│   │   │   │   ├── kmeans/        #   K-Means分割 [🆕]
+│   │   │   │   ├── ncuts/         #   Normalized Cuts [🆕]
+│   │   │   │   ├── watershed/     #   分水岭分割 [🆕]
+│   │   │   │   ├── grabcut/       #   GrabCut [🆕]
+│   │   │   │   └── slic/          #   SLIC超像素 [🆕]
+│   │   │   ├── phase3b_recognition/   # 3B.传统识别
+│   │   │   │   ├── hog_svm/       #   HOG+SVM [🆕]
+│   │   │   │   ├── bovw_spm/      #   BoVW+SPM [🆕]
+│   │   │   │   └── sift_ransac/   #   SIFT匹配+RANSAC
+│   │   │   ├── phase3c_motion/    # 3C.运动估计
+│   │   │   │   └── optical_flow/  #   光流 [🆕]
+│   │   │   └── phase3d_geometry/  # 3D.几何视觉
+│   │   │       ├── calibration/   #   相机标定 [🆕]
+│   │   │       ├── epipolar/      #   对极几何 [🆕]
+│   │   │       ├── stereo/        #   立体匹配 [🆕]
+│   │   │       ├── sfm/           #   三角测量与SfM [🆕]
+│   │   │       └── stitching/     #   图像拼接
+│   │   ├── phase4_deep_learning/  # 阶段四: 深度学习时代 (9项)
+│   │   │   ├── phase4a_foundations/   # 4A.基础架构
+│   │   │   │   ├── cnn_basics/    #   CNN基础 [🆕]
+│   │   │   │   └── resnet/        #   ResNet+Grad-CAM [🆕]
+│   │   │   ├── phase4b_semantic/  # 4B.语义分割
+│   │   │   │   ├── fcn/           #   FCN [🆕]
+│   │   │   │   └── unet/          #   U-Net [🆕]
+│   │   │   ├── phase4c_detection/ # 4C.目标检测
+│   │   │   │   ├── faster_rcnn/   #   Faster R-CNN+FPN [🆕]
+│   │   │   │   └── yolo/          #   YOLO [🆕]
+│   │   │   ├── phase4d_instance/  # 4D.实例分割
+│   │   │   │   └── mask_rcnn/     #   Mask R-CNN [🆕]
+│   │   │   └── phase4e_generation/# 4E.生成模型
+│   │   │       ├── gan/           #   GAN基础 [🆕]
+│   │   │       └── diffusion/     #   扩散模型基础 [🆕]
+│   │   ├── phase5_frontier/       # 阶段五: 基础模型与前沿感知 (36项)
+│   │   │   ├── phase5_1_vit/      #   视觉骨干网络 (ViT/Swin/DINO/MAE)
+│   │   │   ├── phase5_2_detection/#   现代检测 (DETR/DINO/GroundingDINO)
+│   │   │   ├── phase5_3_segmentation/# 通用分割 (SAM/SAM2/Mask2Former)
+│   │   │   ├── phase5_4_multimodal/#   多模态 (CLIP/BLIP-2)
+│   │   │   ├── phase5_5_generation/#   生成式模型 (DDPM/SD/ControlNet/DiT/Flux/StyleGAN)
+│   │   │   ├── phase5_6_ssl/      #   自监督学习 (SimCLR/MoCo/BYOL/I-JEPA)
+│   │   │   ├── phase5_7_3d/       #   神经3D与空间 (NeRF/3DGS/DUSt3R/PointNet/SLAM/BEV/Occupancy)
+│   │   │   ├── phase5_8_video/    #   时序理解 (C3D/ByteTrack/BoT-SORT)
+│   │   │   └── phase5_9_pose/     #   人体姿态 (DeepPose/OpenPose/MediaPipe/ViTPose)
 │   └── utils/
 │       └── image_utils.py         # 图像工具: load/save/base64/check_shape
 │
@@ -683,42 +918,45 @@ cv_comprehensive/
 │   │   ├── app.js                 # 主应用: 导航渲染 + 画廊 + 详情 + iframe通信
 │   │   ├── router.js              # 轻量 Hash 路由器
 │   │   └── utils.js               # 纯函数工具: assertType, debounce, toast, ...
-│   └── pages/                     # 各算法模块的 HTML 页面 (iframe 加载)
-│       ├── grayscale.html         # ⬜ 待实现
-│       ├── edge.html              # ⬜ 待实现
-│       ├── ...                    # 共13个页面壳
-│       ├── detection.html         # [新增] ⬜
-│       ├── semantic.html          # [新增] ⬜
-│       └── instance.html          # [新增] ⬜
+│   ├── pages/                     # 各算法模块的 HTML 页面 (iframe 加载)
+│   │   ├── grayscale.html         # (规划92个页面)
+│   │   └── ...
+│   └── algorithm_network.html     # 算法关系网络图
 │
 ├── templates/
 │   └── index.html                 # Jinja2 SPA 外壳 (侧边栏 + 画廊 + iframe容器)
 │
 └── docs/
     ├── ARCHITECTURE.md            # 本文件
-    └── ASSIGNMENT_REQUIREMENTS.md # 作业要求
+    ├── ASSIGNMENT_REQUIREMENTS.md # 作业要求
+    └── coverage_gap_analysis.md   # Hands-on-CV 覆盖缺口分析
 ```
 
 ---
 
 ## 十四、下一步行动
 
+### 总体规划（77 个算法模块，5 个阶段）
+
 1. **算法详情页面** — 为每个已实现算法的模块编写 HTML 详情页（流水线条带、参数滑块、对比视图）
-2. **新增三大模块** — 实现 detection（目标检测）、semantic（语义分割）、instance（实例分割）的算法核心
-3. **对比模式** — 同任务不同算法的并列对比页面
-4. **示例图像库** — 为每个算法精选 3-5 张典型输入图像并预计算结果
-5. **安装说明文档** — 编写 README.md 含环境要求、依赖安装、启动步骤
-6. **演示视频** — 录制从零到懂的通识教育完整流程
-7. **保证书** — 声明核心算法为手写实现
+2. **填充空壳模块** — 优先实现 P0 模块：Faster R-CNN（detection）、FCN（semantic）、Mask R-CNN（instance）
+3. **阶段一～三扩充** — 新增噪声/中值/双边/Shi-Tomasi/模板匹配/K-Means/Ncuts/BoVW+SPM/相机标定/对极几何/SfM 等模块
+4. **对比模式** — 同任务不同算法的并列对比页面（如 Faster R-CNN vs YOLO、FCN vs U-Net）
+5. **示例图像库** — 为每个算法精选 3-5 张典型输入图像并预计算结果
+6. **安装说明文档** — 编写 README.md 含环境要求、依赖安装、启动步骤
+7. **演示视频** — 录制从零到懂的通识教育完整流程
+8. **保证书** — 声明核心算法为手写实现
+9. **算法关系网络图** ✅ — 已交付
 
 ### 当前优先级
 
-| 优先级 | 任务 | 依赖 |
-|---|---|---|
-| P0 | 算法详情页面 (Pipeline Strip HTML) | 算法实现已完成 |
-| P0 | 新增三大模块算法实现 | 无 |
-| P1 | 示例图像 + 预计算 | 算法实现已完成 |
-| P1 | 安装说明 + 保证书 | 无 |
-| P2 | 对比模式 | 页面模板 |
-| P2 | 演示视频 | 所有页面完成 |
-| P3 | 交互式游乐场 | 对比模式 |
+| 优先级 | 任务 | 涉及算法数 | 依赖 |
+|---|---|---|---|
+| P0 | 填充 detection/semantic/instance：Faster R-CNN / FCN / Mask R-CNN | 3 | 无 |
+| P0 | 已实现模块的算法详情 HTML 页面 | ~10 | 算法实现已完成 |
+| P1 | 阶段一～三扩充：噪声/中值/双边/K-Means/Ncuts/BoVW/相机标定/对极几何/SfM | 12 | 部分依赖SIFT |
+| P2 | 示例图像 + 预计算缓存 | — | 算法实现 |
+| P2 | 安装说明 + 保证书 | — | 无 |
+| P3 | 对比模式 | — | 页面模板 |
+| P3 | 演示视频 | — | 所有页面完成 |
+| P3 | 交互式游乐场 | — | 对比模式 |

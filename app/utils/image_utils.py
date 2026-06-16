@@ -1,12 +1,12 @@
 """
 图像工具纯函数。
-所有函数保证：输入校验 → 处理 → 输出，无副作用。
 """
 import numpy as np
 import imageio.v3 as iio
 import base64
 import io
 from PIL import Image
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def check_shape(arr, name='array', min_dim=2, max_dim=4):
@@ -145,3 +145,63 @@ def to_base64(arr):
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode('ascii')
+
+# Backward compatibility for old CV module imports
+def ensure_uint8(image_array):
+    """Old CV compatibility: ensure array is uint8."""
+    return to_uint8(image_array)
+
+
+def conv2d(img, kernel, padding='edge'):
+    """Pure NumPy 2D convolution/correlation."""
+    arr = np.asarray(img, dtype=np.float32)
+    ker = np.asarray(kernel, dtype=np.float32)
+    if ker.ndim != 2:
+        raise ValueError('kernel must be 2D')
+    if arr.ndim == 3:
+        return np.stack([conv2d(arr[..., c], ker, padding=padding) for c in range(arr.shape[2])], axis=-1)
+    if arr.ndim != 2:
+        raise ValueError(f'img must be 2D or 3D, got {arr.shape}')
+
+    kh, kw = ker.shape
+    ph, pw = kh // 2, kw // 2
+    padded = np.pad(arr, ((ph, ph), (pw, pw)), mode=padding)
+    windows = sliding_window_view(padded, (kh, kw))
+    return np.sum(windows * ker, axis=(2, 3))
+
+
+def window_mean(img, size, padding='edge'):
+    """Pure NumPy local mean filter."""
+    size = max(1, int(size))
+    if size % 2 == 0:
+        size += 1
+    kernel = np.ones((size, size), dtype=np.float32) / float(size * size)
+    return conv2d(img, kernel, padding=padding)
+
+
+def window_median(img, size, padding='edge'):
+    """Pure NumPy local median filter."""
+    arr = np.asarray(img)
+    size = max(1, int(size))
+    if size % 2 == 0:
+        size += 1
+    if arr.ndim == 3:
+        return np.stack([window_median(arr[..., c], size, padding=padding) for c in range(arr.shape[2])], axis=-1).astype(arr.dtype, copy=False)
+    if arr.ndim != 2:
+        raise ValueError(f'img must be 2D or 3D, got {arr.shape}')
+    pad = size // 2
+    padded = np.pad(arr, ((pad, pad), (pad, pad)), mode=padding)
+    windows = sliding_window_view(padded, (size, size))
+    return np.median(windows, axis=(2, 3)).astype(arr.dtype, copy=False)
+
+
+def window_max(img, size, padding='edge'):
+    """Pure NumPy local max filter."""
+    arr = np.asarray(img)
+    size = max(1, int(size))
+    if size % 2 == 0:
+        size += 1
+    pad = size // 2
+    padded = np.pad(arr, ((pad, pad), (pad, pad)), mode=padding)
+    windows = sliding_window_view(padded, (size, size))
+    return windows.max(axis=(2, 3))

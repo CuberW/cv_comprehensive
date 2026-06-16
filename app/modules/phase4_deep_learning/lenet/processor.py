@@ -11,8 +11,7 @@ from app.modules.phase4_deep_learning.lenet.algorithm import compute_forward_tra
 def _find_weights():
     """Search for pre-trained weights file in common locations."""
     candidates = [
-        os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'lenet_weights.json'),
-        os.path.join(os.path.dirname(__file__), '..', '..', '..', 'static', 'lenet_weights.json'),
+        os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'static', 'lenet_weights.json'),
         os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'CV', 'static', 'lenet_weights.json'),
     ]
     for p in candidates:

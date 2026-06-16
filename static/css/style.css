@@ -24,12 +24,56 @@
     --app-bg:     radial-gradient(ellipse at 30% 10%,rgba(59,130,246,.06) 0%,transparent 60%),radial-gradient(ellipse at 75% 85%,rgba(139,92,246,.05) 0%,transparent 60%),var(--bg-deep);
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
-    margin: 0; font-family: var(--font); font-size: 15px; color: var(--text);
-    background: var(--app-bg); min-height: 100vh; overflow-x: hidden;
+/* Light theme — matches main.css */
+[data-theme="light"] {
+    --bg-deep:    #f3eee4;
+    --bg-surface: #e8e2d5;
+    --bg-card:    #faf7f0;
+    --bg-hover:   #f0e9d8;
+    --border:     rgba(139,115,85,.18);
+    --border-sub: rgba(139,115,85,.1);
+    --text:       #3d3226;
+    --text-dim:   #6b5d4f;
+    --muted:      #8e7f6e;
+    --accent:     #0d9488;
+    --accent2:    #7c3aed;
+    --success:    #059669;
+    --danger:     #dc2626;
+    --shadow:     0 12px 32px rgba(139,115,85,.1);
+    --panel:      rgba(250,247,240,.85);
+    --app-bg:     var(--bg-deep);
 }
+[data-theme="light"] body { background: var(--bg-deep); }
+
+* { box-sizing: border-box; }
+/*
+  Sub-page base layout — prevents double-scrollbar, layout shift, and overflow conflicts.
+  All algorithm pages loaded in iframes inherit this.
+*/
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  margin: 0; padding: 0; height: 100%;
+}
+body {
+  margin: 0; padding: 0; height: 100%;
+  font-family: var(--font); font-size: 15px; color: var(--text);
+  background: var(--app-bg);
+  overflow: hidden;  /* body never scrolls — child panels scroll internally */
+}
+
+/* ── Scrollbar utility class for internal panels ── */
+.page::-webkit-scrollbar,
+.scrollable::-webkit-scrollbar              { width: 6px; height: 6px; }
+.page::-webkit-scrollbar-track,
+.scrollable::-webkit-scrollbar-track        { background: transparent; }
+.page::-webkit-scrollbar-thumb,
+.scrollable::-webkit-scrollbar-thumb        { background: var(--text-muted); border-radius: 3px; }
+.page::-webkit-scrollbar-thumb:hover,
+.scrollable::-webkit-scrollbar-thumb:hover  { background: var(--text-dim); }
+.page::-webkit-scrollbar-corner,
+.scrollable::-webkit-scrollbar-corner       { background: transparent; }
+.page, .scrollable                          { scrollbar-width: thin; scrollbar-color: var(--text-muted) transparent; }
 
 /* ---- Sub-page header bar ---- */
 .sub-header {
@@ -47,6 +91,8 @@ body {
     width: min(1200px, calc(100% - 32px));
     margin: 0 auto;
     padding: 22px 0 32px;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .glass { background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: var(--radius); }

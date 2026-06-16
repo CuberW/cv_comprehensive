@@ -1,84 +1,86 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>特征匹配 — Cvtoolkits</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图像匹配与拼接 - Cvtoolkits</title>
 <link rel="stylesheet" href="../css/style.css">
-<style>
-.page{max-width:1100px;margin:0 auto;padding:24px 20px 40px}
-.head{margin-bottom:24px}
-.head h1{font-size:24px;font-weight:800;margin:0 0 6px;color:var(--text)}
-.head p{color:var(--text-dim);font-size:14px;line-height:1.6;margin:0}
-.row{display:flex;gap:16px;flex-wrap:wrap}
-.col{flex:1;min-width:300px}
-.card{padding:20px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px}
-.card h3{margin:0 0 12px;font-size:15px;color:var(--text)}
-.zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-dim);font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
-.zone:hover{border-color:var(--accent);color:var(--accent);background:rgba(102,242,194,.03)}
-.zone input{display:none}
-.zone .icon{font-size:36px}
-.preview{max-width:100%;max-height:240px;border-radius:8px;margin-top:12px;display:none;object-fit:contain}
-.result-img{max-width:100%;max-height:300px;border-radius:8px}
-.btn{display:inline-block;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
-.btn-go{background:var(--accent);color:#070a14;margin-top:12px}
-.btn-go:hover{opacity:.85;transform:translateY(-1px)}
-.btn-go:disabled{opacity:.35;cursor:not-allowed}
-.rbox{display:none;margin-top:16px}
-.rbox.show{display:block}
-.spin{display:none;text-align:center;padding:24px;color:var(--text-dim);font-size:14px}
-.spin.show{display:block}
-.hint{font-size:13px;color:var(--text-muted);margin-top:12px}
-</style>
+<link rel="stylesheet" href="../css/match.css">
+<script src="../js/theme-sync.js"></script>
 </head>
 <body>
-<main class="page">
-<div class="head"><h1>特征匹配</h1><p>SIFT匹配+Lowe ratio test+RANSAC单应性。</p></div>
-<div class="row">
-<div class="col">
-<div class="card">
-<h3>📥 上传图片</h3>
-<div class="zone" id="zone"><span class="icon">🖼</span><span id="hint">点击或拖拽上传图片文件</span><input type="file" id="file" accept="image/*"></div>
+<main class="match-page">
+    <header class="match-header">
+        <div>
+            <h1>图像匹配与拼接</h1>
+            <p>上传两张有重叠的图片，用角点或尺度不变特征完成匹配过滤，并在底部生成拼接结果。</p>
+        </div>
+        <form id="matchForm" class="match-console" enctype="multipart/form-data">
+            <label class="select-control">
+                <span>算法</span>
+                <select name="algorithm" id="algorithmSelect">
+                    <option value="sift">SIFT</option>
+                    <option value="harris">Harris</option>
+                </select>
+            </label>
 
-<img class="preview" id="img">
-<button class="btn btn-go" id="btn" disabled>▶ 开始处理</button>
-<div class="spin" id="spin">⏳ 处理中…</div>
-<div class="hint" id="hint2">上传文件后点击按钮即可查看结果</div>
-</div>
-</div>
-<div class="col">
-<div class="rbox" id="rbox"><div class="card"><h3>📊 处理结果</h3><img class="result-img" id="res"></div></div>
-</div>
-</div>
+            <label class="upload-button" for="leftInput">
+                <span class="upload-main">上传左图</span>
+                <span class="upload-name" id="leftName">未选择文件</span>
+                <input type="file" name="left" id="leftInput" accept="image/*" required>
+            </label>
+
+            <label class="upload-button" for="rightInput">
+                <span class="upload-main">上传右图</span>
+                <span class="upload-name" id="rightName">未选择文件</span>
+                <input type="file" name="right" id="rightInput" accept="image/*" required>
+            </label>
+
+            <label class="ratio-control">
+                <span>筛选严格度 <b id="ratioValue">0.80</b></span>
+                <small>越小越严格，匹配更少但更稳</small>
+                <input type="range" id="ratioInput" name="ratio" min="0.45" max="0.95" step="0.01" value="0.8">
+            </label>
+
+            <button type="submit" id="matchBtn">开始匹配</button>
+        </form>
+    </header>
+
+    <section class="stage-tabs" id="stageTabs">
+        <button class="active" type="button" data-stage="0">特征提取</button>
+        <button type="button" data-stage="1">匹配过滤</button>
+    </section>
+
+    <section class="match-stage">
+        <div class="canvas-row" id="canvasRow">
+            <div class="image-panel">
+                <canvas id="leftCanvas"></canvas>
+                <span>左图</span>
+            </div>
+            <div class="image-panel">
+                <canvas id="rightCanvas"></canvas>
+                <span>右图</span>
+            </div>
+            <svg id="matchSvg" preserveAspectRatio="none"></svg>
+            <div id="pointTip" class="point-tip"></div>
+            <div id="ratioTip" class="ratio-tip"></div>
+        </div>
+        <aside class="math-panel" id="mathPanel">
+            <h2>等待上传</h2>
+            <p>先选择左图和右图，再开始匹配。</p>
+        </aside>
+    </section>
+
+    <section class="match-result-section" id="matchResultSection" hidden>
+        <div class="match-result-head">
+            <h2>拼接结果</h2>
+            <p>根据保留下来的匹配点估计单应性矩阵，把右图变换到左图坐标系后融合显示。</p>
+        </div>
+        <div class="match-result-image">
+            <img id="matchResultImg" alt="图像拼接结果">
+        </div>
+    </section>
 </main>
-<script>
-const Z=document.getElementById('zone'),F=document.getElementById('file'),H=document.getElementById('hint');
-const IMG=document.getElementById('img'),VID=document.getElementById('vid');
-const BTN=document.getElementById('btn'),SPIN=document.getElementById('spin');
-const RBOX=document.getElementById('rbox'),RES=document.getElementById('res');
-const H2=document.getElementById('hint2');
-let fd=null;
-Z.addEventListener('click',()=>F.click());
-Z.addEventListener('dragover',e=>{e.preventDefault();Z.style.borderColor='var(--accent)'});
-Z.addEventListener('dragleave',()=>{Z.style.borderColor=''});
-Z.addEventListener('drop',e=>{e.preventDefault();Z.style.borderColor='';if(e.dataTransfer.files[0])load(e.dataTransfer.files[0])});
-F.addEventListener('change',()=>{if(F.files[0])load(F.files[0])});
-function load(f){fd=f;const u=URL.createObjectURL(f);H.textContent=f.name;
-  IMG.src=u;IMG.style.display="block"
-  BTN.disabled=false;H2.textContent='已选择: '+f.name
-}
-BTN.addEventListener('click',async()=>{
-  if(!fd)return;BTN.disabled=true;SPIN.classList.add('show');RBOX.classList.remove('show');
-  const d=new FormData();d.append('file',fd);
-  try{const r=await fetch('/api/demo/match',{method:'POST',body:d});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const j=await r.json();
-    if(j.steps&&j.steps.length){RES.src=j.steps[j.steps.length-1].image_base64?('data:image/png;base64,'+j.steps[j.steps.length-1].image_base64):j.original_image}
-    else if(j.result_image){RES.src='data:image/png;base64,'+j.result_image}
-    else{RES.src=j.original_image}
-    RBOX.classList.add('show');
-  }catch(e){alert('处理失败: '+e.message)}
-  BTN.disabled=false;SPIN.classList.remove('show');
-});
-</script>
+<script src="../js/match-page.js" charset="UTF-8"></script>
 </body>
 </html>

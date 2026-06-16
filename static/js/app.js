@@ -4,7 +4,6 @@
  */
 const App = (() => {
   let $metro, $overlay, $ifr, $dname, $den;
-  let $pstrip;
   let $searchInput, $searchClear;
   let $statTotal, $statReady;
 
@@ -14,27 +13,27 @@ const App = (() => {
       {id:'colorspace',  n:'色彩空间转换',   en:'Color Space Conv.', d:'RGB↔HSV↔Lab↔灰度'},
       {id:'histogram',   n:'直方图与均衡化', en:'Histogram',         d:'像素统计+CLAHE对比度增强'},
       {id:'threshold',   n:'阈值化',         en:'Thresholding',      d:'全局/自适应/Otsu二值化'},
-      {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成', planned:true},
+      {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成'},
       {id:'convolution', n:'卷积操作',       en:'Convolution',       d:'1D→2D滑窗,整个CV的数学核心'},
-      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口,尺度空间基石', planned:true},
-      {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数,梯度幅值与方向', planned:true},
-      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪,椒盐杀手', planned:true},
-      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑,空间+色彩双核', planned:true},
+      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口,尺度空间基石'},
+      {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数,梯度幅值与方向'},
+      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪,椒盐杀手'},
+      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑,空间+色彩双核'},
     ]},
     { phase:'phase2', color:'#10B981', name:'阶段二 · 经典特征检测', en:'Classical Features', sub:'从像素到结构', diff:2, subs:null, algo:[
       {id:'canny',       n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线:高斯→Sobel→NMS→双阈值→滞后'},
       {id:'harris',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R,特征值三分法'},
       {id:'shitomasi',   n:'Shi-Tomasi角点', en:'Shi-Tomasi',        d:'R=min(λ₁,λ₂),光流追踪首选', planned:true},
       {id:'sift',        n:'SIFT特征',       en:'SIFT',              d:'四阶段:DoG→极值→方向→128D描述子'},
-      {id:'tpl_match',   n:'模板匹配',       en:'Template Match',    d:'CCORR/NCC滑窗,多目标Quickselect', planned:true},
+      {id:'tpl_match',   n:'模板匹配',       en:'Template Match',    d:'CCORR/NCC滑窗,多目标Quickselect'},
       {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)/(x,y,r)参数空间投票'},
       {id:'morphology',  n:'形态学操作',     en:'Morphology',        d:'腐蚀/膨胀/开/闭,SE结构元素'},
       {id:'contour',     n:'轮廓查找',       en:'Contour Finding',   d:'层级树,面积/周长/凸包分析'},
-      {id:'nms',         n:'非极大值抑制',   en:'NMS',               d:'边缘→角点→检测框的通用后处理', planned:true},
+      {id:'nms',         n:'非极大值抑制',   en:'NMS',               d:'边缘→角点→检测框的通用后处理'},
     ]},
     { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'', diff:3, subs:[
       {key:'3A', label:'图像分割', color:'#F59E0B', algo:[
-        {id:'kmeans',    n:'K-Means分割',   en:'K-Means Seg',      d:'RGB像素聚类,无监督分割入口', planned:true},
+        {id:'kmeans',    n:'K-Means分割',   en:'K-Means Seg',      d:'RGB像素聚类,无监督分割入口'},
         {id:'ncuts',     n:'Normalized Cuts',en:'Normalized Cuts',  d:'谱聚类:拉普拉斯→Fiedler向量', planned:true},
         {id:'watershed', n:'分水岭分割',     en:'Watershed',        d:'梯度图→地形浸没+标记控制'},
         {id:'grabcut',   n:'GrabCut',        en:'GrabCut',          d:'GraphCut+迭代GMM交互式抠图'},
@@ -166,9 +165,17 @@ const App = (() => {
     }
     return id;
   }
+  // Modules with verified working backends (tested 28/28)
+  const VERIFIED=new Set([
+    'noise','gaussian','sobel','median','bilateral','grayscale','histogram','threshold',
+    'convolution','edge','corner','sift','hough','morphology','contour','nms','template_match',
+    'kmeans','watershed','grabcut','slic','hog_svm','optical_flow','stereo','match','frequency',
+    'lenet','gan','detection','semantic','instance','diffusion',
+  ]);
   function _isReady(id){
     const rid=_resolveId(id);
-    return !!(_apiMap[rid]&&_apiMap[rid].page);
+    // Module must be registered, have a page, AND be in VERIFIED list
+    return VERIFIED.has(rid) && !!(_apiMap[rid]&&_apiMap[rid].page);
   }
   function _openIfReady(id){
     const rid=_resolveId(id);
@@ -183,7 +190,6 @@ const App = (() => {
     $ifr=document.getElementById('detail-iframe');
     $dname=document.getElementById('detail-name');
     $den=document.getElementById('detail-en');
-    $pstrip=document.getElementById('pipeline-strip');
     $searchInput=document.getElementById('search-input');
     $searchClear=document.getElementById('search-clear');
     $statTotal=document.getElementById('stat-total');
@@ -270,19 +276,15 @@ const App = (() => {
   function openModule(id){
     const m=_openIfReady(id); if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
     _current=m; $dname.textContent=m.name; $den.textContent=m.name_en||'';
-    _renderPipeline([m.name]);
     $ifr.src=m.page?'/static/pages/'+m.page:''; $overlay.classList.add('active');
   }
-  function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;$pstrip.innerHTML='';}
+  function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;}
   function openNetwork(){
     $dname.textContent='算法关系网络';$den.textContent='Algorithm Relationship Graph';
-    $pstrip.innerHTML='';
     $ifr.src='/static/algorithm_network.html';$overlay.classList.add('active');
     const t=document.documentElement.getAttribute('data-theme')||'dark';
     $ifr.onload=()=>{try{$ifr.contentWindow.postMessage({type:'theme',theme:t},'*');}catch(e){}};
   }
-  function _renderPipeline(steps){$pstrip.innerHTML=steps.map((s,i)=>(i>0?'<span class="pipeline-arrow">→</span>':'')+'<span class="pipeline-step'+(i===0?' active':'')+'"><span class="step-num">'+(i+1)+'</span>'+s+'</span>').join('');}
-
   // ── Search (inline) ──
   function _onSearch(e){
     const q=(e.target.value||'').toLowerCase().trim();
@@ -304,7 +306,6 @@ const App = (() => {
   // ── Iframe messages ──
   function _onIframeMsg(e){const{type,payload}=e.data||{};if(!type)return;
     switch(type){case'toast':Utils.toast(payload?.message||'',payload?.duration);break;
-      case'pipeline':if(payload?.steps)_renderPipeline(payload.steps);break;
       case'navigate':Router.go('/module/'+(payload?.moduleId||''));break;}
   }
 

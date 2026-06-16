@@ -1,194 +1,64 @@
-"""
-Convolution basics algorithm.
-Pure NumPy 2D convolution with stride/padding/dilation,
-step-by-step trace for visualization, kernel training via gradient descent.
-"""
 import numpy as np
-from numpy.lib.stride_tricks import sliding_window_view
+from imageio.v3 import imread
 
+def gaussian_kernel(size=5, sigma=1.0):
+    ax = np.linspace(-(size//2), size//2, size)
+    xx, yy = np.meshgrid(ax, ax)
+    k = np.exp(-(xx**2+yy**2)/(2*sigma**2))
+    return k/k.sum()
 
-def _apply_padding(input_2d, padding):
-    """Zero-pad a 2D array."""
-    if padding == 0:
-        return np.array(input_2d, dtype=np.float64)
-    return np.pad(np.array(input_2d, dtype=np.float64), padding, mode='constant', constant_values=0)
+def sobel_x(): return np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+def sobel_y(): return np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
 
+def median_filter(img, size=3):
+    from scipy.ndimage import median_filter as mf
+    return mf(img, size=size)
 
-def _effective_kernel(kernel, dilation):
-    """Expand kernel by inserting zeros for dilated convolution."""
-    k_np = np.array(kernel, dtype=np.float64)
-    k_size = k_np.shape[0]
-    if dilation == 1:
-        return k_np
-    eff_size = (k_size - 1) * dilation + 1
-    eff = np.zeros((eff_size, eff_size), dtype=np.float64)
-    for i in range(k_size):
-        for j in range(k_size):
-            eff[i * dilation, j * dilation] = k_np[i, j]
-    return eff
+def bilateral_filter(img, d=9, sigma_color=75, sigma_space=75):
+    h, w = img.shape[:2]; out = np.zeros_like(img, dtype=np.float64)
+    img_f = img.astype(np.float64)
+    half = d//2
+    ax = np.linspace(-half, half, d)
+    xx, yy = np.meshgrid(ax, ax)
+    spatial_k = np.exp(-(xx**2+yy**2)/(2*sigma_space**2))
+    for ch in range(3) if img.ndim==3 else [None]:
+        src = img_f[:,:,ch] if img.ndim==3 else img_f
+        for i in range(half, h-half):
+            for j in range(half, w-half):
+                patch = src[i-half:i+half+1, j-half:j+half+1]
+                range_k = np.exp(-((patch-src[i,j])**2)/(2*sigma_color**2))
+                weight = spatial_k*range_k
+                out[i,j,ch if img.ndim==3 else 0] = np.sum(patch*weight)/weight.sum() if img.ndim==3 else np.sum(patch*weight)/weight.sum()
+    return np.clip(out, 0, 255).astype(np.uint8)
 
-
-def compute_output_shape(h_in, w_in, k_size, stride, padding, dilation=1):
-    """Compute convolution output dimensions.
-    Formula: H_out = floor((H_in + 2P - D*(K-1) - 1) / S + 1)
-    """
-    h_out = (h_in + 2 * padding - dilation * (k_size - 1) - 1) // stride + 1
-    w_out = (w_in + 2 * padding - dilation * (k_size - 1) - 1) // stride + 1
-    return h_out, w_out
-
-
-def conv2d_with_trace(input_2d, kernel, stride=1, padding=0, dilation=1):
-    """
-    Single-channel 2D convolution with element-by-element trace.
-
-    Returns:
-        dict with 'output' (2D list), 'output_shape' [h,w], 'trace' (list of per-position details)
-    """
-    inp = _apply_padding(input_2d, padding)
-    k_np = np.array(kernel, dtype=np.float64)
-    k_size = k_np.shape[0]
-    h_out, w_out = compute_output_shape(len(input_2d), len(input_2d[0]), k_size, stride, padding, dilation)
-
-    if dilation > 1:
-        eff = _effective_kernel(kernel, dilation)
-    else:
-        eff = k_np
-
-    windows = sliding_window_view(inp, (k_size, k_size))
-    trace = []
-    output = np.zeros((h_out, w_out), dtype=np.float64)
-
-    for i in range(0, windows.shape[0] - (k_size - 1) * (dilation - 1), stride):
-        for j in range(0, windows.shape[1] - (k_size - 1) * (dilation - 1), stride):
-            oi, oj = i // stride, j // stride
-            if oi >= h_out or oj >= w_out:
-                continue
-
-            if dilation > 1:
-                window_vals = []
-                elem_products = []
-                for di in range(k_size):
-                    for dj in range(k_size):
-                        val = inp[i + di * dilation, j + dj * dilation]
-                        window_vals.append(int(val))
-                        elem_products.append(round(val * k_np[di, dj], 2))
-                sum_val = sum(elem_products)
-            else:
-                w = windows[i, j]
-                window_vals = w.astype(np.int32).tolist()
-                ep = (w.astype(np.float64) * k_np).round(2).tolist()
-                if isinstance(ep[0], list):
-                    elem_products = [v for row in ep for v in row]
-                else:
-                    elem_products = ep
-                sum_val = round(float(np.sum(w.astype(np.float64) * k_np)), 2)
-
-            output[oi, oj] = sum_val
-            trace.append({
-                'pos': [oi, oj],
-                'window_start': [i, j],
-                'window': window_vals,
-                'elem_product': elem_products,
-                'sum': sum_val,
-            })
-
-    return {
-        'output': output.round(2).tolist(),
-        'output_shape': [h_out, w_out],
-        'trace': trace,
-    }
-
-
-def conv2d_multi_channel(input_3d, kernel_3d, stride=1, padding=0):
-    """Multi-channel convolution: each input channel has its own kernel, results are summed."""
-    c_in = len(input_3d)
-    per_channel = []
-    summed = None
-    for c in range(c_in):
-        r = conv2d_with_trace(input_3d[c], kernel_3d[c], stride=stride, padding=padding)
-        out = np.array(r['output'])
-        per_channel.append(out.tolist())
-        summed = out if summed is None else summed + out
-    return {
-        'per_channel': per_channel,
-        'summed': summed.round(2).tolist() if summed is not None else [],
-    }
-
-
-def generate_kernel(size, preset='random', seed=None):
-    """Generate a convolution kernel with a predefined pattern."""
-    rng = np.random.default_rng(seed)
-    if preset == 'edge_detect':
-        k = np.full((size, size), -1.0, dtype=np.float64)
-        center = size // 2
-        k[center, center] = size * size - 1
-        return k.round(2).tolist()
-    elif preset == 'blur':
-        return np.full((size, size), 1.0 / (size * size)).round(3).tolist()
-    elif preset == 'sharpen':
-        k = np.full((size, size), -1.0, dtype=np.float64)
-        center = size // 2
-        k[center, center] = size * size
-        return k.round(2).tolist()
-    else:
-        return rng.integers(-3, 4, size=(size, size)).astype(np.float64).tolist()
-
-
-def generate_matrix(h, w, seed=None):
-    """Generate a random integer matrix as convolution input."""
-    rng = np.random.default_rng(seed)
-    return rng.integers(0, 10, size=(h, w)).astype(np.int32).tolist()
-
-
-def train_kernel(target_preset, kernel_size, input_size, lr=0.05, iterations=100):
-    """
-    Train a convolution kernel via gradient descent to match a target kernel.
-    Demonstrates how CNNs learn filters from data.
-    """
-    rng = np.random.default_rng()
-    target = np.array(generate_kernel(kernel_size, preset=target_preset), dtype=np.float64)
-    current = rng.normal(0, 0.3, size=(kernel_size, kernel_size)).astype(np.float64)
-    inp = rng.integers(0, 10, size=(input_size, input_size)).astype(np.float64)
-    inp_norm = inp / 9.0
-
-    windows = sliding_window_view(inp_norm, (kernel_size, kernel_size))
-    target_out = np.zeros((input_size - kernel_size + 1, input_size - kernel_size + 1))
-    for i in range(windows.shape[0]):
-        for j in range(windows.shape[1]):
-            target_out[i, j] = np.sum(windows[i, j] * target)
-
-    trace = []
-    n_positions = windows.shape[0] * windows.shape[1]
-    for step in range(iterations + 1):
-        current_out = np.zeros_like(target_out)
-        for i in range(windows.shape[0]):
-            for j in range(windows.shape[1]):
-                current_out[i, j] = np.sum(windows[i, j] * current)
-        loss = float(np.mean((current_out - target_out) ** 2))
-
-        grad = np.zeros_like(current)
-        for i in range(windows.shape[0]):
-            for j in range(windows.shape[1]):
-                error = current_out[i, j] - target_out[i, j]
-                grad += error * windows[i, j]
-        grad /= n_positions
-
-        grad_norm = np.sqrt(np.sum(grad ** 2))
-        if grad_norm > 1.0:
-            grad /= grad_norm
-
-        current -= lr * grad
-
-        if step % max(1, iterations // 50) == 0 or step == iterations:
-            trace.append({
-                'step': step,
-                'kernel': current.round(3).tolist(),
-                'loss': round(loss, 6),
-            })
-
-    return {
-        'iterations': trace,
-        'final_kernel': current.round(3).tolist(),
-        'target_kernel': target.tolist(),
-        'input_matrix': inp.astype(np.int32).tolist(),
-    }
+def build_conv_demo(upload_path):
+    img = imread(upload_path)
+    if img.ndim==3 and img.shape[2]==4: img=img[:,:,:3]
+    results = []
+    # Identity
+    results.append(('identity','单位冲激核',img))
+    # Box blur
+    k = np.ones((5,5))/25
+    if img.ndim==3:
+        blurred=np.zeros_like(img);[exec(f'blurred[:,:,{c}]=np.convolve(img[:,:,{c}].flatten(),k.flatten(),"same").reshape(img.shape[:2])') for c in range(3)]
+    else: blurred=np.convolve(img.flatten(),k.flatten(),'same').reshape(img.shape)
+    results.append(('box_blur','方框模糊(5×5)',np.clip(blurred,0,255).astype(np.uint8)))
+    # Gaussian blur
+    gk = gaussian_kernel(5, 1.5)
+    if img.ndim==3:
+        gb=np.zeros_like(img);[exec(f'gb[:,:,{c}]=np.convolve(img[:,:,{c}].flatten(),gk.flatten(),"same").reshape(img.shape[:2])') for c in range(3)]
+    else: gb=np.convolve(img.flatten(),gk.flatten(),'same').reshape(img.shape)
+    results.append(('gaussian','高斯模糊(σ=1.5)',np.clip(gb,0,255).astype(np.uint8)))
+    # Sobel
+    gray=img if img.ndim==2 else (0.299*img[:,:,0]+0.587*img[:,:,1]+0.114*img[:,:,2])
+    sx=np.convolve(gray.flatten(),sobel_x().flatten(),'same').reshape(gray.shape)
+    sy=np.convolve(gray.flatten(),sobel_y().flatten(),'same').reshape(gray.shape)
+    mag=np.clip(np.sqrt(sx**2+sy**2),0,255).astype(np.uint8)
+    results.append(('sobel','Sobel梯度幅值',mag))
+    # Sharpen
+    sharpen_k=np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+    if img.ndim==3:
+        sh=np.zeros_like(img);[exec(f'sh[:,:,{c}]=np.clip(np.convolve(img[:,:,{c}].flatten(),sharpen_k.flatten(),"same").reshape(img.shape[:2]),0,255)') for c in range(3)]
+    else: sh=np.clip(np.convolve(img.flatten(),sharpen_k.flatten(),'same').reshape(img.shape),0,255)
+    results.append(('sharpen','锐化',sh.astype(np.uint8)))
+    return results

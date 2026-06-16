@@ -4,9 +4,9 @@
  */
 const App = (() => {
   let $metro, $overlay, $ifr, $dname, $den;
-  let $pstrip, $hudBody, $hudPanel, $hudToggle;
+  let $pstrip;
   let $searchInput, $searchClear;
-  let $diffLadder, $statTotal, $statReady;
+  let $statTotal, $statReady;
 
   // ── BLUEPRINT ──
   const BLUEPRINT = [
@@ -142,8 +142,39 @@ const App = (() => {
   let _apiModules = [];
   let _current = null;
   // Only count modules with actual algorithm.py (not just skeleton __init__.py)
-  const IMPLEMENTED=new Set(['grayscale','histogram','threshold','convolution','edge','corner','sift','hough','morphology','contour','match','frequency','grabcut','hog_svm','optical_flow','slic','stereo','watershed','lenet','detection','semantic','instance','diffusion','gan']);
-  function _isReady(id){ return IMPLEMENTED.has(id)&&!!(_apiMap[id]&&_apiMap[id].page); }
+  // Maps blueprint IDs → actual registered module IDs
+  const IDMAP={
+    colorspace:'grayscale',canny:'edge',harris:'corner',sift_ransac:'match',
+    stitching:'match',convolution:'convolution',sift:'sift',hough:'hough',
+    morphology:'morphology',contour:'contour',grabcut:'grabcut',slic:'slic',
+    watershed:'watershed',hog_svm:'hog_svm',optical_flow:'optical_flow',
+    stereo:'stereo',histogram:'histogram',threshold:'threshold',
+    gan:'gan',diffusion:'diffusion',lenet:'lenet',
+    detection:'detection',semantic:'semantic',instance:'instance',
+    frequency:'frequency',
+    noise:'noise',gaussian:'gaussian',sobel:'sobel',median:'median',
+    bilateral:'bilateral',nms:'nms',tpl_match:'template_match',
+    kmeans:'kmeans',
+  };
+  // Auto-detect: IDMAP first, then direct lookup, then fuzzy match
+  function _resolveId(id){
+    if(IDMAP[id]&&_apiMap[IDMAP[id]]) return IDMAP[id];
+    if(_apiMap[id]) return id;
+    // Fuzzy: try matching by partial ID or registered name
+    for(const rid of Object.keys(_apiMap)){
+      if(rid.includes(id)||id.includes(rid)) return rid;
+    }
+    return id;
+  }
+  function _isReady(id){
+    const rid=_resolveId(id);
+    return !!(_apiMap[rid]&&_apiMap[rid].page);
+  }
+  function _openIfReady(id){
+    const rid=_resolveId(id);
+    const m=_apiMap[rid];
+    return m&&m.page?m:null;
+  }
 
   // ============================================================
   function init(){
@@ -153,18 +184,26 @@ const App = (() => {
     $dname=document.getElementById('detail-name');
     $den=document.getElementById('detail-en');
     $pstrip=document.getElementById('pipeline-strip');
-    $hudBody=document.getElementById('hud-body');
-    $hudPanel=document.getElementById('hud-panel');
-    $hudToggle=document.getElementById('hud-toggle');
     $searchInput=document.getElementById('search-input');
     $searchClear=document.getElementById('search-clear');
-    $diffLadder=document.getElementById('ladder-steps');
     $statTotal=document.getElementById('stat-total');
     $statReady=document.getElementById('stat-ready');
 
     document.getElementById('btn-back').addEventListener('click',closeDetail);
-    $hudToggle.addEventListener('click',()=>{$hudPanel.classList.toggle('collapsed');$hudToggle.textContent=$hudPanel.classList.contains('collapsed')?'+':'−';});
-    $diffLadder.querySelectorAll('.ladder-step').forEach(el=>el.addEventListener('click',()=>filterByDiff(parseInt(el.dataset.lv))));
+
+    // Theme toggle (iOS-style switch)
+    const savedTheme=localStorage.getItem('theme')||'dark';
+    document.documentElement.setAttribute('data-theme',savedTheme);
+    document.getElementById('theme-toggle').addEventListener('click',()=>{
+      const cur=document.documentElement.getAttribute('data-theme');
+      const next=cur==='light'?'dark':'light';
+      document.documentElement.setAttribute('data-theme',next);
+      localStorage.setItem('theme',next);
+      // Broadcast to iframe
+      try{$ifr.contentWindow.postMessage({type:'theme',theme:next},'*');}catch(e){}
+    });
+
+    document.getElementById('btn-network').addEventListener('click',openNetwork);
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$overlay.classList.contains('active'))closeDetail();});
 
     // Search box
@@ -183,7 +222,7 @@ const App = (() => {
       _apiModules=[]; _apiMap={};
       (data.phases||[]).forEach(ph=>{(ph.modules||[]).forEach(m=>{_apiModules.push(m);_apiMap[m.id]=m;});});
     }catch(e){console.warn('[App] API unreachable');}
-    _renderMetro(); _renderDiffLadder();
+    _renderMetro();
     const all=_allAlgos();
     $statTotal.textContent=all.length;
     $statReady.textContent=all.filter(a=>_isReady(a.id)).length;
@@ -220,21 +259,28 @@ const App = (() => {
   }
   function _card(a){
     const ready=_isReady(a.id), isNew=a.planned;
-    const cls=['algo-card',ready?'realized':'pending',isNew?'planned':''].filter(Boolean).join(' ');
-    const tag=ready?'✅ 可体验':(isNew?'🆕 规划中':'○ 待实现');
-    return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><span class="card-tag">${tag}</span></div>`;
+    const cls=['algo-card',ready?'realized':(isNew?'planned':'pending')].filter(Boolean).join(' ');
+    const tag=ready?'可体验':(isNew?'规划中':'待实现');
+    // Difficulty stars: find which phase this algo belongs to
+    let diff=1; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===a.id))diff=p.diff;});
+    return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><div class="card-meta"><span class="card-tag">${tag}</span></div></div>`;
   }
 
   // ── Detail ──
   function openModule(id){
-    const m=_apiMap[id]; if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
+    const m=_openIfReady(id); if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
     _current=m; $dname.textContent=m.name; $den.textContent=m.name_en||'';
     _renderPipeline([m.name]);
-    $hudBody.innerHTML='<div class="hud-control"><label style="color:var(--text-muted)">加载中…</label></div>';
-    $hudPanel.classList.remove('collapsed'); $hudToggle.textContent='−';
     $ifr.src=m.page?'/static/pages/'+m.page:''; $overlay.classList.add('active');
   }
   function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;$pstrip.innerHTML='';}
+  function openNetwork(){
+    $dname.textContent='算法关系网络';$den.textContent='Algorithm Relationship Graph';
+    $pstrip.innerHTML='';
+    $ifr.src='/static/algorithm_network.html';$overlay.classList.add('active');
+    const t=document.documentElement.getAttribute('data-theme')||'dark';
+    $ifr.onload=()=>{try{$ifr.contentWindow.postMessage({type:'theme',theme:t},'*');}catch(e){}};
+  }
   function _renderPipeline(steps){$pstrip.innerHTML=steps.map((s,i)=>(i>0?'<span class="pipeline-arrow">→</span>':'')+'<span class="pipeline-step'+(i===0?' active':'')+'"><span class="step-num">'+(i+1)+'</span>'+s+'</span>').join('');}
 
   // ── Search (inline) ──
@@ -244,37 +290,21 @@ const App = (() => {
     const all=_allAlgos();
     const hits=all.filter(a=>a.n.toLowerCase().includes(q)||a.en.toLowerCase().includes(q)||a.d.toLowerCase().includes(q));
     document.querySelectorAll('.algo-card').forEach(c=>{
-      const ok=hits.some(h=>h.id===c.dataset.mid);
-      c.style.opacity=ok?'1':'.12'; c.style.transform=ok?'scale(1.04)':'';
+      c.classList.toggle('hidden',!hits.some(h=>h.id===c.dataset.mid));
     });
-    // Scroll to first hit
-    const first=document.querySelector('.algo-card[style*=\"scale(1.04)\"]');
-    if(first) first.scrollIntoView({behavior:'smooth',block:'center'});
+    document.querySelectorAll('.sub-group').forEach(g=>{
+      g.classList.toggle('hidden',!g.querySelector('.algo-card:not(.hidden)'));
+    });
+    if(hits.length===1) Router.go('/module/'+hits[0].id);
   }
   function _clearSearch(){
-    document.querySelectorAll('.algo-card').forEach(c=>{c.style.opacity='';c.style.transform='';});
-  }
-
-  // ── Difficulty ──
-  function _renderDiffLadder(){
-    const counts={1:0,2:0,3:0,4:0,5:0}, ready={1:0,2:0,3:0,4:0,5:0};
-    BLUEPRINT.forEach(p=>{const a=_phaseAlgos(p);a.forEach(x=>{const lv=p.diff;if(counts[lv]!==undefined){counts[lv]++;if(_isReady(x.id))ready[lv]++;}});});
-    $diffLadder.querySelectorAll('.ladder-step').forEach(el=>{const lv=parseInt(el.dataset.lv);el.querySelector('.count').textContent=ready[lv]+' / '+counts[lv]+' 已实现';});
-  }
-  function filterByDiff(lv){
-    document.querySelectorAll('.algo-card').forEach(c=>{
-      let found=null; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===c.dataset.mid))found=p;});
-      c.style.opacity=(found&&found.diff===lv)?'1':'.12';
-    });
-    Utils.toast('已筛选难度 '+lv+'（5秒后恢复）');
-    setTimeout(()=>document.querySelectorAll('.algo-card').forEach(c=>c.style.opacity=''),5000);
+    document.querySelectorAll('.algo-card.hidden,.sub-group.hidden').forEach(c=>c.classList.remove('hidden'));
   }
 
   // ── Iframe messages ──
   function _onIframeMsg(e){const{type,payload}=e.data||{};if(!type)return;
     switch(type){case'toast':Utils.toast(payload?.message||'',payload?.duration);break;
       case'pipeline':if(payload?.steps)_renderPipeline(payload.steps);break;
-      case'hud-controls':if(payload?.html){$hudBody.innerHTML=payload.html;$hudBody.querySelectorAll('input[type=range]').forEach(s=>{const d=s.nextElementSibling;if(d&&d.classList.contains('slider-val'))s.addEventListener('input',()=>{d.textContent=s.value;});});}break;
       case'navigate':Router.go('/module/'+(payload?.moduleId||''));break;}
   }
 

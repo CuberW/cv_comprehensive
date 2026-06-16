@@ -331,17 +331,45 @@ def _get_demo_processor(module_id):
     """Return (build_pipeline_func, default_params) for a given module_id."""
     params = {}
 
-    if module_id == 'histogram':
+    if module_id == 'noise':
+        from app.modules.phase1_fundamentals.noise.algorithm import build_pipeline as fn
+    elif module_id == 'gaussian':
+        from app.modules.phase1_fundamentals.gaussian.algorithm import build_pipeline as fn
+    elif module_id == 'sobel':
+        from app.modules.phase1_fundamentals.sobel.algorithm import build_pipeline as fn
+    elif module_id == 'median':
+        from app.modules.phase1_fundamentals.median.algorithm import build_pipeline as fn
+    elif module_id == 'bilateral':
+        from app.modules.phase1_fundamentals.bilateral.algorithm import build_pipeline as fn
+    elif module_id == 'nms':
+        from app.modules.phase2_classical.nms.algorithm import build_pipeline as fn
+    elif module_id == 'template_match':
+        from app.modules.phase2_classical.template_match.algorithm import build_pipeline as fn
+    elif module_id == 'kmeans':
+        from app.modules.phase3_intermediate.kmeans.algorithm import build_pipeline as fn
+    elif module_id == 'grayscale':
+        from app.modules.phase1_fundamentals.grayscale.processor import build_pipeline as fn
+    elif module_id == 'convolution':
+        from app.modules.phase1_fundamentals.convolution.algorithm import build_conv_demo as fn
+    elif module_id == 'histogram':
         from app.modules.phase1_fundamentals.histogram.processor import build_pipeline as fn
     elif module_id == 'threshold':
         from app.modules.phase1_fundamentals.threshold.processor import build_pipeline as fn
         params = {'method': 'otsu', 'threshold': 128}
+    elif module_id == 'edge':
+        from app.modules.phase2_classical.edge.processor import build_canny_pipeline as fn
+    elif module_id == 'corner':
+        from app.modules.phase2_classical.corner.processor import build_pipeline as fn
+    elif module_id == 'sift':
+        from app.modules.phase2_classical.sift.processor import build_pipeline as fn
     elif module_id == 'hough':
         from app.modules.phase2_classical.hough.processor import build_pipeline as fn
     elif module_id == 'morphology':
         from app.modules.phase2_classical.morphology.processor import build_pipeline as fn
     elif module_id == 'contour':
         from app.modules.phase2_classical.contour.processor import build_pipeline as fn
+    elif module_id == 'match':
+        from app.modules.phase3_intermediate.match.algorithm import build_match_pipeline as fn
     elif module_id == 'watershed':
         from app.modules.phase3_intermediate.watershed.processor import build_pipeline as fn
     elif module_id == 'grabcut':
@@ -372,6 +400,8 @@ def _get_demo_processor(module_id):
     elif module_id == 'instance':
         from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
         params = {'num_instances': 3}
+    elif module_id == 'lenet':
+        from app.modules.phase4_deep_learning.lenet.processor import build_pipeline as fn
     else:
         return None, None
 

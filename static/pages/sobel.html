@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hough变换 — Cvtoolkits</title>
+<title>Sobel梯度 — Cvtoolkits</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
 .page{max-width:1100px;margin:0 auto;padding:24px 20px 40px}
@@ -13,13 +13,13 @@
 .col{flex:1;min-width:300px}
 .card{padding:20px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px}
 .card h3{margin:0 0 12px;font-size:15px;color:var(--text)}
-.zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-dim);font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:.2s;color:var(--text-dim);font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .zone:hover{border-color:var(--accent);color:var(--accent);background:rgba(102,242,194,.03)}
 .zone input{display:none}
 .zone .icon{font-size:36px}
 .preview{max-width:100%;max-height:240px;border-radius:8px;margin-top:12px;display:none;object-fit:contain}
 .result-img{max-width:100%;max-height:300px;border-radius:8px}
-.btn{display:inline-block;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn{display:inline-block;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:.15s}
 .btn-go{background:var(--accent);color:#070a14;margin-top:12px}
 .btn-go:hover{opacity:.85;transform:translateY(-1px)}
 .btn-go:disabled{opacity:.35;cursor:not-allowed}
@@ -32,13 +32,12 @@
 </head>
 <body>
 <main class="page">
-<div class="head"><h1>Hough变换</h1><p>直线(ρ,θ)/圆形参数空间投票。</p></div>
+<div class="head"><h1>Sobel梯度</h1><p>一阶导数算子。梯度幅值G=sqrt(Gx^2+Gy^2)。</p></div>
 <div class="row">
 <div class="col">
 <div class="card">
 <h3>📥 上传图片</h3>
 <div class="zone" id="zone"><span class="icon">🖼</span><span id="hint">点击或拖拽上传图片文件</span><input type="file" id="file" accept="image/*"></div>
-
 <img class="preview" id="img">
 <button class="btn btn-go" id="btn" disabled>▶ 开始处理</button>
 <div class="spin" id="spin">⏳ 处理中…</div>
@@ -51,33 +50,28 @@
 </div>
 </main>
 <script>
-const Z=document.getElementById('zone'),F=document.getElementById('file'),H=document.getElementById('hint');
-const IMG=document.getElementById('img'),VID=document.getElementById('vid');
-const BTN=document.getElementById('btn'),SPIN=document.getElementById('spin');
-const RBOX=document.getElementById('rbox'),RES=document.getElementById('res');
-const H2=document.getElementById('hint2');
+const Z=document.getElementById("zone"),F=document.getElementById("file"),H=document.getElementById("hint");
+const IMG=document.getElementById("img"),BTN=document.getElementById("btn"),SPIN=document.getElementById("spin");
+const RBOX=document.getElementById("rbox"),RES=document.getElementById("res"),H2=document.getElementById("hint2");
 let fd=null;
-Z.addEventListener('click',()=>F.click());
-Z.addEventListener('dragover',e=>{e.preventDefault();Z.style.borderColor='var(--accent)'});
-Z.addEventListener('dragleave',()=>{Z.style.borderColor=''});
-Z.addEventListener('drop',e=>{e.preventDefault();Z.style.borderColor='';if(e.dataTransfer.files[0])load(e.dataTransfer.files[0])});
-F.addEventListener('change',()=>{if(F.files[0])load(F.files[0])});
-function load(f){fd=f;const u=URL.createObjectURL(f);H.textContent=f.name;
-  IMG.src=u;IMG.style.display="block"
-  BTN.disabled=false;H2.textContent='已选择: '+f.name
-}
-BTN.addEventListener('click',async()=>{
-  if(!fd)return;BTN.disabled=true;SPIN.classList.add('show');RBOX.classList.remove('show');
-  const d=new FormData();d.append('file',fd);
-  try{const r=await fetch('/api/demo/hough',{method:'POST',body:d});
-    if(!r.ok)throw new Error('HTTP '+r.status);
+Z.addEventListener("click",()=>F.click());
+Z.addEventListener("dragover",e=>{e.preventDefault();Z.style.borderColor="var(--accent)"});
+Z.addEventListener("dragleave",()=>{Z.style.borderColor=""});
+Z.addEventListener("drop",e=>{e.preventDefault();Z.style.borderColor="";if(e.dataTransfer.files[0])load(e.dataTransfer.files[0])});
+F.addEventListener("change",()=>{if(F.files[0])load(F.files[0])});
+function load(f){fd=f;const u=URL.createObjectURL(f);H.textContent=f.name;IMG.src=u;IMG.style.display="block";BTN.disabled=false;H2.textContent="已选择: "+f.name}
+BTN.addEventListener("click",async()=>{
+  if(!fd)return;BTN.disabled=true;SPIN.classList.add("show");RBOX.classList.remove("show");
+  const d=new FormData();d.append("file",fd);
+  try{const r=await fetch("/api/demo/sobel",{method:"POST",body:d});
+    if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    if(j.steps&&j.steps.length){RES.src=j.steps[j.steps.length-1].image_base64?('data:image/png;base64,'+j.steps[j.steps.length-1].image_base64):j.original_image}
-    else if(j.result_image){RES.src='data:image/png;base64,'+j.result_image}
+    if(j.steps&&j.steps.length){const s=j.steps[j.steps.length-1];RES.src="data:image/png;base64,"+s.image_base64}
+    else if(j.result_image){RES.src="data:image/png;base64,"+j.result_image}
     else{RES.src=j.original_image}
-    RBOX.classList.add('show');
-  }catch(e){alert('处理失败: '+e.message)}
-  BTN.disabled=false;SPIN.classList.remove('show');
+    RBOX.classList.add("show");
+  }catch(e){alert("处理失败: "+e.message)}
+  BTN.disabled=false;SPIN.classList.remove("show");
 });
 </script>
 </body>

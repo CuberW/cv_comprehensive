@@ -1,0 +1,102 @@
+"""CLIP (Contrastive Language-Image Pre-training) algorithm.
+
+Uses HuggingFace transformers CLIPModel for zero-shot classification
+and image-text similarity computation.
+"""
+import numpy as np
+import torch
+from PIL import Image
+
+
+_MODEL = None
+_PROCESSOR = None
+_MODEL_NAME = "openai/clip-vit-base-patch32"
+
+
+def _get_model():
+    global _MODEL, _PROCESSOR
+    if _MODEL is None:
+        from transformers import CLIPModel, CLIPProcessor
+        _PROCESSOR = CLIPProcessor.from_pretrained(_MODEL_NAME)
+        _MODEL = CLIPModel.from_pretrained(_MODEL_NAME)
+        _MODEL.eval()
+    return _MODEL, _PROCESSOR
+
+
+def load_image_as_array(image_path_or_array):
+    if isinstance(image_path_or_array, str):
+        return Image.open(image_path_or_array).convert('RGB')
+    elif isinstance(image_path_or_array, np.ndarray):
+        return Image.fromarray(image_path_or_array.astype(np.uint8))
+    return image_path_or_array
+
+
+def compute_image_text_similarity(image, text_list):
+    """
+    Compute cosine similarity between an image and multiple text descriptions.
+
+    Returns:
+        similarities: list of float scores
+        image_embedding: normalized image feature vector
+        text_embeddings: normalized text feature vectors
+    """
+    model, processor = _get_model()
+    img = load_image_as_array(image)
+    inputs = processor(text=text_list, images=img, return_tensors="pt", padding=True)
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    # Normalized embeddings
+    img_emb = outputs.image_embeds[0].cpu().numpy()
+    txt_embs = outputs.text_embeds[0].cpu().numpy()
+
+    # Cosine similarity
+    img_norm = img_emb / (np.linalg.norm(img_emb) + 1e-8)
+    txt_norms = txt_embs / (np.linalg.norm(txt_embs, axis=1, keepdims=True) + 1e-8)
+    similarities = (img_norm * txt_norms).sum(axis=1)
+
+    return {
+        'similarities': similarities.tolist(),
+        'image_embedding': img_norm.tolist(),
+        'text_embeddings': txt_norms.tolist(),
+    }
+
+
+def zero_shot_classify(image, class_names):
+    """
+    Zero-shot classification using CLIP.
+
+    class_names: list of class labels (e.g., ['dog', 'cat', 'car'])
+    Returns sorted predictions with probabilities.
+    """
+    result = compute_image_text_similarity(
+        image,
+        [f'a photo of a {name}' for name in class_names]
+    )
+
+    sims = np.array(result['similarities'])
+    # Softmax
+    probs = np.exp(sims * 100) / np.sum(np.exp(sims * 100))
+
+    predictions = []
+    for i in np.argsort(-probs):
+        predictions.append({
+            'label': class_names[i],
+            'prompt': f'a photo of a {class_names[i]}',
+            'similarity': round(float(sims[i]), 4),
+            'probability': round(float(probs[i]), 4),
+        })
+
+    return {
+        'predictions': predictions,
+        'similarities': result['similarities'],
+    }
+
+
+PRESET_CLASS_SETS = {
+    'animals': ['dog', 'cat', 'bird', 'fish', 'horse', 'elephant', 'butterfly', 'tiger'],
+    'objects': ['car', 'bicycle', 'phone', 'laptop', 'book', 'chair', 'pizza', 'guitar'],
+    'scenes': ['beach', 'mountain', 'forest', 'city street', 'kitchen', 'bedroom', 'office', 'garden'],
+    'actions': ['running', 'swimming', 'cooking', 'reading', 'dancing', 'sleeping', 'flying', 'driving'],
+}

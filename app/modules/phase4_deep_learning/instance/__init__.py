@@ -17,4 +17,4 @@ class InstanceModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'instance.html'
+        return 'detection_segmentation.html?module=instance'

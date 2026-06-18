@@ -510,6 +510,7 @@
     var cannyTrack = document.getElementById('cannyTrack');
     var historyList = document.getElementById('historyList');
     var clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    var selectedFile = null;
 
     // ====== Animation State ======
     var animState = {
@@ -1029,6 +1030,12 @@
     function showLoading() { loadingOverlay.classList.add('active'); processBtn.disabled = true; }
     function hideLoading() { loadingOverlay.classList.remove('active'); processBtn.disabled = false; }
 
+    function setFile(file) {
+        selectedFile = file || null;
+        fileNameText.textContent = selectedFile ? selectedFile.name : '未选择文件';
+        processBtn.disabled = !selectedFile;
+    }
+
     function switchAlgorithm(algo) {
         if (!cachedPipelines || !cachedPipelines[algo]) return;
         stopAnimation();
@@ -1042,12 +1049,13 @@
     // ====== Upload & Process ======
     function handleUpload(ev) {
         ev.preventDefault();
-        if (!fileInput.files.length) return;
+        if (!selectedFile) return;
 
         stopAnimation();
         showLoading();
 
         var formData = new FormData(uploadForm);
+        formData.set('file', selectedFile, selectedFile.name || 'upload.png');
         formData.set('algorithm', animState.algorithm);
 
         fetch('/edge/', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
@@ -1225,6 +1233,14 @@
         fileNameText.textContent = fileInput.files && fileInput.files.length ? fileInput.files[0].name : '未选择文件';
     });
 
+    fileInput.addEventListener('change', function() {
+        setFile(fileInput.files && fileInput.files.length ? fileInput.files[0] : null);
+    });
+
+    fileInput.addEventListener('click', function() {
+        fileInput.value = '';
+    });
+
     document.querySelectorAll('.algo-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.algo-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -1323,6 +1339,7 @@
     renderPipelineCards(null);
     fetchHistory();
     updateAnimControls();
+    setFile(null);
 
     window.addEventListener('resize', function() {
         document.querySelectorAll('.step-copy').forEach(function(el) { el.style.height = 'auto'; });

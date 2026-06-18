@@ -9,7 +9,14 @@ import inspect
 import imageio.v3 as iio
 from flask import Blueprint, render_template, jsonify, request
 from app.modules import MODULE_REGISTRY, get_modules_by_phase
+from app.modules.implementation import get_implementation_meta
+from app.modules.offline_teaching import (
+    BLUEPRINT_MODULES,
+    EXTERNAL_WEIGHT_MODULES,
+    OFFLINE_TEACHING_MODULES,
+)
 from app.utils.image_utils import to_base64, load_image_u8
+from app.runners import get_remote_runner
 
 main_bp = Blueprint('main', __name__)
 
@@ -18,6 +25,7 @@ TEACHING_PAGE_IDS = {
     'grayscale', 'histogram', 'threshold', 'noise', 'gaussian', 'sobel', 'median', 'bilateral',
     'hough', 'morphology', 'contour', 'nms', 'template_match',
     'kmeans', 'watershed', 'grabcut', 'slic', 'hog_svm', 'optical_flow', 'stereo',
+    'gan', 'diffusion',
 }
 
 
@@ -43,6 +51,7 @@ def api_modules():
                     mod['page'] = f'teaching.html?id={mod["id"]}'
                 else:
                     mod['page'] = cls.get_page()
+            mod['implementation'] = get_implementation_meta(mod['id'])
 
     return jsonify({'phases': phases, 'total': len(MODULE_REGISTRY)})
 
@@ -93,6 +102,8 @@ def _step_to_dict(step):
         out['explanation'] = step.get('explanation') or step.get('description', '')
     if step.get('formula'):
         out['formula'] = step['formula']
+    if step.get('formula_latex'):
+        out['formula_latex'] = step['formula_latex']
     if isinstance(step.get('data'), dict):
         out['data'] = {
             k: (v.tolist() if hasattr(v, 'tolist') else v)
@@ -139,6 +150,15 @@ def _normalize_pipeline_result(result):
         if normalized is not None:
             steps.append(normalized)
     return steps, metrics
+
+
+def _json_demo_error(message, status_code, implementation, metrics=None):
+    return jsonify({
+        'error': str(message),
+        'steps': [],
+        'metrics': metrics or {'status': 'error'},
+        'implementation': implementation,
+    }), status_code
 
 
 @main_bp.route('/gray/', methods=['POST'])
@@ -425,14 +445,16 @@ def legacy_history_delete(entry_id):
 def legacy_conv_train():
     """Kernel training endpoint for conv_training interactive page."""
     data = request.get_json(silent=True) or {}
-    preset = data.get('preset', 'edge_detect')
+    preset = data.get('target_preset') or data.get('preset', 'edge_detect')
     kernel_size = int(data.get('kernel_size', 3))
     input_size = int(data.get('input_size', 7))
     lr = float(data.get('learning_rate', 0.1))
     iterations = int(data.get('iterations', 100))
 
-    from app.modules.phase1_fundamentals.convolution.algorithm import train_kernel
-    result = train_kernel(preset, kernel_size, input_size, lr=lr, iterations=iterations)
+    from app.modules.phase4_deep_learning.conv_training.algorithm import train_kernel
+    result = train_kernel(
+        target_preset=preset, kernel_size=kernel_size,
+        input_size=input_size, learning_rate=lr, iterations=iterations)
     return jsonify(result)
 
 
@@ -457,6 +479,18 @@ def legacy_race_data():
 def _get_demo_processor(module_id):
     """Return (build_pipeline_func, default_params) for a given module_id."""
     params = {}
+
+    if module_id in EXTERNAL_WEIGHT_MODULES:
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def external_wrapper(**kwargs):
+            return _external_error(module_id)
+        return external_wrapper, params
+
+    if module_id in OFFLINE_TEACHING_MODULES:
+        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
+        def offline_wrapper(**kwargs):
+            return _offline_pipeline(module_id, **kwargs)
+        return offline_wrapper, params
 
     if module_id == 'noise':
         from app.modules.phase1_fundamentals.noise.algorithm import build_pipeline as fn
@@ -526,8 +560,9 @@ def _get_demo_processor(module_id):
     elif module_id == 'frequency':
         from app.modules.phase3_intermediate.frequency.processor import build_pipeline as fn
     elif module_id == 'gan':
-        from app.modules.phase4_deep_learning.gan.processor import build_pipeline as fn
-        params = {'noise_dim': 10, 'steps': 50}
+        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
+        def fn(**kwargs):
+            return _offline_pipeline('gan', **kwargs)
     elif module_id == 'diffusion':
         from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline as fn
         params = {'num_steps': 50}
@@ -535,12 +570,40 @@ def _get_demo_processor(module_id):
         from app.modules.phase4_deep_learning.detection.processor import build_pipeline as fn
     elif module_id == 'semantic':
         from app.modules.phase4_deep_learning.semantic.processor import build_pipeline as fn
-        params = {'num_classes': 5}
     elif module_id == 'instance':
         from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
-        params = {'num_instances': 3}
     elif module_id == 'lenet':
         from app.modules.phase4_deep_learning.lenet.processor import build_inference_trace as fn
+    elif module_id == 'live':
+        from app.modules.phase1_fundamentals.live.algorithm import apply_filter as fn
+    elif module_id == 'conv_training':
+        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
+        def fn(**kwargs):
+            return _offline_pipeline('conv_training', **kwargs)
+    elif module_id == 'vit':
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def fn(**kwargs):
+            return _external_error('vit')
+    elif module_id == 'detr':
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def fn(**kwargs):
+            return _external_error('detr')
+    elif module_id == 'sam':
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def fn(**kwargs):
+            return _external_error('sam')
+    elif module_id == 'clip':
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def fn(**kwargs):
+            return _external_error('clip')
+    elif module_id == 'nerf':
+        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
+        def fn(**kwargs):
+            return _offline_pipeline('nerf', **kwargs)
+    elif module_id == 'stable_diffusion':
+        from app.modules.offline_teaching import external_weight_error as _external_error
+        def fn(**kwargs):
+            return _external_error('stable_diffusion')
     else:
         return None, None
 
@@ -556,10 +619,33 @@ def demo_endpoint(module_id):
     """
     fn, defaults = _get_demo_processor(module_id)
     if fn is None:
-        return jsonify({'error': f'Unknown module: {module_id}'}), 404
+        implementation = get_implementation_meta(module_id)
+        return _json_demo_error(
+            f'Unknown module: {module_id}',
+            404,
+            implementation,
+            {'status': 'unknown_module', 'module_id': module_id},
+        )
 
-    if 'file' not in request.files and module_id not in ('gan', 'diffusion', 'detection', 'conv_training'):
-        return jsonify({'error': 'No file part'}), 400
+    implementation = get_implementation_meta(module_id)
+    if implementation.get('category') == 'requires_external_weights':
+        result = fn()
+        return _json_demo_error(
+            result.get('error', implementation.get('note', 'External weights required.')),
+            503,
+            implementation,
+            result.get('metrics', {'status': 'requires_external_weights'}),
+        )
+    if implementation.get('category') == 'not_implemented':
+        return _json_demo_error(
+            implementation.get('note') or f'{module_id} has no real implementation wired.',
+            501,
+            implementation,
+            {'status': 'not_implemented'},
+        )
+    requires_upload = bool(implementation.get('requires_upload', True))
+    if requires_upload and ('file' not in request.files or not request.files['file'].filename):
+        return _json_demo_error('No file part', 400, implementation, {'status': 'missing_upload'})
 
     try:
         sig = inspect.signature(fn)
@@ -587,6 +673,8 @@ def demo_endpoint(module_id):
         kwargs['upload_path'] = upload_path
         if valid_keys is None or 'left_path' in valid_keys: kwargs['left_path'] = upload_path
         if valid_keys is None or 'right_path' in valid_keys: kwargs['right_path'] = upload_path
+        if valid_keys is None or 'image' in valid_keys:
+            kwargs['image'] = load_image_u8(upload_path, mode='rgb', max_side=1024)
         if valid_keys is None or 'image_28x28' in valid_keys:
             from PIL import Image
             img = Image.open(upload_path).convert('L').resize((28,28))
@@ -603,12 +691,28 @@ def demo_endpoint(module_id):
         filtered = {k: v for k, v in kwargs.items() if k in valid_keys}
     else:
         filtered = dict(kwargs)
-    result = fn(**filtered)
+    try:
+        result = fn(**filtered)
+    except FileNotFoundError as exc:
+        return _json_demo_error(exc, 503, implementation, {'status': 'model_not_available'})
+    except ImportError as exc:
+        return _json_demo_error(exc, 503, implementation, {'status': 'dependency_not_available'})
+    except Exception as exc:
+        return _json_demo_error(exc, 500, implementation, {
+            'status': 'processor_error',
+            'module_id': module_id,
+            'error_type': type(exc).__name__,
+        })
+    if isinstance(result, dict) and result.get('error'):
+        result_status = result.get('metrics', {}).get('status')
+        status_code = 503 if result_status in {'model_not_available', 'requires_external_weights'} else 400
+        return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}))
 
     steps_out, metrics = _normalize_pipeline_result(result)
     resp = {'steps': steps_out, 'metrics': metrics}
     if original_url:
         resp['original_image'] = original_url
+    resp['implementation'] = implementation
     return jsonify(resp)
 
 

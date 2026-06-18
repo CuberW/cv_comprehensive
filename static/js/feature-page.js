@@ -215,6 +215,7 @@
         var clearHistoryBtn = qs('clearHistoryBtn');
         var historyList = qs('historyList');
         var historyData = [];
+        var selectedFile = null;
         var userDataLoaded = false;
         var demoLoading = false;
         var demoLoaded = false;
@@ -246,6 +247,21 @@
             if (player) player.load(steps);
             animEmpty.style.display = 'none';
             animEmpty.textContent = '';
+        }
+
+        function setSelectedFile(file) {
+            selectedFile = file || null;
+            fileNameText.textContent = selectedFile ? selectedFile.name : (config.noFileText || '');
+            processBtn.disabled = !selectedFile;
+            statusText.textContent = selectedFile
+                ? (config.fileReadyText || '已选择图片，点击运行按钮开始处理。')
+                : (config.readyText || '');
+        }
+
+        function collectFormData() {
+            var fd = new FormData(form);
+            if (selectedFile) fd.set('file', selectedFile, selectedFile.name || 'upload.png');
+            return fd;
         }
 
         function fetchHistory() {
@@ -410,14 +426,14 @@
         });
 
         fileInput.addEventListener('change', function() {
-            fileNameText.textContent = fileInput.files && fileInput.files.length ? fileInput.files[0].name : (config.noFileText || '');
+            setSelectedFile(fileInput.files && fileInput.files.length ? fileInput.files[0] : null);
         });
 
         form.addEventListener('submit', function(ev) {
             ev.preventDefault();
-            if (!fileInput.files.length) return;
+            if (!selectedFile) return;
             showLoading();
-            fetch(config.endpoint, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } })
+            fetch(config.endpoint, { method: 'POST', body: collectFormData(), headers: { Accept: 'application/json' } })
                 .then(function(res) {
                     if (res.ok) return res.json();
                     return res.text().then(function(text) {
@@ -507,6 +523,7 @@
         animEmpty.textContent = '';
         loadingOverlay.classList.remove('active');
         loadingOverlay.style.display = 'none';
+        setSelectedFile(null);
         if (qs('viewKnowledge') && qs('viewKnowledge').style.display !== 'none') ensureKnowledgeData();
     }
 

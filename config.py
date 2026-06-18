@@ -3,6 +3,14 @@
 """
 import os
 
+# 加载 .env 文件（优先级低于系统环境变量）
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+except Exception:
+    pass
+
+
 class Config:
     # 服务
     HOST = '127.0.0.1'

@@ -6,7 +6,9 @@
 <title>算法讲解 - Cvtoolkits</title>
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/teaching-page.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script src="../js/theme-sync.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 </head>
 <body>
 <main class="teach-page">
@@ -48,6 +50,22 @@
     </div>
   </section>
 
+  <section class="teach-section teach-visual-section" id="visualStorySection">
+    <div class="teach-section-head">
+      <h2>直观图解</h2>
+      <p id="visualStoryIntro">用图形先看懂像素和参数发生了什么。</p>
+    </div>
+    <div class="teach-visual-grid" id="visualStory"></div>
+  </section>
+
+  <section class="teach-section" id="referenceSection">
+    <div class="teach-section-head">
+      <h2>参考实现</h2>
+      <p>论文、官方仓库和实现线索。</p>
+    </div>
+    <div class="teach-references" id="references"></div>
+  </section>
+
   <section class="teach-section">
     <div class="teach-section-head">
       <h2>算法流水线</h2>
@@ -65,6 +83,8 @@
   </section>
 </main>
 <script src="../js/algorithm-content.js"></script>
+<script src="../js/card-anims.js"></script>
+<script src="../js/semantic-anims.js"></script>
 <script src="../js/teaching-page.js"></script>
 </body>
 </html>

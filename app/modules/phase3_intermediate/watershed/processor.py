@@ -15,13 +15,14 @@ def _to_uint8_heat(arr):
 
 def build_pipeline(image_path=None, **kwargs):
     img_u8 = load_image_u8(image_path, mode='rgb', max_side=512) if image_path else np.zeros((64,64,3), dtype=np.uint8)
+    marker_distance=int(max(4,min(40,kwargs.get("marker_distance",kwargs.get("min_dist",15)))))
     gray=ensure_gray(img_u8)
     _,_,grad,_=sobel_gradients(gray.astype(np.float32))
     markers=np.zeros_like(gray,dtype=np.int32)
     try:
         from app.modules.phase1_fundamentals.threshold.algorithm import otsu_threshold,global_threshold
         t=otsu_threshold(gray); binary=global_threshold(gray,t)
-        markers=make_markers_using_distance(binary,min_dist=15)
+        markers=make_markers_using_distance(binary,min_dist=marker_distance)
         labels=watershed_segmentation(grad,markers)
         n_labels=len(np.unique(labels))-1
         colors=np.array([[220,38,38],[37,99,235],[5,150,105],[217,119,6],[124,58,237],[251,191,36]],dtype=np.uint8)
@@ -43,4 +44,4 @@ def build_pipeline(image_path=None, **kwargs):
            {"id":"gradient","name":"梯度幅值(地形)","image":np.clip(grad/grad_max*255,0,255).astype(np.uint8),"explanation":"看作地形:亮=山脊,暗=盆地"},
            {"id":"markers","name":"种子标记","image":np.where(markers>0,255,0).astype(np.uint8),"explanation":"确定各区域的起始位置"},
            {"id":"result","name":"分割结果","image":seg_vis,"explanation":"不同颜色=不同区域,白线=分水岭边界"}]
-    return {"steps":steps,"metrics":{"regions":int(n_labels)}}
+    return {"steps":steps,"metrics":{"regions":int(n_labels),"marker_distance":marker_distance}}

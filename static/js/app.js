@@ -99,7 +99,7 @@ const App = (() => {
       ]},
       {key:'5.5', label:'生成式模型 (6)', color:'#F9A8D4', algo:[
         {id:'ddpm',      n:'DDPM',          en:'DDPM',              d:'扩散奠基作,加噪→去噪逐步生成', planned:true},
-        {id:'sd',        n:'Stable Diffusion',en:'Stable Diffusion',d:'潜空间扩散,VAE+UNet+Cross-Attn', planned:true},
+        {id:'sd',        n:'Stable Diffusion',en:'Stable Diffusion',d:'潜空间扩散,VAE+UNet+Cross-Attn'},
         {id:'controlnet',n:'ControlNet',    en:'ControlNet',        d:'零卷积+冻结SD,空间控制信号', planned:true},
         {id:'dit',       n:'DiT',           en:'DiT',               d:'Transformer替代UNet做扩散', planned:true},
         {id:'flux',      n:'Flux',          en:'Flux',              d:'DiT+Flow Matching,直线路径', planned:true},
@@ -149,11 +149,14 @@ const App = (() => {
     watershed:'watershed',hog_svm:'hog_svm',optical_flow:'optical_flow',
     stereo:'stereo',histogram:'histogram',threshold:'threshold',
     gan:'gan',diffusion:'diffusion',lenet:'lenet',
+    fcn:'semantic',faster_rcnn:'detection',mask_rcnn:'instance',
     detection:'detection',semantic:'semantic',instance:'instance',
     frequency:'frequency',
     noise:'noise',gaussian:'gaussian',sobel:'sobel',median:'median',
     bilateral:'bilateral',nms:'nms',tpl_match:'template_match',
-    kmeans:'kmeans',
+    kmeans:'kmeans',live:'live',conv_training:'conv_training',
+    vit:'vit',detr:'detr',sam:'sam',clip:'clip',nerf:'nerf',
+    sd:'stable_diffusion',
   };
   // Auto-detect: IDMAP first, then direct lookup, then fuzzy match
   function _resolveId(id){
@@ -171,16 +174,64 @@ const App = (() => {
     'convolution','edge','corner','sift','hough','morphology','contour','nms','template_match',
     'kmeans','watershed','grabcut','slic','hog_svm','optical_flow','stereo','match','frequency',
     'lenet','gan','detection','semantic','instance','diffusion',
+    'live','conv_training','vit','detr','sam','clip','nerf','stable_diffusion',
+    'shitomasi','ncuts','bovw_spm','calibration','epipolar','sfm','cnn_basics','resnet',
+    'fcn','unet','faster_rcnn','yolo','mask_rcnn','ddpm','simclr','moco','byol','ijepa',
+    '3dgs','pointnet','bev','occupy','c3d','bytetrack','botsort','deeppose','openpose',
   ]);
-  function _isReady(id){
+  const SPECIAL_PAGE_IDS=new Set(['convolution','edge','corner','sift','match']);
+  function _implInfo(id){
+    const m=_apiMap[id];
+    if(m && m.implementation) return m.implementation;
+    if(window.AlgorithmContent && window.AlgorithmContent[id] && window.AlgorithmContent[id].implementation){
+      return window.AlgorithmContent[id].implementation;
+    }
+    return null;
+  }
+  function _implRealModel(impl){
+    return !!(impl && (impl.realModel===true || impl.real_model===true));
+  }
+  function _implRunnable(impl){
+    if(!impl) return false;
+    const local = impl.local_inference !== undefined ? impl.local_inference : impl.localInference;
+    return !!(local !== false && impl.category !== 'not_implemented' && impl.category !== 'model_not_available' && impl.category !== 'requires_external_weights');
+  }
+  function _moduleState(id){
     const rid=_resolveId(id);
-    // Module must be registered, have a page, AND be in VERIFIED list
-    return VERIFIED.has(rid) && !!(_apiMap[rid]&&_apiMap[rid].page);
+    const api=_apiMap[rid]||_apiMap[id];
+    const impl=(api&&api.implementation)||_implInfo(rid)||_implInfo(id);
+    const hasTeaching=!!(window.AlgorithmContent&&window.AlgorithmContent[id]);
+    const hasPage=!!((api&&api.page)||hasTeaching);
+    const runnable=_implRunnable(impl);
+    const apiReady=!!(api&&api.page&&VERIFIED.has(rid)&&(!impl||runnable));
+    const teachingReady=!!(hasTeaching&&runnable);
+    const ready=!!(hasPage&&(runnable||apiReady||teachingReady));
+    return {id, rid, api, impl, ready, runnable, hasPage, hasTeaching};
+  }
+  function _isReady(id){
+    return _moduleState(id).ready;
   }
   function _openIfReady(id){
     const rid=_resolveId(id);
+    const state=_moduleState(id);
+    const impl=state.impl;
+    if(window.AlgorithmContent && window.AlgorithmContent[id] && !SPECIAL_PAGE_IDS.has(id)){
+      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
+      return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
+    }
+    if(impl && !_implRunnable(impl) && window.AlgorithmContent && window.AlgorithmContent[id]){
+      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
+      return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
+    }
+    if(impl && !_implRunnable(impl)) return null;
+    if(!_isReady(id) && !(window.AlgorithmContent && window.AlgorithmContent[id] && !impl)) return null;
+    if(window.AlgorithmContent && window.AlgorithmContent[id] && !SPECIAL_PAGE_IDS.has(id)&&!SPECIAL_PAGE_IDS.has(rid)){
+      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
+      return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
+    }
     const m=_apiMap[rid];
-    return m&&m.page?m:null;
+    if(m&&m.page) return m;
+    return null;
   }
 
   // ============================================================
@@ -210,6 +261,9 @@ const App = (() => {
     });
 
     document.getElementById('btn-network').addEventListener('click',openNetwork);
+    document.querySelectorAll('[data-course-open]').forEach(btn=>{
+      btn.addEventListener('click',()=>Router.go('/module/'+btn.dataset.courseOpen));
+    });
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$overlay.classList.contains('active'))closeDetail();});
 
     // Search box
@@ -229,9 +283,26 @@ const App = (() => {
       (data.phases||[]).forEach(ph=>{(ph.modules||[]).forEach(m=>{_apiModules.push(m);_apiMap[m.id]=m;});});
     }catch(e){console.warn('[App] API unreachable');}
     _renderMetro();
+    _syncCounts();
+  }
+  function _syncCounts(){
     const all=_allAlgos();
-    $statTotal.textContent=all.length;
-    $statReady.textContent=all.filter(a=>_isReady(a.id)).length;
+    if($statTotal) $statTotal.textContent=all.length;
+    if($statReady) $statReady.textContent=all.filter(a=>_isReady(a.id)).length;
+    Array.from(document.querySelectorAll('.phase-line')).forEach((line,idx)=>{
+      const phase=BLUEPRINT[idx];
+      if(!phase) return;
+      const algos=_phaseAlgos(phase);
+      const phaseNode=line.querySelector('.phase-count');
+      if(phaseNode) phaseNode.textContent=algos.filter(a=>_isReady(a.id)).length+'/'+algos.length+' 已实现';
+      if(phase.subs){
+        Array.from(line.querySelectorAll('.sub-group')).forEach((group,gidx)=>{
+          const grp=phase.subs[gidx];
+          const node=group.querySelector('.sub-group-count');
+          if(node&&grp) node.textContent=grp.algo.filter(a=>_isReady(a.id)).length+'/'+grp.algo.length;
+        });
+      }
+    });
   }
 
   // ── Metro ──
@@ -264,9 +335,12 @@ const App = (() => {
     });
   }
   function _card(a){
-    const ready=_isReady(a.id), isNew=a.planned;
+    const state=_moduleState(a.id);
+    const impl=state.impl||{};
+    const ready=state.ready;
+    const isNew=a.planned;
     const cls=['algo-card',ready?'realized':(isNew?'planned':'pending')].filter(Boolean).join(' ');
-    const tag=ready?'可体验':(isNew?'规划中':'待实现');
+    const tag=_implRealModel(impl) ? (impl.category==='requires_external_weights' ? '需要权重' : '真实模型') : (impl.category==='not_implemented' ? '未接入' : (impl.category==='requires_external_weights' ? '需要权重' : (ready?'可体验':(isNew?'规划中':'待实现'))));
     // Difficulty stars: find which phase this algo belongs to
     let diff=1; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===a.id))diff=p.diff;});
     return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><div class="card-meta"><span class="card-tag">${tag}</span></div></div>`;

@@ -1,27 +1,32 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>DETR 目标检测 — DETR</title>
-<link rel="stylesheet" href="/static/css/main.css">
-<link rel="stylesheet" href="../css/iframe-theme.css">
-<script src="../js/theme-sync.js"></script>
-</head>
-<body class="module-page">
-  <h1>DETR 目标检测</h1>
-  <p class="module-subtitle">DETR</p>
-  <span class="module-status placeholder">模块已建立，算法待实现</span>
-
-  <p class="module-desc">去掉了 Anchor、NMS、Region Proposal——DETR 用 Transformer 的 Object Query 直接「问」出图像中的物体。彻底简化了检测流水线。</p>
-
-  <div class="module-pipeline">
-    <span class="pipeline-step input">输入图像</span>
-    <span class="pipeline-arrow">→</span>
-    <span class="pipeline-step process">CNN Backbone</span> → <span class="pipeline-step process">Transformer Encoder-Decoder</span> → 
-    <span class="pipeline-step output">Object Query预测框</span>
-  </div>
-
-  <h3>学习要点</h3>
-  <div class="module-section"><p>Object Query: 100 个可学习的查询向量</p></div><div class="module-section"><p>Encoder-Decoder 注意力机制</p></div><div class="module-section"><p>二分图匹配 (Hungarian Algorithm)</p></div><div class="module-section"><p>与 YOLO/Faster R-CNN 的架构对比</p></div>
-</body>
-</html>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DETR — CV 通识教育</title>
+<link rel="stylesheet" href="../css/iframe-theme.css"><script src="../js/theme-sync.js"></script><script src="../js/model-page-status.js" defer></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;color:#e2e8f0;background:#0f172a;min-height:100vh}
+.page{max-width:1100px;margin:0 auto;padding:20px 24px 40px}h1{font-size:1.6rem;font-weight:700}
+.subtitle{color:#94a3b8;font-size:0.9rem}.status{display:inline-block;padding:3px 12px;border-radius:12px;font-size:0.75rem;font-weight:600;margin:6px 0;background:#065f46;color:#6ee7b7}
+.panel{background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.15);border-radius:16px;padding:18px 20px;margin-bottom:16px}.panel h3{font-size:1rem;margin-bottom:12px}
+.upload-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.upload-btn{padding:10px 22px;background:#c084fc;color:#fff;border:none;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer}.upload-btn:hover{opacity:0.9}.upload-btn:disabled{opacity:0.45;cursor:not-allowed}
+.upload-info{flex:1;min-width:180px;font-size:0.85rem;color:#94a3b8}.filename{color:#e2e8f0;font-weight:600}
+.upload-section{border:2px dashed rgba(148,163,184,0.25);border-radius:14px;padding:16px 20px}.upload-section.dragover{border-color:#c084fc;background:rgba(192,132,252,0.05)}.upload-section.has-file{border-style:solid;border-color:#c084fc}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px}.param-item label{display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:4px}.param-item input[type=range]{width:100%;accent-color:#c084fc}.param-item .val{font-size:0.85rem;color:#c084fc;font-weight:600}
+.btn-row{display:flex;gap:10px;margin-top:12px}.btn-primary{padding:10px 28px;background:#c084fc;color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer}.btn-primary:hover{background:#a855f7}
+.btn-secondary{padding:10px 20px;background:rgba(148,163,184,0.15);color:#cbd5e1;border:1px solid rgba(148,163,184,0.2);border-radius:10px;font-size:0.9rem;cursor:pointer}
+.metrics-bar{display:flex;flex-wrap:wrap;gap:16px;padding:12px 16px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.2);border-radius:12px;margin-bottom:16px}.metric-item .metric-label{font-size:0.7rem;color:#94a3b8;text-transform:uppercase}.metric-item .metric-value{font-size:1rem;font-weight:700;color:#c084fc}
+.steps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.step-card{background:rgba(30,41,59,0.6);border:1px solid rgba(148,163,184,0.12);border-radius:12px;overflow:hidden}.step-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:translateY(-2px)}.step-card.step-input{border-left:3px solid #3B82F6}.step-card.step-process{border-left:3px solid #c084fc}.step-card.step-output{border-left:3px solid #10B981}
+.step-card .img-area{background:rgba(15,23,42,0.5);min-height:140px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(148,163,184,0.1);overflow:hidden}.step-card .img-area img{width:100%;display:block}.step-card .info{padding:12px 14px}.step-card .info .step-title{font-weight:700;font-size:0.9rem}.step-card .info .step-desc{font-size:0.8rem;color:#94a3b8;margin-top:4px;line-height:1.5}
+.loading{text-align:center;padding:32px;color:#94a3b8;display:none}.loading.visible{display:block}.spinner{display:inline-block;width:36px;height:36px;border:3px solid rgba(148,163,184,0.2);border-top-color:#c084fc;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px 20px;color:#fca5a5;font-size:0.88rem;margin-top:16px;display:none}.error-box.visible{display:block}.empty-hint{text-align:center;padding:36px 20px;color:#64748b;font-size:0.92rem}.results-section{display:none}.results-section.visible{display:block}
+</style></head><body>
+<main class="page"><h1>🤖 DETR 目标检测</h1><p class="subtitle">DEtection TRansformer — Object Query + 二分匹配端到端检测</p><span class="status">模型就绪 (ResNet-50)</span>
+<span id="backendHint" style="display:none;margin-left:8px;font-size:0.75rem;color:#94a3b8"></span>
+<p style="color:#94a3b8;font-size:0.88rem;margin-top:8px;">使用 facebook/detr-resnet-50 预训练模型，提取解码器交叉注意力进行可视化。</p>
+<div class="panel"><h3>📤 上传图像</h3><div class="upload-section" id="uploadSection"><input type="file" id="fileInput" accept="image/*" style="display:none"><div class="upload-row"><button class="upload-btn" id="uploadBtn">选择图片</button><div class="upload-info"><span class="filename" id="fileName">未选择文件</span></div></div></div>
+<div class="params-grid"><div class="param-item"><label>置信度阈值</label><input type="range" id="threshold" min="10" max="90" value="50" step="5"><span class="val" id="thresholdVal">0.50</span></div></div>
+<div class="btn-row"><button class="btn-primary" id="runBtn">▶ 运行 DETR 检测</button><button class="btn-secondary" id="sampleBtn">🧪 使用示例图</button></div></div>
+<div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:12px;">DETR 推理中 (首次加载需下载模型~170MB)...</p></div><div class="error-box" id="errorBox"></div><div class="empty-hint" id="emptyHint">👆 上传图片查看 DETR 如何用 100 个 Object Query 端到端检测物体。</div>
+<div class="results-section" id="resultsSection"><div class="metrics-bar" id="metricsBar"></div><div class="panel" style="margin-top:16px;"><h3>🔬 DETR 检测流水线</h3><div class="steps-grid" id="stepsGrid"></div></div></div></main>
+<script>(function(){var a=document.getElementById('fileInput'),b=document.getElementById('uploadBtn'),c=document.getElementById('uploadSection'),d=document.getElementById('fileName'),e=document.getElementById('loading'),f=document.getElementById('errorBox'),g=document.getElementById('resultsSection'),h=document.getElementById('metricsBar'),i=document.getElementById('stepsGrid'),j=document.getElementById('emptyHint'),k=document.getElementById('runBtn'),l=document.getElementById('sampleBtn'),m=null,n='detr';b.addEventListener('click',function(){a.click()});a.addEventListener('change',function(t){m=t.target.files[0];if(m){d.innerHTML='<span class="filename">'+m.name+'</span>';c.classList.add('has-file')}});c.addEventListener('dragover',function(t){t.preventDefault();c.classList.add('dragover')});c.addEventListener('dragleave',function(){c.classList.remove('dragover')});c.addEventListener('drop',function(t){t.preventDefault();c.classList.remove('dragover');if(t.dataTransfer.files.length){m=t.dataTransfer.files[0];d.innerHTML='<span class="filename">'+m.name+'</span>';c.classList.add('has-file')}});k.addEventListener('click',p);l.addEventListener('click',function(){m=null;d.innerHTML='<span class="filename">示例生成图</span>';c.classList.add('has-file');p()});var o=document.getElementById('threshold');o.addEventListener('input',function(){document.getElementById('thresholdVal').textContent=(this.value/100).toFixed(2)});function p(){e.classList.add('visible');f.classList.remove('visible');g.classList.remove('visible');j.style.display='none';k.disabled=true;l.disabled=true;var t=new FormData();if(m)t.append('file',m);t.append('threshold',o.value/100);fetch('/api/demo/'+n,{method:'POST',body:t}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(r){e.classList.remove('visible');k.disabled=false;l.disabled=false;if(r.error){q(r.error);return}var s=r.metrics||{},u='';Object.keys(s).forEach(function(v){var w=s[v];if(typeof w==='number')w=Math.round(w*100)/100;u+='<div class="metric-item"><div class="metric-label">'+v+'</div><div class="metric-value">'+w+'</div></div>'});h.innerHTML=u;var x=r.steps||[],y='';x.forEach(function(v,w){var z=(w===0)?'step-input':(w===x.length-1)?'step-output':'step-process';y+='<div class="step-card '+z+'"><div class="img-area">';if(v.image_base64)y+='<img src="data:image/png;base64,'+v.image_base64+'" alt="'+v.name+'">';else y+='<span style="color:#64748b">(无图像)</span>';y+='</div><div class="info"><div class="step-title">'+v.name+'</div>';if(v.explanation)y+='<div class="step-desc">'+v.explanation+'</div>';y+='</div></div>'});i.innerHTML=y;g.classList.add('visible')}).catch(function(r){e.classList.remove('visible');k.disabled=false;l.disabled=false;q('请求失败: '+r.message)})}function q(t){f.textContent=t;f.classList.add('visible')}})();</script></body></html>

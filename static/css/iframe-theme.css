@@ -125,8 +125,8 @@ body::before {
 }
 
 .page-header {
-  margin-bottom: 18px !important;
-  padding: 24px !important;
+  margin-bottom: 12px !important;
+  padding: 14px 16px !important;
   border: 1px solid var(--cv-border) !important;
   border-radius: var(--cv-radius) !important;
   background:
@@ -141,8 +141,8 @@ body::before {
 .match-header h1,
 .topbar h1 {
   color: #ffffff !important;
-  font-size: clamp(1.72rem, 3.4vw, 3.3rem) !important;
-  line-height: 1.02 !important;
+  font-size: clamp(1.18rem, 2vw, 1.72rem) !important;
+  line-height: 1.12 !important;
   font-weight: 820 !important;
   letter-spacing: 0 !important;
 }
@@ -168,7 +168,24 @@ body::before {
 .page-subtitle,
 .match-header p {
   max-width: 760px;
-  line-height: 1.75 !important;
+  font-size: 0.88rem !important;
+  line-height: 1.48 !important;
+}
+
+.head {
+  margin-bottom: 12px !important;
+}
+
+.head h1 {
+  font-size: clamp(1.16rem, 2vw, 1.6rem) !important;
+  line-height: 1.12 !important;
+  margin-bottom: 4px !important;
+}
+
+.head p {
+  font-size: 0.88rem !important;
+  line-height: 1.48 !important;
+  margin-bottom: 10px !important;
 }
 
 .status,

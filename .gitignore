@@ -38,3 +38,6 @@ static/fonts/
 test.py
 test_seg.py
 update_nn_pages.py
+
+# 临时 prompt 文件
+*_prompt.md

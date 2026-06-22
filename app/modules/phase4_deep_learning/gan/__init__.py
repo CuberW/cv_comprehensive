@@ -15,4 +15,4 @@ class GANModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'gan.html'
+        return 'nn_interactive.html?id=gan'

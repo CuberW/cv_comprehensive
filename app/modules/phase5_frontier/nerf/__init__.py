@@ -15,4 +15,4 @@ class NeRFModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'nerf.html'
+        return 'nn_interactive.html?id=nerf'

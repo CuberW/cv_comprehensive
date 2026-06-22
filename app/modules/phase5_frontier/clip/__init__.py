@@ -15,4 +15,4 @@ class CLIPModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'clip.html'
+        return 'nn_interactive.html?id=clip'

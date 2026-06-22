@@ -41,36 +41,38 @@ def _pixel_probability(color, models, name):
     return max(prob, 1e-12)
 
 
+def _pixel_probability_all(img, models, name):
+    """Vectorized: compute probability for all pixels at once."""
+    prob = np.zeros(img.shape[:2], dtype=np.float64)
+    for comp in models[name]:
+        diff = img.astype(np.float64) - comp['mean'].reshape(1, 1, 3)
+        dist = np.sum(diff * diff, axis=2)
+        prob += comp['weight'] * np.exp(-dist / (2.0 * 50.0**2))
+    return np.maximum(prob, 1e-12)
+
+
 def _graph_cut_refine(img, mask, models, gamma=50.0, iterations=1):
-    """
-    Simplified Graph Cut refinement.
-    Reassigns each pixel to fg or bg based on data term + smoothness term.
-    """
+    """Vectorized Graph Cut refinement."""
     h, w = img.shape[:2]
     result = mask.copy().astype(np.uint8)
 
     for _ in range(iterations):
-        new_mask = result.copy()
-        for y in range(1, h - 1):
-            for x in range(1, w - 1):
-                color = img[y, x].astype(np.float64)
-                fg_prob = _pixel_probability(color, models, 'fg')
-                bg_prob = _pixel_probability(color, models, 'bg')
+        # Data term: per-pixel fg/bg probability (vectorized over all pixels)
+        fg_prob = _pixel_probability_all(img, models, 'fg')
+        bg_prob = _pixel_probability_all(img, models, 'bg')
+        data_fg = -np.log(fg_prob)
+        data_bg = -np.log(bg_prob)
 
-                # Smoothness: count neighbors of each label
-                neighbors = np.array([
-                    result[y-1,x], result[y,x-1], result[y,x+1], result[y+1,x],
-                    result[y-1,x-1], result[y-1,x+1], result[y+1,x-1], result[y+1,x+1]
-                ])
-                n_fg = (neighbors == 1).sum()
-                n_bg = (neighbors == 0).sum()
+        # Smoothness: count fg neighbors using convolution
+        kernel = np.ones((3, 3), dtype=np.float64)
+        kernel[1, 1] = 0  # Don't count self
+        from scipy.ndimage import convolve
+        n_fg = convolve((result == 1).astype(np.float64), kernel, mode='constant', cval=0.0)
+        n_bg = convolve((result == 0).astype(np.float64), kernel, mode='constant', cval=0.0)
 
-                # Energy: data term + gamma * smoothness term
-                energy_fg = -np.log(fg_prob) - gamma * n_fg
-                energy_bg = -np.log(bg_prob) - gamma * n_bg
-
-                new_mask[y, x] = 1 if energy_fg < energy_bg else 0
-        result = new_mask
+        energy_fg = data_fg - gamma * n_fg
+        energy_bg = data_bg - gamma * n_bg
+        result = np.where(energy_fg < energy_bg, 1, 0).astype(np.uint8)
 
     return result
 

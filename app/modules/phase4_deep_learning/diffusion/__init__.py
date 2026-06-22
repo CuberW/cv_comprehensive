@@ -15,4 +15,4 @@ class DiffusionModelModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'diffusion.html'
+        return 'nn_interactive.html?id=diffusion'

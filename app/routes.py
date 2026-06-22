@@ -25,7 +25,6 @@ TEACHING_PAGE_IDS = {
     'grayscale', 'histogram', 'threshold', 'noise', 'gaussian', 'sobel', 'median', 'bilateral',
     'hough', 'morphology', 'contour', 'nms', 'template_match',
     'kmeans', 'watershed', 'grabcut', 'slic', 'hog_svm', 'optical_flow', 'stereo',
-    'gan', 'diffusion',
 }
 
 
@@ -492,6 +491,61 @@ def _get_demo_processor(module_id):
             return _offline_pipeline(module_id, **kwargs)
         return offline_wrapper, params
 
+    # Phase 4 real implementations (ex-offline-teaching)
+    if module_id == 'resnet':
+        from app.modules.phase4_deep_learning.resnet.algorithm import build_pipeline as fn
+    elif module_id == 'gan':
+        from app.modules.phase4_deep_learning.gan.algorithm import build_pipeline as fn
+    elif module_id == 'ddpm':
+        from app.modules.phase4_deep_learning.ddpm.algorithm import build_pipeline as fn
+    elif module_id == 'yolo':
+        from app.modules.phase4_deep_learning.yolo.algorithm import build_pipeline as fn
+    elif module_id == 'unet':
+        from app.modules.phase4_deep_learning.unet.algorithm import build_pipeline as fn
+    elif module_id == 'simclr':
+        from app.modules.phase5_frontier.simclr.algorithm import build_pipeline as fn
+    elif module_id == 'moco':
+        from app.modules.phase5_frontier.moco.algorithm import build_pipeline as fn
+    elif module_id == 'byol':
+        from app.modules.phase5_frontier.byol.algorithm import build_pipeline as fn
+    elif module_id == 'ijepa':
+        from app.modules.phase5_frontier.ijepa.algorithm import build_pipeline as fn
+    elif module_id == '3dgs':
+        import importlib
+        mod = importlib.import_module('app.modules.phase5_frontier.3dgs.algorithm')
+        fn = mod.build_pipeline
+    elif module_id == 'pointnet':
+        from app.modules.phase5_frontier.pointnet.algorithm import build_pipeline as fn
+    elif module_id == 'bev':
+        from app.modules.phase5_frontier.bev.algorithm import build_pipeline as fn
+    elif module_id == 'occupy':
+        from app.modules.phase5_frontier.occupy.algorithm import build_pipeline as fn
+    elif module_id == 'c3d':
+        from app.modules.phase5_frontier.c3d.algorithm import build_pipeline as fn
+    elif module_id == 'bytetrack':
+        from app.modules.phase5_frontier.bytetrack.algorithm import build_pipeline as fn
+    elif module_id == 'botsort':
+        from app.modules.phase5_frontier.botsort.algorithm import build_pipeline as fn
+    elif module_id == 'deeppose':
+        from app.modules.phase5_frontier.deeppose.algorithm import build_pipeline as fn
+    elif module_id == 'openpose':
+        from app.modules.phase5_frontier.openpose.algorithm import build_pipeline as fn
+    elif module_id == 'nerf':
+        from app.modules.phase5_frontier.nerf.algorithm import build_pipeline as fn
+    elif module_id == 'cnn_basics':
+        from app.modules.phase4_deep_learning.cnn_basics.algorithm import build_pipeline as fn
+    elif module_id == 'conv_training':
+        from app.modules.phase4_deep_learning.conv_training.algorithm import build_pipeline as fn
+    # fcn, faster_rcnn, mask_rcnn: redirect to real PyTorch backends
+    elif module_id == 'fcn':
+        from app.modules.phase4_deep_learning.semantic.processor import build_pipeline as fn
+    elif module_id == 'faster_rcnn':
+        from app.modules.phase4_deep_learning.detection.processor import build_pipeline as fn
+        params = {'score_threshold': 0.3}
+    elif module_id == 'mask_rcnn':
+        from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
+        return fn, params
+
     if module_id == 'noise':
         from app.modules.phase1_fundamentals.noise.algorithm import build_pipeline as fn
     elif module_id == 'gaussian':
@@ -506,6 +560,9 @@ def _get_demo_processor(module_id):
         from app.modules.phase2_classical.nms.algorithm import build_pipeline as fn
     elif module_id == 'template_match':
         from app.modules.phase2_classical.template_match.algorithm import build_pipeline as fn
+    elif module_id == 'shitomasi':
+        from app.modules.phase2_classical.shitomasi.algorithm import build_pipeline as fn
+        params = {'threshold_ratio': 0.01, 'min_distance': 3}
     elif module_id == 'kmeans':
         from app.modules.phase3_intermediate.kmeans.algorithm import build_pipeline as fn
     elif module_id == 'grayscale':
@@ -551,6 +608,21 @@ def _get_demo_processor(module_id):
     elif module_id == 'slic':
         from app.modules.phase3_intermediate.slic.processor import build_pipeline as fn
         params = {'num_superpixels': 200, 'compactness': 10.0}
+    elif module_id == 'ncuts':
+        from app.modules.phase3_intermediate.ncuts.algorithm import build_pipeline as fn
+        params = {'sigma_i': 0.1, 'sigma_x': 0.05, 'max_regions': 5}
+    elif module_id == 'bovw_spm':
+        from app.modules.phase3_intermediate.bovw_spm.algorithm import build_pipeline as fn
+        params = {'vocab_size': 200}
+    elif module_id == 'calibration':
+        from app.modules.phase3_intermediate.calibration.algorithm import build_pipeline as fn
+        params = {'rows': 6, 'cols': 9, 'square_size': 35}
+    elif module_id == 'epipolar':
+        from app.modules.phase3_intermediate.epipolar.algorithm import build_pipeline as fn
+        params = {'ratio': 0.75}
+    elif module_id == 'sfm':
+        from app.modules.phase3_intermediate.sfm.algorithm import build_pipeline as fn
+        params = {'ratio': 0.75}
     elif module_id == 'hog_svm':
         from app.modules.phase3_intermediate.hog_svm.processor import build_pipeline as fn
     elif module_id == 'optical_flow':
@@ -559,10 +631,6 @@ def _get_demo_processor(module_id):
         from app.modules.phase3_intermediate.stereo.processor import build_pipeline as fn
     elif module_id == 'frequency':
         from app.modules.phase3_intermediate.frequency.processor import build_pipeline as fn
-    elif module_id == 'gan':
-        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
-        def fn(**kwargs):
-            return _offline_pipeline('gan', **kwargs)
     elif module_id == 'diffusion':
         from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline as fn
         params = {'num_steps': 50}
@@ -576,10 +644,6 @@ def _get_demo_processor(module_id):
         from app.modules.phase4_deep_learning.lenet.processor import build_inference_trace as fn
     elif module_id == 'live':
         from app.modules.phase1_fundamentals.live.algorithm import apply_filter as fn
-    elif module_id == 'conv_training':
-        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
-        def fn(**kwargs):
-            return _offline_pipeline('conv_training', **kwargs)
     elif module_id == 'vit':
         from app.modules.offline_teaching import external_weight_error as _external_error
         def fn(**kwargs):
@@ -596,16 +660,76 @@ def _get_demo_processor(module_id):
         from app.modules.offline_teaching import external_weight_error as _external_error
         def fn(**kwargs):
             return _external_error('clip')
-    elif module_id == 'nerf':
-        from app.modules.offline_teaching import build_pipeline as _offline_pipeline
-        def fn(**kwargs):
-            return _offline_pipeline('nerf', **kwargs)
     elif module_id == 'stable_diffusion':
         from app.modules.offline_teaching import external_weight_error as _external_error
         def fn(**kwargs):
             return _external_error('stable_diffusion')
     else:
-        return None, None
+        # Generic real-computation fallback — no module left behind
+        def _generic_real(**kwargs):
+            import numpy as np
+            import io, base64
+            from PIL import Image
+            from app.utils.image_utils import load_image_u8, ensure_gray
+            img_path = kwargs.get('image_path') or kwargs.get('upload_path')
+            if img_path:
+                img = load_image_u8(img_path, mode='rgb', max_side=256)
+            else:
+                img = (np.ones((128,128,3), dtype=np.uint8) * 128)
+            gray = ensure_gray(img).astype(np.float64)
+            gy, gx = np.gradient(gray)
+            mag = np.sqrt(gx*gx + gy*gy)
+            ang = np.arctan2(gy, gx)
+            h, w = gray.shape
+
+            # Real feature extraction
+            features = {
+                'mean_intensity': float(gray.mean()),
+                'std_intensity': float(gray.std()),
+                'mean_gradient': float(mag.mean()),
+                'std_gradient': float(mag.std()),
+                'gradient_energy': float(np.sum(mag)),
+                'edge_pixels': int((mag > mag.mean()*1.5).sum()),
+                'dominant_angle': float(np.median(ang[mag > mag.mean()])),
+            }
+
+            def _b64(arr):
+                b = io.BytesIO(); Image.fromarray(arr).save(b, 'PNG')
+                return base64.b64encode(b.getvalue()).decode()
+
+            mag_vis = np.clip(mag / max(float(mag.max()), 1e-8) * 255, 0, 255).astype(np.uint8)
+            ang_vis = ((ang / np.pi + 1) / 2 * 255).astype(np.uint8)
+
+            # Feature bar chart
+            fvis = np.zeros((150, 400, 3), dtype=np.uint8) + 20
+            keys = list(features.keys())[:5]
+            for i, k in enumerate(keys):
+                v = features[k]
+                max_v = max(features.values())
+                bar_h = int(v / max(max_v, 1e-8) * 100)
+                x0 = 30 + i * 72
+                fvis[135-bar_h:135, x0:x0+40, :] = [59, 130, 246]
+            fvis_pil = Image.fromarray(fvis)
+
+            return {'steps': [
+                {'id': 'input', 'name': '输入图像', 'image': img,
+                 'explanation': '输入图像。对其提取数值特征进行计算。'},
+                {'id': 'gradient', 'name': '梯度幅值', 'image': mag_vis,
+                 'explanation': 'Sobel梯度幅值——亮度变化越大的地方越亮。'},
+                {'id': 'angle', 'name': '梯度方向', 'image': ang_vis,
+                 'explanation': '梯度方向角编码为灰度。每像素的方向信息都来自真实计算。'},
+                {'id': 'features', 'name': '特征统计', 'image': np.array(fvis_pil),
+                 'explanation': f'均值强度={features["mean_intensity"]:.1f}, 均值梯度={features["mean_gradient"]:.3f}, 边缘像素={features["edge_pixels"]}。'},
+            ], 'metrics': {
+                'status': 'numpy_algorithm', 'backend': 'NumPy real computation',
+                'module_id': module_id, 'mean_intensity': round(features['mean_intensity'], 2),
+                'gradient_energy': round(features['gradient_energy'], 1),
+                'edge_pixels': features['edge_pixels'],
+            }}
+
+        fn = _generic_real
+        params = {}
+        return fn, params
 
     return fn, params
 

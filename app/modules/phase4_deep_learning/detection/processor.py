@@ -1,6 +1,4 @@
-"""Object detection demo with local fallback and optional Faster R-CNN."""
-import os
-
+"""Object detection with real Faster R-CNN and local NumPy fallback."""
 import numpy as np
 
 from app.modules.offline_teaching import _load_or_fixture
@@ -10,11 +8,24 @@ from app.utils.image_utils import ensure_gray, load_image_u8
 _MODEL = None
 _WEIGHTS = None
 _DEVICE = None
+_TORCH_AVAILABLE = None
+
+
+def _check_torch():
+    global _TORCH_AVAILABLE
+    if _TORCH_AVAILABLE is None:
+        try:
+            import torch  # noqa: F401
+            import torchvision  # noqa: F401
+            _TORCH_AVAILABLE = True
+        except ImportError:
+            _TORCH_AVAILABLE = False
+    return _TORCH_AVAILABLE
 
 
 def _get_model():
     global _MODEL, _WEIGHTS, _DEVICE
-    if _MODEL is None:
+    if _MODEL is None and _check_torch():
         import torch
         from torchvision.models.detection import (
             FasterRCNN_ResNet50_FPN_Weights,
@@ -30,8 +41,11 @@ def _get_model():
 
 
 def build_pipeline(image_path=None, score_threshold=0.5, **kwargs):
-    """Run real Faster R-CNN when explicitly enabled; otherwise run locally."""
-    if os.environ.get('CV_ENABLE_PRETRAINED_DEMOS') != '1' or not image_path:
+    """Run real Faster R-CNN by default; fall back to local heuristic if torch unavailable."""
+    if not image_path:
+        return _build_local_pipeline(image_path=image_path, **kwargs)
+
+    if not _check_torch():
         return _build_local_pipeline(image_path=image_path, **kwargs)
 
     threshold = float(kwargs.get('score_threshold', kwargs.get('threshold', score_threshold)))

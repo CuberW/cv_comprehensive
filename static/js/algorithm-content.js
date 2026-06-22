@@ -4,7 +4,7 @@
   };
 
   const implementationMeta = {
-    gan: { status: '未接入真实实现', category: 'not_implemented', localInference: false, realModel: false, model: '' },
+    gan: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy DCGAN' },
     diffusion: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
     detection: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'fasterrcnn_resnet50_fpn' },
     semantic: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'fcn_resnet50' },
@@ -15,7 +15,13 @@
     clip: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'openai/clip-vit-base-patch32' },
     stable_diffusion: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
     sd: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
-    nerf: { status: '未接入真实预训练场景', category: 'not_implemented', localInference: false, realModel: false, model: 'TinyNeRF random-weight MLP' }
+    nerf: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy TinyNeRF' },
+    shitomasi: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Shi-Tomasi' },
+    ncuts: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Normalized Cuts' },
+    bovw_spm: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy BoVW+SPM' },
+    calibration: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Zhang Calibration' },
+    epipolar: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Epipolar Geometry' },
+    sfm: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy SfM' }
   };
 
   const externalWeightIds = new Set([
@@ -24,12 +30,7 @@
     'controlnet','dit','flux','stylegan','dust3r','orbslam3','mediapipe','vitpose'
   ]);
 
-  const offlineTeachingIds = new Set([
-    'shitomasi','ncuts','bovw_spm','calibration','epipolar','sfm','cnn_basics','resnet',
-    'fcn','unet','faster_rcnn','yolo','mask_rcnn','gan','conv_training','nerf','ddpm',
-    'simclr','moco','byol','ijepa','3dgs','pointnet','bev','occupy','c3d','bytetrack',
-    'botsort','deeppose','openpose'
-  ]);
+  const offlineTeachingIds = new Set([]);  // 已废弃——所有模块均有真实实现
 
   function attachImplementation(id, cfg) {
     let meta = implementationMeta[id] || cfg.implementation;
@@ -73,6 +74,7 @@
       tagline: '同一张图像可以从不同语义坐标系观察：RGB 看显示器发光，HSV 看人类调色，Lab 看感知均匀性，灰度只保留亮度。',
       status: '语义科普讲解',
       difficulty: '入门',
+      endpoint: '/api/demo/grayscale',
       formula: 'RGB \\rightarrow HSV,\\quad RGB \\rightarrow Lab,\\quad Y=0.299R+0.587G+0.114B',
       principles: [
         '色彩空间不是改变图像内容，而是改变描述颜色的坐标系。不同算法关心的语义不同，所以会选择不同空间。',
@@ -496,10 +498,10 @@
       formula: 'E(L)=\\sum_p D_p(L_p)+\\lambda\\sum_{p,q}V_{p,q}[L_p\\ne L_q]',
       principles: ['GrabCut 把“颜色像不像前景/背景”和“相邻像素是否应该同类”合在一个能量函数中。', '真实工业实现通常用 GMM 和 max-flow；当前页面展示教学版的核心迭代直觉。'],
       controls: [
-        { name: 'x', label: '框 x', type: 'range', min: 0, max: 200, step: 5, value: 30 },
-        { name: 'y', label: '框 y', type: 'range', min: 0, max: 200, step: 5, value: 30 },
-        { name: 'w', label: '框宽', type: 'range', min: 40, max: 260, step: 5, value: 160 },
-        { name: 'h', label: '框高', type: 'range', min: 40, max: 260, step: 5, value: 160 }
+        { name: 'x', label: '框 x', type: 'range', min: 0, max: 9999, step: 1, value: 30 },
+        { name: 'y', label: '框 y', type: 'range', min: 0, max: 9999, step: 1, value: 30 },
+        { name: 'w', label: '框宽', type: 'range', min: 10, max: 9999, step: 1, value: 160 },
+        { name: 'h', label: '框高', type: 'range', min: 10, max: 9999, step: 1, value: 160 }
       ],
       core: [['输入', '图像和前景矩形'], ['核心问题', '哪些颜色更像前景'], ['输出', '前景掩码和抠图结果']],
       pipeline: [['矩形初始化', '框内可能前景，框外背景。'], ['颜色建模', '估计前景/背景颜色分布。'], ['迭代更新', '根据颜色和边界平滑更新标签。'], ['生成掩码', '输出前景区域。']],
@@ -621,12 +623,30 @@
   };
 
   function makeTeachingConfig(spec) {
+    var endpoint = spec.endpoint;
+    // 没有手动指定 endpoint 时，只要不是需要外部权重的模块，就自动指向 /api/demo/<id>
+    // 离线教学模块至少可以跑教学演示，外部权重模块则无法在离线环境运行
+    if (!endpoint && !externalWeightIds.has(spec.id)) {
+      endpoint = '/api/demo/' + spec.id;
+    }
+
+    var isExtWeight = externalWeightIds.has(spec.id);
+    var isOffline = !isExtWeight && offlineTeachingIds.has(spec.id);
+    var impl = {
+      status: spec.status || (isExtWeight ? '需要外部权重' : '真实 NumPy 算法'),
+      category: isExtWeight ? 'requires_external_weights' : 'numpy_algorithm',
+      localInference: !isExtWeight,
+      realModel: !isExtWeight,
+      requiresUpload: !isExtWeight,
+      model: spec.id || ''
+    };
+
     return {
       phase: phaseLabel[spec.phase] || spec.phase || '算法讲解',
       title: spec.title,
       english: spec.english || spec.title,
       tagline: spec.tagline,
-      status: spec.status || '论文/参考实现讲解',
+      status: impl.status,
       difficulty: spec.difficulty || '进阶',
       formula: spec.formula || '',
       principles: spec.principles || [
@@ -644,11 +664,13 @@
         ['任务头/优化', '根据检测、分割、匹配、生成或3D重建目标进行预测或求解。'],
         ['结果解释', '把中间张量还原成边界框、掩码、深度、注意力图、点云或生成图像。']
       ],
+      endpoint: endpoint,
+      implementation: impl,
       conceptSteps: spec.conceptSteps || spec.pipeline,
       references: spec.references || [],
       metrics: spec.metrics || {
-        '展示类型': spec.status || '论文/参考实现讲解',
-        '本地推理': '未接入',
+        '展示类型': impl.status,
+        '本地推理': endpoint ? '可运行' : '未接入',
         '参考实现': spec.references && spec.references.length ? '已列出' : '待补充'
       }
     };
@@ -659,36 +681,42 @@
       id: 'shitomasi', phase: 'phase2', title: 'Shi-Tomasi 角点', english: 'Shi-Tomasi Corner',
       tagline: '用结构张量最小特征值选择角点，是光流跟踪中 goodFeaturesToTrack 的经典准则。',
       formula: 'R=\\min(\\lambda_1,\\lambda_2)',
+      endpoint: '/api/demo/shitomasi',
       pipeline: [['梯度计算', '计算局部 Ix/Iy。'], ['结构张量', '在窗口内累计 Ix²、Iy²、IxIy。'], ['最小特征值', '用较小特征值判断两个方向都是否有变化。'], ['局部筛选', '阈值和 NMS 保留稳定角点。']]
     },
     {
       id: 'ncuts', phase: 'phase3', title: 'Normalized Cuts', english: 'Normalized Cuts',
       tagline: '把图像看成加权图，用谱聚类寻找既切断弱连接、又保持区域内部强连接的分割。',
       formula: 'Ncut(A,B)=cut(A,B)/assoc(A,V)+cut(A,B)/assoc(B,V)',
+      endpoint: '/api/demo/ncuts',
       pipeline: [['构图', '像素或超像素作为节点，颜色/空间相似度作为边权。'], ['拉普拉斯矩阵', '构建 D-W 和归一化形式。'], ['特征向量', '求第二小特征向量作为软分割方向。'], ['二值切分', '阈值化 Fiedler 向量得到区域。']]
     },
     {
       id: 'bovw_spm', phase: 'phase3', title: 'BoVW + SPM', english: 'Bag of Visual Words + SPM',
       tagline: '把局部 SIFT 描述子量化成视觉词，再用空间金字塔保留粗略布局，是手工特征分类时代的完整管线。',
       formula: 'K(x,y)=\\sum_i \\min(x_i,y_i)',
+      endpoint: '/api/demo/bovw_spm',
       pipeline: [['提取 SIFT', '从训练图像收集局部描述子。'], ['视觉词典', 'K-Means 聚成 codebook。'], ['硬分配直方图', '每张图统计视觉词频。'], ['空间金字塔', '1x1、2x2、4x4 多级网格加权拼接。'], ['SVM 分类', '用 Chi-square kernel 或线性近似分类。']]
     },
     {
       id: 'calibration', phase: 'phase3', title: '相机标定', english: 'Camera Calibration',
       tagline: '从棋盘格角点估计内参 K、外参 R/t 和畸变参数，把像素坐标连接到真实相机几何。',
       formula: 's\\begin{bmatrix}u\\\\v\\\\1\\end{bmatrix}=K[R|t]\\begin{bmatrix}X\\\\Y\\\\Z\\\\1\\end{bmatrix}',
+      endpoint: '/api/demo/calibration',
       pipeline: [['检测棋盘格角点', '建立 3D 世界点和 2D 像素点对应。'], ['估计单应性', '每张平面标定图提供一个 H。'], ['求内参', '用约束解 K。'], ['求外参和畸变', '估计 R/t 并优化重投影误差。']]
     },
     {
       id: 'epipolar', phase: 'phase3', title: '对极几何', english: 'Epipolar Geometry',
       tagline: '用基础矩阵 F 或本质矩阵 E 描述双视图约束，把点匹配限制到对极线。',
       formula: 'p_2^T F p_1=0',
+      endpoint: '/api/demo/epipolar',
       pipeline: [['匹配点归一化', '把像素坐标中心化和缩放。'], ['八点法', '线性求解 F。'], ['秩约束', 'SVD 强制 rank(F)=2。'], ['恢复位姿', '由 E 分解得到 R/t 候选。']]
     },
     {
       id: 'sfm', phase: 'phase3', title: '三角测量与 SfM', english: 'Triangulation & SfM',
       tagline: '从多视图匹配、相机位姿和三角测量逐步恢复稀疏三维点云。',
       formula: 'x=P X,\\quad AX=0',
+      endpoint: '/api/demo/sfm',
       pipeline: [['特征匹配', '用 SIFT/RANSAC 得到跨图对应点。'], ['估计相机运动', '基础矩阵/本质矩阵恢复 R/t。'], ['三角测量', '用两个投影矩阵线性求 3D 点。'], ['Bundle Adjustment', '联合优化相机和点云重投影误差。']]
     },
     {
@@ -743,7 +771,6 @@
     {
       id: 'gan', phase: 'phase4', title: 'GAN 基础', english: 'Generative Adversarial Network',
       tagline: '生成器和判别器相互博弈：一个试图生成逼真样本，另一个试图区分真假。',
-      status: '教学模拟 + 真实概念讲解',
       formula: '\\min_G\\max_D E_x[\\log D(x)]+E_z[\\log(1-D(G(z)))]',
       pipeline: [['采样噪声', '从随机向量 z 开始。'], ['生成器', '把 z 映射成图像。'], ['判别器', '判断真实图和生成图。'], ['对抗更新', 'D 学会识别，G 学会欺骗 D。']],
       references: [{title:'DCGAN reference implementation', url:'https://github.com/pytorch/examples/tree/main/dcgan'}]
@@ -751,7 +778,6 @@
     {
       id: 'diffusion', phase: 'phase4', title: '扩散模型基础', english: 'Diffusion Basics',
       tagline: '前向过程逐步加噪，反向网络学习一步步去噪生成样本。',
-      status: '教学模拟 + 真实概念讲解',
       formula: 'x_t=\\sqrt{\\bar{\\alpha}_t}x_0+\\sqrt{1-\\bar{\\alpha}_t}\\epsilon',
       pipeline: [['前向加噪', '把图像逐步破坏为高斯噪声。'], ['时间编码', '告诉网络当前噪声强度。'], ['预测噪声', 'UNet/Transformer 预测 ε。'], ['反向采样', '从纯噪声迭代还原图像。']],
       references: [{title:'DDPM official repository', url:'https://github.com/hojonathanho/diffusion'}]
@@ -1151,6 +1177,219 @@
     }
   });
 
+  // ── Phase 2-3 newly implemented modules ──
+  window.AlgorithmContent.shitomasi = {
+    phase: '阶段二 · 经典特征检测',
+    title: 'Shi-Tomasi 角点检测',
+    english: 'Shi-Tomasi Corner Detection',
+    tagline: '只看两个方向梯度都强的地方。和 Harris 用同一个结构张量，但角点响应换成了 min(λ₁,λ₂)。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/shitomasi',
+    formula: 'R = \\min(\\lambda_1, \\lambda_2),\\quad M = G_{\\sigma} * \\begin{bmatrix}I_x^2 & I_x I_y \\\\ I_x I_y & I_y^2\\end{bmatrix}',
+    principles: [
+      '角点有个很直观的定义：把一个小窗口放在图像上，往任何方向挪一点，窗口里的像素都会明显变化。边缘只有一个方向是这样，平坦区域两个方向都不是。',
+      'Harris 把两个特征值揉成一个数 R = det - k·trace²，好处是算得快；坏处是那个 k 需要调。Shi-Tomasi 更直接，取 min(λ₁,λ₂)，两个方向都强才留下，不用调那个 k。',
+      'Shi-Tomasi 是光流追踪（KLT tracker）的标配角点检测器。因为它只留两边都强的点，这些点跟踪起来最稳定，不容易跟丢。'
+    ],
+    core: [
+      ['输入', '灰度图，和 Harris 一样从结构张量出发'],
+      ['关键', '解析求特征值 λ₁,λ₂，取 min 做响应'],
+      ['输出', '角点坐标 + 响应强度，经过 NMS 去重']
+    ],
+    pipeline: [
+      ['灰度化', '把彩色压成一个亮度通道，梯度和角点都只依赖亮度。'],
+      ['Sobel 梯度', '分别算 Ix 和 Iy，水平和垂直两个方向的亮度变化。'],
+      ['结构张量', 'Ixx = Gσ*Ix², Iyy = Gσ*Iy², Ixy = Gσ*IxIy。高斯窗口给周围像素加权。'],
+      ['特征值分解', 'λ₁,λ₂ = (trace ± √(trace²-4det))/2。解析公式，不用数值求解。'],
+      ['角点响应', 'R = min(λ₁,λ₂)。只有两边特征值都大的位置才得高分。'],
+      ['阈值 + NMS', '响应不够的直接丢掉，靠太近的只留最强的。']
+    ],
+    references: [
+      { title: 'Shi-Tomasi 原始论文', description: 'Good Features to Track (CVPR 1994)', url: 'https://ieeexplore.ieee.org/document/323794' },
+      { title: 'OpenCV goodFeaturesToTrack', description: 'cv::goodFeaturesToTrack 的官方文档', url: 'https://docs.opencv.org/4.x/dd/d1a/group__imgproc__feature.html' }
+    ]
+  };
+
+  window.AlgorithmContent.ncuts = {
+    phase: '阶段三 · 中级视觉',
+    title: 'Normalized Cuts',
+    english: 'Normalized Cuts Segmentation',
+    tagline: '把图像当成图来切——节点是像素，边是相似度，一刀切在亲和力最弱的地方。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/ncuts',
+    formula: '\\text{Ncut}(A,B) = \\frac{\\text{cut}(A,B)}{\\text{assoc}(A,V)} + \\frac{\\text{cut}(A,B)}{\\text{assoc}(B,V)}',
+    principles: [
+      '普通的最小割容易切出孤立的几个像素，因为切掉的边数确实很少。Normalized Cuts 在分母上加了一个“区域内部总关联度”，强迫算法去找“切掉的边少，同时两个区域各自都很紧密”的分割。',
+      '这个优化问题是 NP-hard 的，但把它松弛成求解图拉普拉斯矩阵的第二小特征向量（Fiedler 向量），就变成了一个特征值问题，可以在多项式时间内解出来。',
+      'Fiedler 向量给每个像素一个连续的分值——正的一边，负的另一边。对每个子区域可以递归做同样的事，直到 Ncut 值太高（说明再切就不自然了）或者区域太小。'
+    ],
+    core: [
+      ['输入', '降采样后的图像（~2000 像素），每个像素是图的一个节点'],
+      ['关键', '亲和矩阵 W → 归一化拉普拉斯 → Fiedler 向量 → 递归二分'],
+      ['输出', '每个像素的区域标签，上采样回原图尺寸']
+    ],
+    pipeline: [
+      ['降采样', '把图缩到 ~40px 宽，节点数可控，亲和矩阵才不会太大。'],
+      ['建亲和图', 'W[i,j] = exp(-颜色距离²/σ_c² - 空间距离²/σ_x²)。颜色像 + 位置近 = 强连接。'],
+      ['归一化拉普拉斯', 'L = D⁻¹ᐟ²(D-W)D⁻¹ᐟ²，对称且半正定，保证特征值是实数。'],
+      ['特征分解', 'eigh 求最小的几个特征值/特征向量。λ₁ 恒为 0（平凡解），λ₂ 和对应向量是关键。'],
+      ['Fiedler 向量二分', '按第二特征向量把节点分成正负两组，再搜索让 Ncut 值最小化的分割点。'],
+      ['递归分割', '对每个子区域重复以上步骤，直到 Ncut 值太高或区域太小。']
+    ],
+    controls: [
+      { name: 'sigma_i', label: '颜色带宽 σc', type: 'range', min: 0.02, max: 0.4, step: 0.02, value: 0.10 },
+      { name: 'sigma_x', label: '空间带宽 σx', type: 'range', min: 0.01, max: 0.2, step: 0.01, value: 0.05 },
+      { name: 'max_regions', label: '最大区域数', type: 'range', min: 2, max: 10, step: 1, value: 5 }
+    ],
+    references: [
+      { title: 'Normalized Cuts 原始论文', description: 'Shi & Malik, TPAMI 2000', url: 'https://ieeexplore.ieee.org/document/868688' },
+      { title: 'Spectral Graph Theory', description: 'Chung, CBMS 1997 — 拉普拉斯矩阵的数学基础', url: 'https://mathweb.ucsd.edu/~fan/cbms.pdf' }
+    ]
+  };
+
+  window.AlgorithmContent.bovw_spm = {
+    phase: '阶段三 · 中级视觉',
+    title: 'BoVW + SPM',
+    english: 'Bag of Visual Words + Spatial Pyramid Matching',
+    tagline: '像做文本分类一样做图像分类：局部特征是"视觉单词"，空间金字塔保留词的大致位置。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/bovw_spm',
+    formula: '\\mathbf{h}_{\\text{SPM}} = \\bigoplus_{\\ell=0}^{L} w_\\ell \\cdot \\bigoplus_{g=1}^{4^\\ell} \\mathbf{h}_{\\ell,g}',
+    principles: [
+      '文本分类的做法是：把文章拆成词 → 统计词频 → 分类。BoVW 把同样的思路用在图像上：SIFT 描述子就是"视觉单词"，每张图的视觉词频直方图就是它的特征向量。',
+      '普通的 BoVW 完全丢弃了空间信息——"天空在图片上方，草地在下方"这种常识它完全不知道。空间金字塔匹配（SPM）把图分成越来越细的网格（1×1, 2×2, 4×4），每个格子里独立统计词频，最后加权拼起来。',
+      '这个流水线是 2006-2012 年间图像分类的标准做法，后来被 CNN 特征取代。但它展示了一个重要思路：手工特征 + 无监督词典 + 空间池化，很多视觉理解任务本质上是在做同一件事。'
+    ],
+    core: [
+      ['输入', '任意图像，SIFT 提取 ~200 个 128 维局部描述子'],
+      ['关键', 'K-means 聚成视觉词典 → 每个描述子量化成词 → 空间金字塔统计'],
+      ['输出', 'SPM 全局描述子 + 各类别相似度分数']
+    ],
+    pipeline: [
+      ['SIFT 特征', '从图像中提取 ~200 个关键点和它们的 128 维描述子。'],
+      ['建视觉词典', 'K-means 把所有描述子聚成 K 类（~200），每类的中心就是一个"视觉词"。'],
+      ['量化', '每个描述子找最近的视觉词——相当于把局部特征"翻译"成词汇。'],
+      ['空间金字塔', '图分成 1×1, 2×2, 4×4 共 21 个格子，每格单独统计词频直方图。'],
+      ['加权拼接', 'L0 权重 1/4, L1 权重 1/4, L2 权重 1/2，拼成一个长向量后 L2 归一化。'],
+      ['分类', 'SPM 向量与各类别模板做余弦相似度比较，最像的那个就是预测类别。']
+    ],
+    controls: [
+      { name: 'vocab_size', label: '视觉词数量', type: 'range', min: 50, max: 500, step: 25, value: 200 }
+    ],
+    references: [
+      { title: 'Beyond Bags of Features: SPM', description: 'Lazebnik, Schmid, Ponce — CVPR 2006', url: 'https://ieeexplore.ieee.org/document/1641015' },
+      { title: 'Visual Categorization with Bags of Keypoints', description: 'Csurka 等, ECCV 2004 经典', url: 'https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/csurka-eccv-04.pdf' }
+    ]
+  };
+
+  window.AlgorithmContent.calibration = {
+    phase: '阶段三 · 中级视觉',
+    title: '相机标定',
+    english: 'Camera Calibration (Zhang)',
+    tagline: '用几张棋盘格照片算出相机的内参、外参和畸变——把像素坐标和真实世界坐标对应起来。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/calibration',
+    formula: 's\\begin{bmatrix}u\\\\v\\\\1\\end{bmatrix} = K[R|t]\\begin{bmatrix}X\\\\Y\\\\0\\\\1\\end{bmatrix},\\quad K = \\begin{bmatrix}f_x & 0 & c_x\\\\0 & f_y & c_y\\\\0 & 0 & 1\\end{bmatrix}',
+    principles: [
+      '相机标定回答一个核心问题：图像上的某个像素 (u,v) 对应真实世界里的哪条射线？内参 K 管相机自身的属性（焦距、主点），外参 [R|t] 管相机在世界中的位置和朝向。',
+      '张正友标定法只用几张不同角度的棋盘格照片就能标定。因为棋盘格是平面（Z=0），每张图给出一个从世界平面到图像平面的单应性映射，多个单应性合起来就能解出 K。',
+      '畸变里最常见的是径向畸变——画面边缘的直线会弯。广角镜头桶形畸变（k1 负），长焦镜头枕形畸变（k1 正）。标定出的 k1, k2 可以用来矫正图像。'
+    ],
+    core: [
+      ['输入', '同一棋盘格从 5-6 个不同角度拍摄的照片'],
+      ['关键', '每张图的单应性 → 多张图联合解 K → 分解出 R,t → 估计畸变'],
+      ['输出', '内参 K（fx,fy,cx,cy）+ 畸变系数 k1,k2 + 每张图的外参 R,t']
+    ],
+    pipeline: [
+      ['棋盘格角点', '检测每张图上棋盘格的交叉点，建立 3D 世界点到 2D 像素点的对应关系。'],
+      ['单应性估计', '每张图用 DLT 估一个 3×3 单应性，把世界平面映射到图像平面。'],
+      ['内参求解', '利用多张图单应性间的约束关系，SVD 解出 B=K⁻ᵀK⁻¹，再从 B 提取 K。'],
+      ['外参分解', '有了 K 和每张图的 H，分解出旋转矩阵 R 和平移向量 t。'],
+      ['畸变估计', '线性求解径向畸变 k1, k2，衡量真实像素和理想投影之间的偏差。'],
+      ['重投影误差', '把 3D 点投回图像，和检测到的角点位置比，差距越小标定越准。']
+    ],
+    references: [
+      { title: 'Zhang 标定法原始论文', description: 'A Flexible New Technique for Camera Calibration, TPAMI 2000', url: 'https://www.microsoft.com/en-us/research/publication/a-flexible-new-technique-for-camera-calibration/' },
+      { title: 'OpenCV 标定教程', description: 'Camera Calibration using OpenCV', url: 'https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html' }
+    ]
+  };
+
+  window.AlgorithmContent.epipolar = {
+    phase: '阶段三 · 中级视觉',
+    title: '对极几何',
+    english: 'Epipolar Geometry',
+    tagline: '两个相机看同一个场景——左图上一个点，在右图上一定落在某条线上。找到这条线，匹配就从二维搜变成一维搜。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/epipolar',
+    formula: '\\mathbf{x}_2^T F \\mathbf{x}_1 = 0,\\quad F = K_2^{-T} [t]_\\times R K_1^{-1}',
+    principles: [
+      '假设你有两张从不同角度拍的照片，SIFT 找到了几百个匹配点。但里面有不少错的。对极几何给你一个强约束：左图上一点 p1，在右图上匹配的 p2 必须落在对极线 l2 = F·p1 上。不在这条线上的匹配，一定是错的。',
+      '8 点法是最经典的基础矩阵估计算法：只要 8 对匹配点就能线性解出 F。但数据要先做归一化（零均值、单位方差），否则数值很不稳定。算出 F 后还要把最小的奇异值强制置零，因为 F 的秩只能是 2。',
+      '有了 F 和内参 K，就能算出本质矩阵 E = K₂ᵀFK₁。E 里只藏着旋转和平移——把它 SVD 分解就能恢复两个相机之间的相对运动 R 和 t。'
+    ],
+    core: [
+      ['输入', '同一场景从两个角度拍的照片'],
+      ['关键', 'SIFT匹配 → 归一化8点法 → F矩阵(秩2约束) → 对极线 → E矩阵 → R,t'],
+      ['输出', 'F矩阵、对极线可视化、E矩阵、旋转R和平移t']
+    ],
+    pipeline: [
+      ['特征匹配', 'SIFT 提取 + 比值测试，筛出可靠的匹配对。'],
+      ['归一化8点法', '先把匹配点做等距归一化，再建 A 矩阵用 SVD 求解 F。'],
+      ['秩2约束', '对求出的 F 做 SVD，把最小的 σ₃ 置零再乘回去——不这样做 F 不满足对极约束。'],
+      ['对极线', '每条对极线过极点，用 F 把左图点映射成右图上的线（反过来也行）。'],
+      ['本质矩阵', 'E = KᵀFK，去掉了内参，只留下旋转和平移的信息。'],
+      ['恢复 R,t', 'E 做 SVD 分解，4 组候选解中选让大部分点在两个相机前方的那组。']
+    ],
+    controls: [
+      { name: 'ratio', label: '匹配比值阈值', type: 'range', min: 0.55, max: 0.95, step: 0.05, value: 0.75 }
+    ],
+    references: [
+      { title: '八点法经典论文', description: 'Hartley — In Defense of the Eight-Point Algorithm, TPAMI 1997', url: 'https://ieeexplore.ieee.org/document/623246' },
+      { title: 'Multiple View Geometry', description: 'Hartley & Zisserman, 第 9-11 章', url: 'https://www.robots.ox.ac.uk/~vgg/hzbook/' }
+    ]
+  };
+
+  window.AlgorithmContent.sfm = {
+    phase: '阶段三 · 中级视觉',
+    title: '三角测量与运动恢复结构',
+    english: 'Triangulation & Structure from Motion',
+    tagline: '两幅图 + 已知相机位姿 → 用三角测量把 2D 匹配点推回 3D 空间，重建出稀疏的立体结构。',
+    status: '真实 NumPy 算法',
+    difficulty: '进阶',
+    endpoint: '/api/demo/sfm',
+    formula: '\\mathbf{X} = \\arg\\min \\sum_i \\|\\mathbf{x}_i - \\pi(P_i, \\mathbf{X})\\|^2',
+    principles: [
+      '三角测量的原理很直观：左相机发出一条射线穿过像素 p1，右相机发出一条射线穿过匹配点 p2——两条射线在 3D 空间中交会的地方就是那个点在真实世界里的位置。实际操作中用 SVD 解线性方程组。',
+      '恢复出来的 3D 点有些不可靠：落在相机后面的（负深度）肯定是错的；重投影误差太大的可能匹配本身就有问题。把这两种过滤掉，剩下的点大致就是场景的稀疏结构。',
+      '完整的 SfM 流水线还要做 Bundle Adjustment——同时微调所有相机位姿和所有 3D 点位置，让总的投影误差最小。这是大规模 3D 重建的核心优化步骤。'
+    ],
+    core: [
+      ['输入', '两幅视图 + SIFT 匹配对'],
+      ['关键', 'F→E→R,t→投影矩阵→线性三角化(SVD)→过滤→点云渲染'],
+      ['输出', '3D 点云（可旋转视角）+ 深度着色 + 重投影误差']
+    ],
+    pipeline: [
+      ['匹配与对极', '从两幅图像中提取 SIFT 特征并匹配，估计 F 矩阵。'],
+      ['恢复位姿', 'F → E → SVD 分解 → 旋转 R 和平移 t。'],
+      ['投影矩阵', 'P₀ = K[I|0], P₁ = K[R|t]——两幅图的完整投影矩阵。'],
+      ['三角化', '每对匹配点建 4×4 的 A 矩阵，SVD 求解 3D 坐标 X。'],
+      ['过滤', '去掉深度为负的点，去掉重投影误差 >20px 的点。'],
+      ['点云渲染', '把 3D 点按深度着色（近红远蓝），渲染成 2D 俯视图和透视投影。']
+    ],
+    controls: [
+      { name: 'ratio', label: '匹配比值阈值', type: 'range', min: 0.55, max: 0.95, step: 0.05, value: 0.75 }
+    ],
+    references: [
+      { title: 'Multiple View Geometry', description: 'Hartley & Zisserman, 第 12 章（SfM）和第 18 章（N-view）', url: 'https://www.robots.ox.ac.uk/~vgg/hzbook/' },
+      { title: 'COLMAP', description: 'Schoenberger 等 — 通用 SfM + MVS 开源流水线', url: 'https://colmap.github.io/' }
+    ]
+  };
+
   const phaseTwoVisualStories = {
     shitomasi: {
       intro: '角点不是“亮点”，而是窗口向任意方向移动都会明显变差的位置。',
@@ -1288,12 +1527,6 @@
       ] }
     },
     grabcut: {
-      controls: [
-        { name: 'x', label: '框 x', type: 'range', min: 0, max: 200, step: 5, value: 30 },
-        { name: 'y', label: '框 y', type: 'range', min: 0, max: 200, step: 5, value: 30 },
-        { name: 'w', label: '框宽', type: 'range', min: 40, max: 260, step: 5, value: 160 },
-        { name: 'h', label: '框高', type: 'range', min: 40, max: 260, step: 5, value: 160 }
-      ],
       visualStory: { intro: 'GrabCut 是典型交互式分割：用户给粗框，算法迭代细化前景和背景。', cards: [
         { type: 'semanticAnim', anim: 'grabcut', title: '矩形框初始化前景概率', text: '框外先当背景，框内是可能前景；随后颜色模型和边界平滑项一起决定最终 mask。', caption: 'rect -> model -> mask' },
         { type: 'bars', title: '能量函数的两股力量', text: '数据项看颜色像不像前景，平滑项鼓励相邻相似像素同类。', items: [
@@ -1385,6 +1618,282 @@
   Object.keys(phaseThreeEnhancements).forEach(function(id) {
     if (!window.AlgorithmContent[id]) return;
     var patch = phaseThreeEnhancements[id];
+    if (patch.controls) window.AlgorithmContent[id].controls = patch.controls;
+    if (patch.visualStory) window.AlgorithmContent[id].visualStory = patch.visualStory;
+  });
+
+  // ── Phase 4-5: Visual Stories ──
+  var phaseFourFiveEnhancements = {
+    cnn_basics: {
+      visualStory: { intro: 'CNN 的核心创新是用反向传播自动学习卷积核，不用人手设计特征。', cards: [
+        { type: 'semanticAnim', anim: 'corner', title: '卷积核在图像上滑动提取特征', text: '一个 3×3 或 5×5 的可学习窗口扫描全图，每个位置做一次加权求和，同一套权重在所有位置共享。', caption: 'kernel slides across image' },
+        { type: 'bars', title: '卷积层 → 池化层 → 全连接', text: '卷积负责提取特征，池化降低分辨率增加感受野，全连接把空间特征聚合成类别判断。', items: [
+          { label: 'Conv', value: 80, caption: '特征提取', color: '#38bdf8' },
+          { label: 'Pool', value: 50, caption: '降采样', color: '#66f2c2' },
+          { label: 'FC', value: 35, caption: '分类', color: '#f97316' }
+        ] }
+      ] }
+    },
+    resnet: {
+      visualStory: { intro: 'ResNet 的残差连接让网络学会了"增量"而非"从头学"，使得 152 层深度可训练。', cards: [
+        { type: 'bars', title: 'F(x) = H(x) - x：只学残差', text: '不直接拟合目标 H(x)，而是让网络输出 F(x)=H(x)-x，再通过跳跃连接加回输入。这样梯度可以直通浅层。', items: [
+          { label: 'weight', value: 65, caption: 'F(x)', color: '#38bdf8' },
+          { label: 'skip', value: 90, caption: '+ x', color: '#22c55e' },
+          { label: 'relu', value: 70, caption: 'output', color: '#f97316' }
+        ] },
+        { type: 'gradientSet', title: 'Grad-CAM：梯度加权看模型关注哪', text: '对最后卷积层的每个通道用目标类别的梯度平均做权重，加权激活图再用 ReLU 去掉负值。', rows: [
+          { label: 'grad', caption: 'backprop', gradient: 'linear-gradient(90deg,#ef4444,#f8fafc,#3b82f6)' },
+          { label: 'CAM', caption: 'heatmap', gradient: 'linear-gradient(90deg,#020617,#ef4444,#facc15)' }
+        ] }
+      ] }
+    },
+    gan: {
+      visualStory: { intro: 'GAN 不是单一网络，而是生成器和判别器的两人博弈——一个造假，一个打假。', cards: [
+        { type: 'bars', title: '生成器 G：噪声 → 逼真图像', text: 'G 从随机向量 z 出发，通过转置卷积逐层放大，目标是骗过 D。', items: [
+          { label: 'z~N(0,1)', value: 25, caption: '噪声', color: '#64748b' },
+          { label: 'G(z)', value: 72, caption: '生成', color: '#38bdf8' },
+          { label: 'D(G(z))', value: 58, caption: '判别', color: '#fb7185' }
+        ] },
+        { type: 'gradientSet', title: '模式坍塌：GAN 的经典失败模式', text: '当 G 发现某个输出总能骗过 D，就会只生成那几种样本——失去多样性。', rows: [
+          { label: 'mode1', caption: '生成器只学会一种', gradient: 'linear-gradient(90deg,#38bdf8,#38bdf8,#38bdf8)' },
+          { label: 'real', caption: '真实数据多种多样', gradient: 'linear-gradient(90deg,#ef4444,#f97316,#facc15,#22c55e,#3b82f6,#8b5cf6)' }
+        ] }
+      ] }
+    },
+    diffusion: {
+      visualStory: { intro: '扩散模型从纯噪声出发，学习的不是直接生成，而是逐步"去噪"——每次只做一点点。', cards: [
+        { type: 'gradientSet', title: '前向：逐步加噪直到完全随机', text: '训练时先把真实图像一步步加高斯噪声变成纯噪声，每一步的噪声强度由 schedule 控制。', rows: [
+          { label: 't=0', caption: 'real image', gradient: 'linear-gradient(90deg,#22c55e,#22c55e)' },
+          { label: 't=T/2', caption: '半噪', gradient: 'linear-gradient(90deg,#64748b,#94a3b8,#cbd5e1)' },
+          { label: 't=T', caption: 'pure noise', gradient: 'linear-gradient(90deg,#f8fafc,#cbd5e1,#64748b)' }
+        ] },
+        { type: 'arrows', title: '反向：从噪声走回图像', text: '推理时从随机噪声开始，UNet 预测当前步该去掉的噪声，逐步还原。每步只改一点点。', labels: ['x_T', 'x_t', 'x_0'] }
+      ] }
+    },
+    vit: {
+      visualStory: { intro: 'ViT 把图像切成一块块 patch，像 NLP 的 token 一样送进 Transformer。这是 CNN 之外的全新范式。', cards: [
+        { type: 'pixels', title: 'Patchify：把图切成固定大小格子', text: '16×16 的 patch 被拉平成向量，加位置编码后变成 Transformer 的输入 token。', rows: 8, cols: 12, palette: ['#1e293b','#334155','#475569','#64748b','#94a3b8','#cbd5e1','#e2e8f0','#f8fafc'] },
+        { type: 'bars', title: '自注意力让每个 patch 看到全局', text: 'CNN 的卷积核只看到局部邻域，Transformer 的每个 token 都能直接与其他所有 token 交互。', items: [
+          { label: 'CNN 3x3', value: 12, caption: '局部感受野', color: '#64748b' },
+          { label: 'CNN 深层', value: 45, caption: '间接全局', color: '#38bdf8' },
+          { label: 'ViT L1', value: 95, caption: '直接全局', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    detr: {
+      visualStory: { intro: 'DETR 把目标检测从"生成候选框→分类→NMS"变成了直接的集合预测，不需要 anchor 也不需要 NMS。', cards: [
+        { type: 'bars', title: 'Object Query：可学习的位置探针', text: '100 个 object query 向量输入 Transformer 解码器，每个 query 学会关注图像中不同位置和尺度的物体。', items: [
+          { label: 'Q1', value: 88, caption: '大物体', color: '#ef4444' },
+          { label: 'Q2', value: 62, caption: '中物体', color: '#f97316' },
+          { label: 'Q3', value: 35, caption: '小物体', color: '#3b82f6' }
+        ] },
+        { type: 'threshold', title: '二分匹配替代 NMS', text: '用匈牙利算法把预测框和真实框一一配对，没有配对上的预测就是"无物体"。这样就不需要手工 NMS 去重了。', position: 50 }
+      ] }
+    },
+    clip: {
+      visualStory: { intro: 'CLIP 不是单纯看图片，而是同时看图片和文字——把它们映射到同一个向量空间，让图文的距离有意义。', cards: [
+        { type: 'arrows', title: '双塔架构：图像编码器 + 文本编码器', text: '两个独立的编码器把图像和文本映射成同维度的向量，用余弦相似度算它们多"匹配"。', labels: ['I→v', 'T→v', 'sim'] },
+        { type: 'bars', title: '4 亿图文对训练出的零样本能力', text: '训练时用对比学习拉近匹配图文对、推远不匹配的。训练完后不需要微调就能做新任务。', items: [
+          { label: '图文匹配', value: 95, caption: 'pos pair', color: '#22c55e' },
+          { label: '不匹配', value: 15, caption: 'neg pair', color: '#ef4444' }
+        ] }
+      ] }
+    },
+    sam: {
+      visualStory: { intro: 'SAM 是分割的基础模型：给一个点、一个框或者一句话，它就能分割出对应的物体。', cards: [
+        { type: 'pixels', title: '提示驱动：点一下分割一个物体', text: '用户只需在图像上点一下或在目标周围画个框，提示编码器把位置信息注入掩码解码器。', rows: 6, cols: 10 },
+        { type: 'bars', title: '三组件架构：图像编码 → 提示编码 → 掩码解码', text: '图像编码跑一次，提示编码随时响应新输入，掩码解码融合两者输出像素级分割。', items: [
+          { label: 'ImgEnc', value: 85, caption: 'ViT', color: '#3b82f6' },
+          { label: 'Prompt', value: 40, caption: 'pos', color: '#f97316' },
+          { label: 'MaskDec', value: 70, caption: 'fusion', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    nerf: {
+      visualStory: { intro: 'NeRF 用一个 MLP 记住整个 3D 场景——输入 (x,y,z,θ,φ)，输出 (RGB, 密度)，然后沿射线采样渲染。', cards: [
+        { type: 'arrows', title: '从不同角度看同一个场景', text: '训练数据只是从不同角度拍的照片，每张照片的每个像素对应一条空间射线。', labels: ['view1', 'view2', '3D'] },
+        { type: 'gradientSet', title: '体渲染：沿射线积分颜色', text: '对每条射线均匀采样 3D 点，MLP 预测每个点的颜色和密度，从前到后累加得到像素色。', rows: [
+          { label: 'near', caption: '密度低', gradient: 'linear-gradient(90deg,#020617,#1e293b,#475569)' },
+          { label: 'hit', caption: '密度高', gradient: 'linear-gradient(90deg,#475569,#ef4444,#facc15)' },
+          { label: 'far', caption: '密度低', gradient: 'linear-gradient(90deg,#facc15,#475569,#020617)' }
+        ] }
+      ] }
+    },
+    stable_diffusion: {
+      visualStory: { intro: 'Stable Diffusion 把扩散搬到了 VAE 潜空间：在压缩后的特征上做扩散，大幅降低计算量。', cards: [
+        { type: 'bars', title: '三个组件协同工作', text: 'VAE 负责压缩/解压图像，UNet 在潜空间里做去噪，CLIP 文本编码器把文字变成条件信号。', items: [
+          { label: 'VAE', value: 60, caption: '压缩', color: '#8b5cf6' },
+          { label: 'UNet', value: 80, caption: '去噪', color: '#38bdf8' },
+          { label: 'CLIP', value: 55, caption: '文本', color: '#f97316' }
+        ] },
+        { type: 'gradientSet', title: '潜空间扩散：在压缩域做生成', text: '原图 512×512×3=786K 维，潜空间只有 64×64×4=16K 维——50 倍压缩，扩散步数大幅减少。', rows: [
+          { label: 'pixel space', caption: '786,432 dims', gradient: 'linear-gradient(90deg,#ef4444,#f97316,#facc15)' },
+          { label: 'latent space', caption: '16,384 dims', gradient: 'linear-gradient(90deg,#3b82f6,#38bdf8)' }
+        ] }
+      ] }
+    },
+    dino: {
+      visualStory: { intro: 'DINO 用自监督学习训练 ViT，神奇的是：不需要任何标注，注意力图就自然涌现出物体分割。', cards: [
+        { type: 'arrows', title: '学生-教师自蒸馏架构', text: '教师网络从学生网络的指数移动平均得到，学生的目标是匹配教师的输出——两个网络看同一张图的不同裁剪。', labels: ['student', 'teacher', 'match'] },
+        { type: 'gradientSet', title: '注意力自发涌现物体轮廓', text: 'DINO 的 [CLS] token 自注意力图往往精确覆盖前景物体，这是自监督学习的涌现特性。', rows: [
+          { label: 'attn', caption: 'object emerges', gradient: 'linear-gradient(90deg,#020617,#020617,#facc15,#facc15,#020617,#020617)' }
+        ] }
+      ] }
+    },
+    mae: {
+      visualStory: { intro: 'MAE 的预训练任务极其简单：随机遮住 75% 的 patch，让模型从可见的 25% 重建全图。', cards: [
+        { type: 'pixels', title: 'Mask 75%：只编码可见的 1/4', text: '被遮盖的 patch 不送入编码器，只有可见的少量 patch 经过 Transformer。这比 ViT 训练快 3 倍以上。', rows: 8, cols: 12, palette: ['#020617','#020617','#f8fafc','#f8fafc','#020617','#020617','#020617','#f8fafc','#f8fafc','#020617','#020617','#020617'] },
+        { type: 'bars', title: '重建被遮住的 75%', text: '解码器接收编码后的可见 patch + 被遮盖的 mask token，输出重建的像素值。损失只在被遮盖位置计算。', items: [
+          { label: 'encoded', value: 25, caption: '25%', color: '#22c55e' },
+          { label: 'masked', value: 75, caption: '75%', color: '#ef4444' }
+        ] }
+      ] }
+    },
+    simclr: {
+      visualStory: { intro: 'SimCLR 的核心思想：同一张图做两种随机增强，它们的特征应该最接近；不同图的特征应该远离。', cards: [
+        { type: 'bars', title: '对比学习：拉近正样本，推开负样本', text: '每张图做两次随机裁剪+颜色扰动，同源的算正对，不同源的算负对。InfoNCE 损失在特征空间做对比。', items: [
+          { label: 'pos pair', value: 92, caption: '同源不同增强', color: '#22c55e' },
+          { label: 'neg pair', value: 18, caption: '不同源', color: '#ef4444' }
+        ] },
+        { type: 'gradientSet', title: '大 batch 是关键', text: 'SimCLR 需要大 batch（4096+）提供足够多负样本。batch 太小，对比学习效果会明显下降。', rows: [
+          { label: 'bs=256', caption: '弱', gradient: 'linear-gradient(90deg,#ef4444,#f97316)' },
+          { label: 'bs=4096', caption: '强', gradient: 'linear-gradient(90deg,#22c55e,#3b82f6,#8b5cf6)' }
+        ] }
+      ] }
+    },
+    moco: {
+      visualStory: { intro: 'MoCo 用动量编码器和动态队列解耦了 batch size 和负样本数量的关系——大 batch 不是必需的。', cards: [
+        { type: 'arrows', title: '动量更新：θ_k ← m·θ_k + (1-m)·θ_q', text: 'key 编码器的参数不是从 query 编码器直接复制，而是用动量慢慢靠近。这让 key 的特征空间更稳定。', labels: ['θ_q', 'EMA', 'θ_k'] },
+        { type: 'bars', title: '动态队列存 65536 个负样本', text: '不用当前 batch 的其他样本做负样本，而是维护一个大队列。新 batch 进来时最旧的出去，大小不受 batch 限制。', items: [
+          { label: 'queue', value: 90, caption: '65536 keys', color: '#38bdf8' },
+          { label: 'batch', value: 30, caption: '256 imgs', color: '#64748b' }
+        ] }
+      ] }
+    },
+    byol: {
+      visualStory: { intro: 'BYOL 连负样本都不要了——只用正对训练，靠 online 和 target 网络的不对称性防止坍塌。', cards: [
+        { type: 'arrows', title: 'Online → predictor → target：自举学习', text: 'Online 网络多看一个 predictor 层，让它学习"如何预测 target 网络的特征"。target 从不反向传播。', labels: ['online', 'pred', 'target'] },
+        { type: 'gradientSet', title: '不做对比，只用正样本', text: '没有 push away 负样本的力，理论上应该坍塌到常数特征。但 predictor 的不对称设计和 EMA 阻止了坍塌。', rows: [
+          { label: 'aug1', caption: '同图←→同图', gradient: 'linear-gradient(90deg,#3b82f6,#22c55e)' }
+        ] }
+      ] }
+    },
+    ijepa: {
+      visualStory: { intro: 'I-JEPA 不预测像素，而是在表征空间预测被遮盖区域的特征——更接近人类"理解后再补全"的方式。', cards: [
+        { type: 'pixels', title: '遮住图像的大部分区域', text: 'context block 是可见的上下文，target block 是被遮盖的目标。模型只看 context，预测 target 的特征。', rows: 6, cols: 10, palette: ['#3b82f6','#3b82f6','#020617','#020617','#020617','#3b82f6','#3b82f6','#3b82f6','#020617','#020617'] },
+        { type: 'bars', title: '预测表征而非重建像素', text: '像素重建容易被高频细节支配；特征空间的预测更关注语义结构，学到的表示在下游任务上更好。', items: [
+          { label: '像素预测', value: 45, caption: 'MAE方式', color: '#64748b' },
+          { label: '特征预测', value: 78, caption: 'I-JEPA', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    ddpm: {
+      visualStory: { intro: 'DDPM 是扩散模型的奠基之作：用马尔可夫链建模从图像到噪声再到图像的完整路径。', cards: [
+        { type: 'gradientSet', title: '前向扩散：小步加噪的马尔可夫链', text: '每步只加一点点高斯噪声，经过 T=1000 步后图像变成各向同性的高斯分布。', rows: [
+          { label: 'x₀', caption: 'image', gradient: 'linear-gradient(90deg,#22c55e,#22c55e)' },
+          { label: 'x₅₀₀', caption: 'noisy', gradient: 'linear-gradient(90deg,#94a3b8,#64748b)' },
+          { label: 'x₁₀₀₀', caption: 'noise', gradient: 'linear-gradient(90deg,#64748b,#1e293b)' }
+        ] },
+        { type: 'bars', title: '训练目标：预测噪声而非图像', text: 'DDPM 的核心发现：不是预测去噪后的图像，而是预测当前步加了什么噪声——这个小改变让训练稳定得多。', items: [
+          { label: '预测噪声 ε', value: 92, caption: 'epsilon prediction', color: '#38bdf8' }
+        ] }
+      ] }
+    },
+    '3dgs': {
+      visualStory: { intro: '3D Gaussian Splatting 用几百万个彩色半透明椭球表示 3D 场景，渲染速度比 NeRF 快 100 倍。', cards: [
+        { type: 'bars', title: '显式高斯椭球 vs 隐式 MLP', text: 'Gaussian Splatting 每个椭球存 3D 位置、颜色、透明度、协方差。NeRF 用 MLP 隐式存。显式更快但更占内存。', items: [
+          { label: 'NeRF', value: 30, caption: '隐式MLP', color: '#8b5cf6' },
+          { label: '3DGS', value: 95, caption: '显式椭球', color: '#22c55e' }
+        ] },
+        { type: 'gradientSet', title: 'α-blending：从前到后叠透明度', text: '所有高斯椭球投影到屏幕后按深度排序，像 Photoshop 图层一样从前到后混合。每个像素的颜色是所有椭球贡献的加权和。', rows: [
+          { label: 'alpha=1', caption: '不透明', gradient: 'linear-gradient(90deg,#ef4444,#ef4444)' },
+          { label: 'alpha=0.5', caption: '半透明', gradient: 'linear-gradient(90deg,#ef4444,#f8fafc)' }
+        ] }
+      ] }
+    },
+    pointnet: {
+      visualStory: { intro: 'PointNet 是第一个直接处理无序点云的深度网络——用对称函数（max pool）保证排列不变性。', cards: [
+        { type: 'bars', title: 'Max Pool 是关键：消除点的顺序', text: '无论点云的点按什么顺序输入，max pool 后得到的全局特征都是一样的。这是保证置换不变性的关键操作。', items: [
+          { label: 'T-Net', value: 45, caption: '空间变换', color: '#38bdf8' },
+          { label: 'MLP', value: 70, caption: '逐点特征', color: '#8b5cf6' },
+          { label: 'MaxPool', value: 85, caption: '全局特征', color: '#22c55e' }
+        ] },
+        { type: 'threshold', title: '分类/分割共用一个骨干', text: '全局特征用于分类；把全局特征拼回逐点特征后，可以做逐点分割——同一个架构解决两个任务。', position: 55 }
+      ] }
+    },
+    bev: {
+      visualStory: { intro: 'BEV 把环视相机图像"抬"到鸟瞰网格，让自动驾驶系统在统一的自顶向下坐标系里做感知。', cards: [
+        { type: 'arrows', title: 'Lift-Splat：图像特征 → 3D → BEV', text: '每张环视图先估计像素深度分布，再把 2D 特征按深度"喷"到 3D 空间，最后投影到鸟瞰网格。', labels: ['camera', '3D', 'BEV'] },
+        { type: 'bars', title: '多相机融合到一个统一空间', text: '6-8 个环视相机各自提取特征，在 BEV 网格上融合。这样不同相机看到的同一个物体会落到同一网格。', items: [
+          { label: 'Front', value: 65, caption: '前视', color: '#3b82f6' },
+          { label: 'Rear', value: 65, caption: '后视', color: '#ef4444' },
+          { label: 'Side', value: 55, caption: '侧视', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    occupy: {
+      visualStory: { intro: 'Occupancy Networks 把 3D 空间切成小立方体，判断每个格子是"空的"还是"被占的"——比 3D 框更精细。', cards: [
+        { type: 'pixels', title: '体素网格：3D 空间的"像素"', text: '每个体素 (voxel) 有一个占据概率。物体不再是简单的长方体框，而是任意形状的 3D 占据区域。', rows: 5, cols: 8 },
+        { type: 'bars', title: '比 3D bounding box 好在哪里？', text: '3D 框无法描述不规则形状（行人打伞、挂车、异形障碍物）。占据网格能表示任意形状的障碍物。', items: [
+          { label: '3D Box', value: 55, caption: '规则形状', color: '#64748b' },
+          { label: 'Occupancy', value: 88, caption: '任意形状', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    c3d: {
+      visualStory: { intro: 'C3D 把 2D 卷积扩展到 3D——卷积核在空间和时间上同时滑动，直接捕捉运动模式。', cards: [
+        { type: 'arrows', title: '3D 卷积核：w×h×t 三维窗口', text: '不再是 3×3 的平面核，而是 3×3×3 的时空核。16 帧视频输入，卷积核同时在 x/y/t 上滑动。', labels: ['x', 'y', 't'] },
+        { type: 'bars', title: 'C3D 学到什么？', text: '浅层学边缘和运动方向，中层学局部运动模式，深层学复杂动作。但由于参数量大，后来被 (2+1)D 卷积替代。', items: [
+          { label: '浅层', value: 35, caption: '边缘+运动', color: '#38bdf8' },
+          { label: '中层', value: 55, caption: '运动模式', color: '#f97316' },
+          { label: '深层', value: 75, caption: '动作语义', color: '#22c55e' }
+        ] }
+      ] }
+    },
+    bytetrack: {
+      visualStory: { intro: 'ByteTrack 的洞察：低分检测框也有用——把它们和高分框分开关联，能找回被遮挡和暂时漏检的目标。', cards: [
+        { type: 'threshold', title: '两阶段关联：先高分，再低分', text: '第一轮用高分框做标准匹配建立 tracklet；第二轮把剩下的低分框和未匹配的 tracklet 再关联一次——找回"可能被挡住"的目标。', position: 40 },
+        { type: 'bars', title: '低分框的价值', text: '传统追踪直接扔掉低分框，ByteTrack 证明它们是宝贵信息——尤其在遮挡和运动模糊时。', items: [
+          { label: '高分匹配', value: 85, caption: '确定关联', color: '#22c55e' },
+          { label: '低分恢复', value: 55, caption: '遮挡找回', color: '#f97316' }
+        ] }
+      ] }
+    },
+    deeppose: {
+      visualStory: { intro: 'DeepPose 开创了用 CNN 直接从图像回归人体关键点坐标——深度学习姿态估计的起点。', cards: [
+        { type: 'bars', title: '从分类网络到坐标回归器', text: '把 AlexNet 最后的分类头改成 2K 个输出（K 个关键点每个 x,y），直接用 L2 损失回归坐标。简单但有效。', items: [
+          { label: 'CNN', value: 70, caption: '特征提取', color: '#38bdf8' },
+          { label: 'FC', value: 50, caption: '回归x,y', color: '#22c55e' }
+        ] },
+        { type: 'arrows', title: '级联精修：粗位置 → 精位置', text: '第一级预测大致位置，后续级在裁剪后的高分辨率区域进一步精修每个关键点。', labels: ['stage1', 'stage2', 'refined'] }
+      ] }
+    },
+    openpose: {
+      visualStory: { intro: 'OpenPose 是自底向上的多人姿态估计——先检测所有关键点，再判断哪些点属于同一个人。', cards: [
+        { type: 'bars', title: 'Part Affinity Fields：肢体的"连接线索"', text: 'PAF 是一个 2D 向量场，编码了从一个关键点到另一个关键点的方向和关联强度。手肘的 PAF 指向手腕。', items: [
+          { label: 'Heatmap', value: 75, caption: '关键点位置', color: '#38bdf8' },
+          { label: 'PAF', value: 65, caption: '肢体连接', color: '#22c55e' }
+        ] },
+        { type: 'gradientSet', title: '二分图匹配组装骨架', text: '有了所有关键点和 PAF，用匈牙利算法做二分图匹配，把属于同一个人的点连成完整骨架。', rows: [
+          { label: 'points', caption: '所有候选点', gradient: 'linear-gradient(90deg,#3b82f6,#38bdf8,#22c55e)' },
+          { label: 'skeleton', caption: '匹配→骨架', gradient: 'linear-gradient(90deg,#ef4444,#f97316,#facc15)' }
+        ] }
+      ] }
+    },
+    botsort: {
+      visualStory: { intro: 'BoT-SORT 在 ByteTrack 的基础上加了相机运动补偿和更强的 ReID 特征，让追踪更稳定。', cards: [
+        { type: 'bars', title: 'ByteTrack + CMC + ReID = BoT-SORT', text: 'CMC 补偿相机自身运动让 Kalman 预测更准，ReID 用外观特征区分相似目标的 ID switch。', items: [
+          { label: 'ByteTrack', value: 75, caption: '关联基础', color: '#38bdf8' },
+          { label: 'CMC', value: 60, caption: '运动补偿', color: '#22c55e' },
+          { label: 'ReID', value: 55, caption: '外观特征', color: '#8b5cf6' }
+        ] }
+      ] }
+    }
+  };
+
+  Object.keys(phaseFourFiveEnhancements).forEach(function(id) {
+    if (!window.AlgorithmContent[id]) return;
+    var patch = phaseFourFiveEnhancements[id];
     if (patch.controls) window.AlgorithmContent[id].controls = patch.controls;
     if (patch.visualStory) window.AlgorithmContent[id].visualStory = patch.visualStory;
   });

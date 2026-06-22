@@ -7,9 +7,13 @@ def add_salt_pepper(img, amount=0.02):
     out = img.copy()
     h, w = img.shape[:2]
     n = int(h * w * amount)
-    for _ in range(n):
-        y, x = np.random.randint(0, h), np.random.randint(0, w)
-        out[y, x] = [255, 255, 255] if np.random.random() > 0.5 else [0, 0, 0]
+    rng = np.random.default_rng()
+    # Vectorized: pick all random positions at once
+    ys = rng.integers(0, h, n)
+    xs = rng.integers(0, w, n)
+    is_salt = rng.random(n) > 0.5
+    out[ys[is_salt], xs[is_salt]] = [255, 255, 255]
+    out[ys[~is_salt], xs[~is_salt]] = [0, 0, 0]
     return out
 
 def add_gaussian_noise(img, sigma=25):

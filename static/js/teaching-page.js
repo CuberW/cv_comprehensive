@@ -155,6 +155,223 @@
       controls.appendChild(wrap);
     });
     controls.style.display = (cfg.controls || []).length ? 'grid' : 'none';
+
+    // Hide rect sliders if we'll use canvas instead
+    if (hasRectControls(cfg)) {
+      qsa('#controls [name=\"x\"], #controls [name=\"y\"], #controls [name=\"w\"], #controls [name=\"h\"]')
+        .forEach(function(el) {
+          var wrap = el.closest('.teach-control');
+          if (wrap) wrap.style.display = 'none';
+        });
+    }
+  }
+
+  // ── Interactive rectangle canvas ──
+  var liveImg = null;
+  var rectState = { dragging: false, handle: null, startX: 0, startY: 0, startRect: null };
+
+  function hasRectControls(cfg) {
+    var names = (cfg.controls || []).map(function(c) { return c.name; });
+    return names.indexOf('x') >= 0 && names.indexOf('y') >= 0 &&
+           names.indexOf('w') >= 0 && names.indexOf('h') >= 0;
+  }
+
+  function getControlValue(name) {
+    var el = qs('#controls [name="' + name + '"]');
+    return el ? Number(el.value) : 0;
+  }
+
+  function setControlValue(name, val) {
+    var el = qs('#controls [name="' + name + '"]');
+    if (el) { el.value = Math.round(val); el.dispatchEvent(new Event('input', {bubbles:true})); }
+  }
+
+  function initRectCanvas(cfg) {
+    var wrap = qs('#livePreviewWrap');
+    var canvas = qs('#livePreview');
+    var hint = qs('#previewHint');
+    if (!wrap || !canvas || !hasRectControls(cfg)) return;
+
+    // Make canvas bigger for better quality
+    canvas.width = 560;
+    canvas.height = 420;
+    wrap.style.display = '';
+    var ctx = canvas.getContext('2d');
+
+    function imgToCanvas() {
+      if (!liveImg) return { dx: 0, dy: 0, scale: 1 };
+      var cw = canvas.width, ch = canvas.height;
+      var scale = Math.min(cw / liveImg.width, ch / liveImg.height);
+      var dw = liveImg.width * scale, dh = liveImg.height * scale;
+      return { dx: (cw - dw) / 2, dy: (ch - dh) / 2, scale: scale, dw: dw, dh: dh };
+    }
+
+    function redraw() {
+      var cw = canvas.width, ch = canvas.height;
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, cw, ch);
+
+      if (!liveImg) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '15px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('上传图片后在此拖拽调整前景框', cw / 2, ch / 2);
+        hint.textContent = '请先上传图片';
+        return;
+      }
+
+      var t = imgToCanvas();
+      ctx.drawImage(liveImg, t.dx, t.dy, t.dw, t.dh);
+
+      // Get current rect in image coords, clamp to image bounds
+      var rx = Math.max(0, getControlValue('x'));
+      var ry = Math.max(0, getControlValue('y'));
+      var rw = Math.min(getControlValue('w'), liveImg.width - rx);
+      var rh = Math.min(getControlValue('h'), liveImg.height - ry);
+
+      // Canvas coords
+      var cx = t.dx + rx * t.scale, cy = t.dy + ry * t.scale;
+      var cw2 = rw * t.scale, ch2 = rh * t.scale;
+
+      // Dim outside rect
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(t.dx, t.dy, t.dw, t.dh);
+      ctx.clearRect(cx, cy, cw2, ch2);
+      ctx.drawImage(liveImg, t.dx, t.dy, t.dw, t.dh);
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(t.dx, t.dy, t.dw, t.dh);
+      ctx.globalAlpha = 1;
+      ctx.clearRect(cx, cy, cw2, ch2);
+      ctx.drawImage(liveImg,
+        rx, ry, rw, rh,
+        cx, cy, cw2, ch2);
+
+      // Draw rectangle border
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.strokeRect(cx, cy, cw2, ch2);
+      ctx.setLineDash([]);
+
+      // Draw resize handles
+      var handles = [
+        [cx, cy], [cx + cw2/2, cy], [cx + cw2, cy],
+        [cx, cy + ch2/2], [cx + cw2, cy + ch2/2],
+        [cx, cy + ch2], [cx + cw2/2, cy + ch2], [cx + cw2, cy + ch2]
+      ];
+      var hSize = 7;
+      handles.forEach(function(h) {
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(h[0] - hSize/2, h[1] - hSize/2, hSize, hSize);
+      });
+
+      hint.textContent = '框: (' + rx + ', ' + ry + ') ' + rw + 'x' + rh +
+        ' — 拖拽框内移动，拖拽边角缩放';
+    }
+
+    function getHandle(px, py) {
+      var t = imgToCanvas();
+      if (!liveImg) return null;
+      var rx = getControlValue('x'), ry = getControlValue('y');
+      var rw = getControlValue('w'), rh = getControlValue('h');
+      var cx = t.dx + rx * t.scale, cy = t.dy + ry * t.scale;
+      var cw2 = rw * t.scale, ch2 = rh * t.scale;
+      var hSize = 10;
+      var handles = {
+        'nw': [cx, cy], 'n': [cx + cw2/2, cy], 'ne': [cx + cw2, cy],
+        'w': [cx, cy + ch2/2], 'e': [cx + cw2, cy + ch2/2],
+        'sw': [cx, cy + ch2], 's': [cx + cw2/2, cy + ch2], 'se': [cx + cw2, cy + ch2]
+      };
+      for (var name in handles) {
+        var h = handles[name];
+        if (Math.abs(px - h[0]) < hSize && Math.abs(py - h[1]) < hSize) return name;
+      }
+      if (px >= cx && px <= cx + cw2 && py >= cy && py <= cy + ch2) return 'move';
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var px = (e.clientX - rect.left) * scaleX;
+      var py = (e.clientY - rect.top) * scaleY;
+      var handle = getHandle(px, py);
+      if (handle) {
+        rectState.dragging = true;
+        rectState.handle = handle;
+        rectState.startX = px;
+        rectState.startY = py;
+        rectState.startRect = {
+          x: getControlValue('x'), y: getControlValue('y'),
+          w: getControlValue('w'), h: getControlValue('h')
+        };
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('mouseup', function() {
+      rectState.dragging = false;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        var rect = canvas.getBoundingClientRect();
+        var px = (e.touches[0].clientX - rect.left) * (canvas.width / rect.width);
+        var py = (e.touches[0].clientY - rect.top) * (canvas.height / rect.height);
+        var handle = getHandle(px, py);
+        if (handle) {
+          rectState.dragging = true;
+          rectState.handle = handle;
+          rectState.startX = px;
+          rectState.startY = py;
+          rectState.startRect = {x:getControlValue('x'), y:getControlValue('y'), w:getControlValue('w'), h:getControlValue('h')};
+          e.preventDefault();
+        }
+      }
+    }, {passive: false});
+
+    function handleDrag(clientX, clientY) {
+      if (!rectState.dragging || !liveImg) return;
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var px = (clientX - rect.left) * scaleX;
+      var py = (clientY - rect.top) * scaleY;
+      var t = imgToCanvas();
+      if (!t.scale) return;
+      var dx = (px - rectState.startX) / t.scale;
+      var dy = (py - rectState.startY) / t.scale;
+      var sr = rectState.startRect;
+      var h = rectState.handle;
+      var nx = sr.x, ny = sr.y, nw = sr.w, nh = sr.h;
+      if (h === 'move') {
+        nx = Math.max(0, Math.min(liveImg.width - nw, sr.x + dx));
+        ny = Math.max(0, Math.min(liveImg.height - nh, sr.y + dy));
+      } else {
+        if (h.indexOf('n') >= 0) { ny = Math.max(0, Math.min(sr.y + sr.h - 10, sr.y + dy)); nh = sr.h + sr.y - ny; }
+        if (h.indexOf('s') >= 0) { nh = Math.max(10, Math.min(liveImg.height - sr.y, sr.h + dy)); }
+        if (h.indexOf('w') >= 0) { nx = Math.max(0, Math.min(sr.x + sr.w - 10, sr.x + dx)); nw = sr.w + sr.x - nx; }
+        if (h.indexOf('e') >= 0) { nw = Math.max(10, Math.min(liveImg.width - sr.x, sr.w + dx)); }
+      }
+      setControlValue('x', Math.round(nx));
+      setControlValue('y', Math.round(ny));
+      setControlValue('w', Math.round(nw));
+      setControlValue('h', Math.round(nh));
+      redraw();
+    }
+
+    window.addEventListener('mousemove', function(e) { handleDrag(e.clientX, e.clientY); });
+    canvas.addEventListener('touchmove', function(e) {
+      if (e.touches.length === 1) { handleDrag(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }
+    }, {passive: false});
+
+    window.__redrawPreview = redraw;
+    window.__getHandle = getHandle;
+    redraw();
   }
 
   function renderVisualStory(cfg) {
@@ -486,17 +703,32 @@
     var merged = Object.assign({}, metrics || {});
     var cfg = window.__TEACHING_CFG__;
     var impl = cfg && cfg.implementation;
+    var isSim = impl && impl.category === 'teaching_simulation';
+    var isReal = impl && (impl.category === 'numpy_algorithm' || impl.category === 'pretrained_model' || impl.category === 'numpy_model');
+
     if (impl) {
-      merged['实现状态'] = impl.status || '';
+      merged['实现方式'] = impl.status || '';
       if (impl.model) merged['模型/后端'] = impl.model;
-      merged['真实预训练模型'] = impl.realModel ? '是' : '否';
     }
+
+    // Build a prominent badge
+    var badge = '';
+    if (metrics && metrics.status === 'offline_teaching') {
+      badge = '<div class="teach-result-badge offline">离线教学演示 — 非真实模型推理结果</div>';
+    } else if (isSim) {
+      badge = '<div class="teach-result-badge offline">离线教学演示 — 下方为模拟可视化</div>';
+    } else if (isReal) {
+      badge = '<div class="teach-result-badge real">真实运算结果</div>';
+    } else if (metrics && metrics.status === 'pretrained_model') {
+      badge = '<div class="teach-result-badge real">真实预训练模型推理</div>';
+    }
+
     var keys = Object.keys(merged || {});
-    if (!keys.length) {
+    if (!keys.length && !badge) {
       root.innerHTML = '<span class="teach-metric">运行后显示指标</span>';
       return;
     }
-    root.innerHTML = keys.map(function(key) {
+    root.innerHTML = badge + keys.map(function(key) {
       var value = merged[key];
       if (Array.isArray(value)) value = value.join(', ');
       return '<span class="teach-metric">' + esc(key) + '<strong>' + esc(value) + '</strong></span>';
@@ -588,13 +820,19 @@
         if (statusNode) statusNode.textContent = impl.status || statusNode.textContent;
         var progressNode = qs('#status');
         if (progressNode) {
-          progressNode.textContent = impl.category === 'not_implemented'
-            ? '当前模块未接入真实实现。'
-            : (impl.category === 'requires_external_weights'
-              ? '该算法需要本地权重或远程模型，本轮离线模式暂不运行。'
-              : (impl.category === 'model_not_available'
-              ? '当前模块模型未配置。'
-              : progressNode.textContent));
+          if (impl.category === 'not_implemented') {
+            progressNode.textContent = '当前模块未接入真实实现。';
+          } else if (impl.category === 'requires_external_weights') {
+            progressNode.textContent = '需要本地权重文件，当前仅可查看原理讲解。';
+          } else if (impl.category === 'model_not_available') {
+            progressNode.textContent = '模型未配置。';
+          } else if (impl.category === 'teaching_simulation') {
+            progressNode.textContent = '离线教学演示 — 非真实运算，用于理解算法原理。';
+          } else if (impl.category === 'numpy_algorithm') {
+            progressNode.textContent = '真实 NumPy 算法 — 点击运行获得真实计算结果。';
+          } else if (impl.category === 'pretrained_model') {
+            progressNode.textContent = '真实预训练模型 — 点击运行加载模型推理。';
+          }
         }
       })
       .catch(function() {});
@@ -627,17 +865,21 @@
       status.textContent = '请先选择图片。';
       return;
     }
-    status.textContent = cfg.implementation && cfg.implementation.realModel
+    status.textContent = impl.realModel
       ? '正在运行真实预训练模型...'
-      : '正在运行真实后端实现...';
+      : '正在运行算法...';
     button.disabled = true;
-    fetch(cfg.endpoint, { method: 'POST', body: collectFormData(file, cfg), headers: { Accept: 'application/json' } })
+    var formBody = collectFormData(file, cfg);
+    fetch(cfg.endpoint, { method: 'POST', body: formBody })
       .then(function(res) {
-        return res.json().catch(function() { return null; }).then(function(json) {
-          if (res.ok) return json || {};
-          var message = json && (json.error || (json.implementation && json.implementation.note));
-          throw new Error(message || ('HTTP ' + res.status));
-        });
+        if (!res.ok) {
+          return res.text().then(function(txt) {
+            var msg = txt;
+            try { var j = JSON.parse(txt); msg = j.error || j.message || msg; } catch(e) {}
+            throw new Error(msg || ('HTTP ' + res.status));
+          });
+        }
+        return res.json();
       })
       .then(function(json) {
         if (json.implementation) {
@@ -664,6 +906,7 @@
     }
     window.__TEACHING_CFG__ = cfg;
     renderStatic(cfg);
+    initRectCanvas(cfg);
     if (cfg.endpoint) {
       renderSteps([], cfg);
       renderMetrics({});
@@ -678,30 +921,79 @@
     var runButton = qs('#runButton');
     var status = qs('#status');
 
+    var impl = cfg.implementation || {};
+
+    // Hide upload zone for modules that don't need image input
+    // (external weights, GAN/DDPM/diffusion that generate from noise/text)
+    var isExtWeight = impl.category === 'requires_external_weights';
+    var isGenerative = ['gan','ddpm','diffusion'].indexOf(id) >= 0;
+    var needsUpload = !isExtWeight && !isGenerative && cfg.endpoint;
+
     if (!cfg.endpoint) {
       qs('#runButton').disabled = false;
       qs('#runButton').textContent = '查看流程';
       qs('#demoButton').style.display = 'none';
       qs('#status').textContent = '论文/参考实现讲解模式。';
-    } else if (cfg.implementation && cfg.implementation.category === 'requires_external_weights') {
+    } else if (isExtWeight) {
       qs('#runButton').disabled = false;
       qs('#runButton').textContent = '查看说明';
       qs('#demoButton').style.display = 'none';
-      qs('#status').textContent = cfg.implementation.note || '该算法需要本地权重或远程模型，本轮离线模式暂不运行。';
-    } else if (cfg.implementation && cfg.implementation.category === 'teaching_simulation') {
+      qs('#upload').style.display = 'none';
+      qs('#status').textContent = '需要本地权重文件。当前页面讲解算法原理与网络结构。';
+    } else {
       qs('#runButton').disabled = false;
-      qs('#runButton').textContent = '运行离线演示';
+      qs('#runButton').textContent = '运行算法';
+      qs('#demoButton').style.display = '';
+      if (isGenerative) {
+        qs('#upload').style.display = 'none';
+        qs('#status').textContent = '无需输入图片，直接从噪声/提示生成。';
+      } else {
+        qs('#status').textContent = '点击运行算法，或先上传图片。';
+      }
     }
 
     function setFile(file) {
       selectedFile = file;
       filename.textContent = file ? file.name : '未选择文件';
-      var sim = cfg.implementation && cfg.implementation.category === 'teaching_simulation';
-      runButton.disabled = !file && !!cfg.endpoint && !sim;
       if (file && cfg.endpoint) {
-        status.textContent = '已选择图片，点击“运行算法”开始处理。';
-      } else if (cfg.endpoint) {
-        status.textContent = '等待输入。';
+        status.textContent = '已选择图片，点击”运行算法”开始处理。';
+        runButton.disabled = false;
+      }
+      if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            liveImg = img;
+            // Update rect slider ranges to cover full image
+            var xEl = qs('#controls [name=\”x\”]');
+            var yEl = qs('#controls [name=\”y\”]');
+            var wEl = qs('#controls [name=\”w\”]');
+            var hEl = qs('#controls [name=\”h\”]');
+            if (xEl && yEl && wEl && hEl) {
+              // Update slider ranges to cover full image, step=1 for smooth drag
+              [xEl, yEl, wEl, hEl].forEach(function(el) {
+                el.step = 1;
+              });
+              xEl.max = img.width;
+              yEl.max = img.height;
+              wEl.max = img.width;
+              hEl.max = img.height;
+              // Default rect: 30% of image, centered
+              var dw = Math.round(img.width * 0.3);
+              var dh = Math.round(img.height * 0.3);
+              var dx = Math.round((img.width - dw) / 2);
+              var dy = Math.round((img.height - dh) / 2);
+              setControlValue('x', dx);
+              setControlValue('y', dy);
+              setControlValue('w', dw);
+              setControlValue('h', dh);
+            }
+            if (window.__redrawPreview) window.__redrawPreview();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
       }
     }
 

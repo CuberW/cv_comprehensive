@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经网络 - Cvtoolkits</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+:root{--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--bg:#0f172a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+.page{max-width:1080px;margin:0 auto;padding:14px 16px 24px}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.topbar a{color:var(--muted);text-decoration:none;font-size:0.82rem}
+.topbar h1{font-size:1.1rem;font-weight:700}
+.badge{padding:2px 10px;border-radius:999px;font-size:0.72rem;font-weight:600}
+.b1{background:rgba(59,130,246,.15);color:#60a5fa}
+.b2{background:rgba(34,197,94,.12);color:#4ade80}
+.b3{background:rgba(168,85,247,.15);color:#c4b5fd}
+.b4{background:rgba(236,72,153,.12);color:#f9a8d4}
+.b5{background:rgba(245,158,11,.12);color:#fcd34d}
+.b6{background:rgba(100,116,139,.15);color:#94a3b8}
+.b7{background:rgba(20,184,166,.12);color:#5eead4}
+.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:10px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.panel h3{font-size:0.9rem;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.chip{padding:5px 10px;border-radius:999px;font-size:0.73rem;background:rgba(100,116,139,.08);border:1px solid var(--border);color:var(--muted)}
+.chip strong{color:var(--text);font-weight:600}
+.arch{overflow-x:auto;padding:6px 0}
+.arch-row{display:flex;align-items:center;gap:0;font-size:0.7rem;margin-bottom:5px;min-width:fit-content}
+.arch-block{display:grid;place-items:center;padding:6px 10px;border-radius:5px;text-align:center;line-height:1.3;font-weight:600;min-width:54px}
+.arch-block .dim{font-size:0.6rem;font-weight:400;opacity:.7;margin-top:1px}
+.ac{background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.25)}
+.ar{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.2)}
+.ap{background:rgba(245,158,11,.1);color:#fcd34d;border:1px solid rgba(245,158,11,.2)}
+.af{background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.2)}
+.ag{background:rgba(168,85,247,.12);color:#c4b5fd;border:1px solid rgba(168,85,247,.2)}
+.ah{background:rgba(250,204,21,.12);color:#fde68a;border:1px solid rgba(250,204,21,.2)}
+.ae{background:rgba(236,72,153,.12);color:#f9a8d4;border:1px solid rgba(236,72,153,.2)}
+.at{background:rgba(20,184,166,.12);color:#5eead4;border:1px solid rgba(20,184,166,.2)}
+.as{background:transparent;border:1.5px dashed rgba(59,130,246,.3);color:#60a5fa;padding:4px 12px;font-size:0.68rem}
+.arrow{color:var(--muted);font-size:0.6rem;padding:0 3px;flex-shrink:0}
+.down{color:var(--muted);font-size:0.55rem;text-align:center;padding:2px 0}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s}
+.upload-zone:hover{border-color:#3b82f6}
+.upload-zone input{display:none}
+.upload-hint{color:var(--muted);font-size:0.84rem}
+.btn{display:block;width:100%;padding:10px;border-radius:8px;border:0;font-size:0.85rem;cursor:pointer;font-weight:600;text-align:center;margin-bottom:6px}
+.brun{background:#3b82f6;color:#fff}.brun:disabled{opacity:.5;cursor:not-allowed}
+.bdemo{background:rgba(100,116,139,.15);color:var(--muted)}
+.status{margin-top:6px;padding:5px 10px;border-radius:5px;font-size:0.76rem}
+.sok{background:rgba(34,197,94,.1);color:#4ade80}
+.serr{background:rgba(239,68,68,.1);color:#f87171}
+.sinfo{background:rgba(59,130,246,.08);color:#93c5fd}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:8px}
+.rc{background:rgba(0,0,0,.2);border-radius:8px;overflow:hidden}
+.rc img{width:100%;display:block}
+.rc .c{padding:5px 8px;font-size:0.72rem;color:var(--muted)}
+.rc .e{padding:0 8px 8px;font-size:0.68rem;color:var(--muted);opacity:.7;line-height:1.4}
+.explain{background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.08);border-radius:8px;padding:11px 14px;font-size:0.8rem;color:var(--muted);line-height:1.65}
+.explain strong{color:var(--text)}
+.note{text-align:center;padding:20px;font-size:0.84rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="page" id="app">
+  <div class="topbar">
+    <span style="font-size:0.78rem;color:var(--muted)" id="crumb"></span>
+    <h1 id="title"></h1>
+    <span class="badge" id="badge1" style="display:none"></span>
+    <span class="badge" id="badge2" style="display:none"></span>
+  </div>
+
+  <div class="grid2">
+    <div class="panel" style="grid-row:span 2">
+      <h3>网络结构</h3>
+      <div class="chips" id="chips"></div>
+      <div class="arch" id="arch"></div>
+      <div class="explain" id="explain"></div>
+    </div>
+    <div class="panel">
+      <h3 id="actionTitle">交互</h3>
+      <label class="upload-zone" id="uploadZone" style="display:none">
+        <input type="file" id="fileInput" accept="image/*">
+        <div class="upload-hint" id="uploadHint">点击或拖入图片</div>
+      </label>
+      <button class="btn brun" id="runBtn" disabled>运行</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>运行结果</h3>
+    <div class="results" id="results"><div class="note">运行算法查看结果</div></div>
+  </div>
+</div>
+
+<script src="../js/algorithm-content.js?v=2"></script>
+<script>
+var p=new URLSearchParams(location.search);var id=p.get('id')||'resnet';
+var cfg=(window.AlgorithmContent&&window.AlgorithmContent[id])||{};
+var impl=cfg.implementation||{};
+var isExt=impl.category==='requires_external_weights';
+
+// Architecture renderer - builds proper visual blocks from structured data
+function renderArch(blocks,skipNote){
+  var h='<div class="arch-row">';
+  blocks.forEach(function(b,i){
+    if(b==='→')h+='<span class="arrow">→</span>';
+    else if(b==='↓')h+='</div><div class="down">↓</div><div class="arch-row">';
+    else if(typeof b==='string')h+='<span class="arch-block" style="min-width:70px">'+b+'</span>';
+    else h+='<span class="arch-block '+b.cls+'" style="min-width:'+(b.w||60)+'px">'+b.t+'<span class="dim">'+b.d+'</span></span>';
+  });
+  h+='</div>';
+  if(skipNote)h+='<div class="arch-row" style="justify-content:center;margin-top:4px"><span class="arch-block as">'+skipNote+'</span></div>';
+  return h;
+}
+
+var DATA={
+resnet:{cat:'cnn',badgeCls:'b1',badge:'ImageNet冠军',
+  arch:renderArch([{t:'Input',d:'224²×3',cls:'ac'},'→',{t:'Conv7×7',d:'64,/2',cls:'ac'},'→',{t:'MaxPool',d:'/2',cls:'ap'},'→',{t:'Bottleneck×3',d:'256',cls:'ac'},'→',{t:'Bottleneck×4',d:'512',cls:'ac'},'→',{t:'Bottleneck×6',d:'1024',cls:'ac'},'→',{t:'Bottleneck×3',d:'2048',cls:'ac'},'→',{t:'AvgPool',d:'',cls:'ap'},'→',{t:'FC1000',d:'',cls:'af'}],'⤴ 残差连接：每个Bottleneck的输出 = F(x) + x'),
+  chips:['残差F(x)+x 梯度直通','瓶颈1×1→3×3→1×1减参','BatchNorm稳定训练','Grad-CAM梯度加权定位'],
+  explain:'没有残差连接时，深层网络梯度消失无法训练。<strong>ResNet让网络学习"残差"F(x)=H(x)-x</strong>，跳跃连接让梯度通过加法门直通浅层。50层由4组瓶颈块堆叠(3+4+6+3)，每块用1×1卷积先降维再升维来大幅减少参数。',
+  upload:true,btn:'运行 ResNet-50 推理'},
+
+unet:{cat:'cnn',badgeCls:'b2',badge:'医学影像标配',
+  arch:renderArch([{t:'Enc1',d:'64',cls:'ac'},'↓',{t:'Enc2',d:'128',cls:'ac'},'↓',{t:'Enc3',d:'256',cls:'ac'},'↓',{t:'Enc4',d:'512',cls:'ac'},'↓',{t:'Bottleneck',d:'1024',cls:'ag'},'→',{t:'Dec3',d:'256',cls:'ac'},'→',{t:'Dec2',d:'128',cls:'ac'},'→',{t:'Dec1',d:'64',cls:'ac'},'→',{t:'Output',d:'1',cls:'af'}],'⤴ 长跳跃连接：解码器每层拼接同层编码器特征'),
+  chips:['对称编解码结构','长跳跃连接保留位置细节','上采样+卷积替代转置卷积','小数据集医学影像分割标配'],
+  explain:'U-Net的U形结构：<strong>左边编码器逐层下采样提取语义</strong>，右边解码器逐层上采样恢复分辨率。关键是<strong>跳跃连接</strong>——解码器每层拼接同层编码器的特征图再卷积，浅层位置信息不会在深层丢失。',upload:true,btn:'运行 U-Net 分割'},
+
+fcn:{cat:'cnn',badgeCls:'b2',badge:'开山之作',
+  arch:renderArch([{t:'VGG16',d:'/32',cls:'ac'},'→',{t:'1×1 Conv',d:'21ch',cls:'ac'},'→',{t:'转置卷积↑',d:'',cls:'ap'},'→',{t:'像素分类',d:'H×W×21',cls:'af'}],'跳跃融合：Pool3(1/8)+Pool4(1/16)→逐元素相加→上采样'),
+  chips:['全卷积：无FC层','转置卷积可学习上采样','跳跃融合保留边缘细节','语义分割开山之作'],
+  explain:'FCN把分类网络最后的全连接层全部替换为卷积层。<strong>用1×1卷积映射通道→转置卷积上采样→逐像素softmax分类</strong>。多次跳跃融合让浅层边缘信息补充深层语义，分割边界更精确。',upload:true,btn:'运行 FCN 分割'},
+
+yolo:{cat:'cnn',badgeCls:'b5',badge:'实时检测',
+  arch:renderArch([{t:'Backbone',d:'CSPDarknet',cls:'ac'},'→',{t:'Neck',d:'FPN+PAN',cls:'ac'},'→',{t:'Detect Head',d:'3尺度',cls:'ae'}],'网格→回归(x,y,w,h,obj,cls)→NMS'),
+  chips:['单阶段:一次前向出结果','网格→回归 无RPN','实时30+FPS','多尺度检测头'],
+  explain:'YOLO把检测变成回归：图像分S×S网格，每格预测边界框和类别。<strong>不需要RPN也不需RoI</strong>，一次前向传播直接出所有检测结果。从v1到v8持续演进，增加FPN、anchor-free、多尺度等改进。',upload:true,btn:'运行 YOLO 网格检测'},
+
+faster_rcnn:{cat:'cnn',badgeCls:'b1',badge:'两阶段标杆',
+  arch:renderArch([{t:'Backbone',d:'ResNet+FPN',cls:'ac'},'→',{t:'RPN',d:'候选框',cls:'ae'},'→',{t:'RoIAlign',d:'7×7',cls:'ap'},'→',{t:'分类头',d:'cls',cls:'af'},'→',{t:'回归头',d:'box',cls:'af'}],''),
+  chips:['RPN生成候选区域','RoIAlign精确采样','两阶段:粗筛→精修','精度高但速度慢于YOLO'],
+  explain:'Faster R-CNN是两阶段检测标杆。<strong>RPN在特征图每个位置预测候选框</strong>，RoIAlign把每个候选区域裁成固定尺寸特征，再分别分类+精修框。精度高但比单阶段慢。',upload:true,btn:'运行 Faster R-CNN'},
+
+mask_rcnn:{cat:'cnn',badgeCls:'b2',badge:'实例分割',
+  arch:renderArch([{t:'Backbone',d:'ResNet+FPN',cls:'ac'},'→',{t:'RPN',d:'候选框',cls:'ae'},'→',{t:'RoIAlign',d:'14×14',cls:'ap'},'→',{t:'分类+框',d:'',cls:'af'},'→',{t:'掩码分支',d:'28×28',cls:'ae'}],''),
+  chips:['Faster R-CNN+并行掩码','RoIAlign避免量化误差','实例级像素分割','COCO基准模型'],
+  explain:'Mask R-CNN在Faster R-CNN上加了一个<strong>并行的FCN掩码分支</strong>：除了类别和框，还输出28×28的二值掩码。RoIAlign用双线性插值而非取整，保证掩码精度。',upload:true,btn:'运行 Mask R-CNN'},
+
+gan:{cat:'gen',badgeCls:'b4',badge:'对抗博弈',
+  arch:renderArch([{t:'z~N(0,1)',d:'100维',cls:'ah'},'→',{t:'Dense',d:'4×4×64',cls:'ac'},'→',{t:'↑8×8×32',d:'',cls:'ac'},'→',{t:'↑16×16×16',d:'',cls:'ac'},'→',{t:'↑32×32×3',d:'RGB',cls:'ae'}],'判别器D: Conv→Pool→FC→Sigmoid ← real/fake'),
+  chips:['G从噪声生成逼真图像','D学习区分真伪','对抗训练:零和博弈','模式坍塌是经典难题'],
+  explain:'GAN是<strong>生成器与判别器的二人博弈</strong>。G学习p(real)，D学习区分p(real)和p(fake)。交替训练：D变强迫使G生成更逼真的图，G变强迫使D寻找更细微的破绽。训练不稳定和模式坍塌是经典挑战。',upload:false,btn:'运行 DCGAN 生成'},
+
+diffusion:{cat:'gen',badgeCls:'b4',badge:'逐步去噪',
+  arch:renderArch([{t:'x₀',d:'真实图',cls:'af'},'→',{t:'+ε→x₁',d:'',cls:'ah'},'→',{t:'...',d:'',cls:'ap'},'→',{t:'x_T',d:'纯噪声',cls:'ar'}],'UNet(t,text)→预测ε→逐步去噪→x₀恢复'),
+  chips:['前向加噪破坏图像','反向UNet预测噪声','T=1000步迭代去噪','SD=潜空间扩散'],
+  explain:'扩散模型和GAN完全不同：<strong>不直接生成，而是学习"去噪"</strong>。训练时逐步加噪到纯噪声，UNet学习预测每步加入的噪声量。推理时从随机噪声开始，逐步去噪还原图像。Stable Diffusion在VAE潜空间做扩散，大幅减少计算。',upload:true,btn:'运行扩散模型'},
+
+ddpm:{cat:'gen',badgeCls:'b4',badge:'奠基之作',
+  arch:renderArch([{t:'x₀',d:'图像',cls:'af'},'→',{t:'加噪q',d:'T=1000步',cls:'ah'},'→',{t:'x_T',d:'N(0,I)',cls:'ar'}],'UNet(t)→预测ε_θ→p(x_{t-1}|x_t)逐步去噪'),
+  chips:['马尔可夫加噪链','预测噪声而非图像','T=1000步','方差schedule控制噪声强度'],
+  explain:'DDPM是扩散模型的奠基作。<strong>前向过程：马尔可夫链逐步加高斯噪声</strong>，T步后变为各向同性高斯。反向过程学习去噪转移p(x_{t-1}|x_t)，训练目标是预测加入的噪声ε而非直接预测x₀。',upload:true,btn:'运行 DDPM 演示'},
+
+vit:{cat:'transformer',badgeCls:'b3',badge:'无卷积范式',
+  arch:renderArch([{t:'Patch',d:'16×16',cls:'ap'},'→',{t:'LinearProj',d:'768d',cls:'ac'},'→',{t:'+PosEmb',d:'',cls:'at'},'→',{t:'Transf×12',d:'MHSA+MLP',cls:'ac'},'→',{t:'CLS→MLP',d:'1000',cls:'af'}],''),
+  chips:['图像→patch token序列','自注意力全局建模','无卷积纯Transformer','需海量数据预训练'],
+  explain:'ViT证明卷积不是必需的。<strong>把图像切成16×16的patch</strong>，每块线性投影成token，加位置编码送进标准Transformer。<strong>自注意力让每块直接看到全局</strong>。缺点是需要JFT-300M级别数据预训练，否则不如CNN。',upload:false,btn:'需GPU+ViT权重',ext:true},
+
+swin:{cat:'transformer',badgeCls:'b3',badge:'层级化',
+  arch:renderArch([{t:'Patch4×4',d:'96d',cls:'ap'},'→',{t:'W-MSA',d:'窗口内',cls:'ac'},'→',{t:'SW-MSA',d:'跨窗口',cls:'ac'},'↓',{t:'PatchMerge',d:'192d',cls:'ap'},'→',{t:'W/SW-MSA',d:'×2',cls:'ac'},'↓',{t:'PatchMerge',d:'384d',cls:'ap'},'→',{t:'W/SW-MSA',d:'×6',cls:'ac'},'↓',{t:'PatchMerge',d:'768d',cls:'ap'},'→',{t:'W/SW-MSA',d:'×2',cls:'ac'}],''),
+  chips:['窗口注意力:线性复杂度','移位窗口:跨窗口通信','层级式多尺度特征','ImageNet+COCO双冠'],
+  explain:'Swin Transformer解决了ViT的两个问题：<strong>计算量O(N²)→O(N)</strong>（窗口内做注意力）和<strong>缺乏多尺度特征</strong>（逐层合并patch）。移位窗口让相邻窗口之间能通信。',upload:false,btn:'需GPU+权重',ext:true},
+
+detr:{cat:'transformer',badgeCls:'b3',badge:'端到端',
+  arch:renderArch([{t:'CNN',d:'特征',cls:'ac'},'→',{t:'TransfEnc',d:'全局',cls:'ac'},'→',{t:'TransfDec',d:'×6',cls:'ac'},'→',{t:'FFN',d:'(cls,box)',cls:'af'}],'100 Object Queries→二分匹配→直接出检测结果'),
+  chips:['Object Query可学习探针','匈牙利二分匹配替代NMS','端到端无anchor','收敛慢需500+轮'],
+  explain:'DETR把检测重新定义为<strong>集合预测问题</strong>。100个Object Query经过Transformer解码器直接输出(类别,框)对。<strong>匈牙利算法做二分匹配</strong>替代NMS。优点是简洁端到端，缺点收敛慢。',upload:false,btn:'需GPU+权重',ext:true},
+
+clip:{cat:'transformer',badgeCls:'b3',badge:'图文对齐',
+  arch:renderArch([{t:'Image',d:'ViT/ResNet',cls:'ac'},'→',{t:'v_img',d:'512d',cls:'af'}],'cosine→对比损失')+renderArch([{t:'Text',d:'Transformer',cls:'ae'},'→',{t:'v_txt',d:'512d',cls:'af'}],''),
+  chips:['双塔分别编码图文','对比学习4亿图文对','零样本分类/检索','提示工程: a photo of [cls]'],
+  explain:'CLIP的核心是<strong>把图像和文本映射到同一向量空间</strong>，使匹配图文对的余弦相似度最大化。4亿图文对训练后，CLIP获得零样本能力：不需要训练过的类别，把类别名写成自然语言即可分类。',upload:false,btn:'需GPU+权重',ext:true},
+
+sam:{cat:'transformer',badgeCls:'b2',badge:'基础模型',
+  arch:renderArch([{t:'ViTEnc',d:'1次/图',cls:'ac'},'→',{t:'MaskDec',d:'',cls:'ae'}],'')+renderArch([{t:'PromptEnc',d:'点/框/掩码',cls:'ap'},'→',{t:'MaskDec',d:'',cls:'ae'}],''),
+  chips:['提示驱动:点哪分哪','三组件:ViT+Prompt+Mask','1B+掩码训练','SAM2扩展到视频'],
+  explain:'SAM是分割的基础模型。<strong>图像过ViT得到embedding(只跑1次)</strong>，用户给提示(点/框/掩码)，提示编码器+掩码解码器融合输出分割。<strong>同一模型可分割任意物体</strong>，不需为每类重新训练。',upload:false,btn:'需GPU+权重',ext:true},
+
+nerf:{cat:'3d',badgeCls:'b7',badge:'隐式3D',
+  arch:renderArch([{t:'(x,y,z,θ,φ)',d:'5D输入',cls:'ap'},'→',{t:'PositionalEnc',d:'高频映射',cls:'ac'},'→',{t:'MLP×8',d:'256宽',cls:'ac'},'→',{t:'RGB',d:'3',cls:'af'},'→',{t:'σ密度',d:'1',cls:'ae'}],'体渲染：沿射线采样→从前到后累加→像素颜色'),
+  chips:['MLP记住整个3D场景','射线采样+体渲染','新视角合成','训练:多视角照片→优化MLP'],
+  explain:'NeRF用<strong>一个MLP存储整个3D场景</strong>。输入空间坐标和视角方向，输出该点的颜色和密度。渲染时从相机发出一条射线，沿射线采样点→MLP预测→体渲染从前到后累加颜色。<strong>一个MLP=整个场景</strong>。',upload:false,btn:'运行 TinyNeRF'},
+
+pointnet:{cat:'3d',badgeCls:'b7',badge:'点云DL入口',
+  arch:renderArch([{t:'N×3',d:'点云',cls:'ap'},'→',{t:'T-Net',d:'3×3',cls:'ac'},'→',{t:'MLP',d:'64→128→1024',cls:'ac'},'→',{t:'MaxPool',d:'global',cls:'ae'},'→',{t:'FC',d:'k类',cls:'af'}],'MaxPool对称函数→保证点顺序无关'),
+  chips:['MaxPool对称函数','置换不变性','T-Net空间对齐','分类+分割双任务'],
+  explain:'PointNet是第一个直接处理<strong>无序点云</strong>的深度网络。核心是对称函数MaxPool：无论点按什么顺序输入，max后全局特征相同。<strong>T-Net学习空间变换矩阵</strong>让点云对齐到规范姿态。',upload:true,btn:'运行 PointNet'},
+
+simclr:{cat:'ssl',badgeCls:'b2',badge:'对比学习',
+  arch:renderArch([{t:'x',d:'图像',cls:'ap'},'→',{t:'Aug1',d:'裁剪+颜色',cls:'ac'},'→',{t:'Encoder',d:'ResNet',cls:'ac'},'→',{t:'MLP proj',d:'128d',cls:'af'},'→',{t:'NT-Xent',d:'对比损失',cls:'ae'}],''),
+  chips:['同图不同增强→正对','大batch 4096+关键','MLP投影头提升表示质量','InfoNCE损失'],
+  explain:'SimCLR的核心：<strong>同一张图两种随机增强的特征应最接近</strong>。每张图做两次随机裁剪+颜色扰动形成正对，同一batch的其他图做负对。关键发现：大batch(4096+)提供充足负样本，MLP投影头显著提升下游性能。',upload:true,btn:'运行特征提取'},
+
+moco:{cat:'ssl',badgeCls:'b2',badge:'动量编码',
+  arch:renderArch([{t:'QueryEnc',d:'反向传播',cls:'ac'},'→',{t:'MLP',d:'proj',cls:'af'}],'')+renderArch([{t:'KeyEnc',d:'动量更新',cls:'ae'},'→',{t:'Queue',d:'65536',cls:'ah'}],''),
+  chips:['动量编码器:θ_k←mθ_k+(1-m)θ_q','动态队列存6.5万负样本','解耦batch和负样本数','小batch也能训'],
+  explain:'MoCo解决了SimCLR需要大batch的问题。<strong>key编码器用动量更新而非反向传播</strong>，保持特征空间稳定。<strong>动态队列存65536个历史key</strong>做负样本，不受batch大小限制。256的batch就能训出好结果。',upload:true,btn:'运行特征提取'},
+
+byol:{cat:'ssl',badgeCls:'b2',badge:'无负样本',
+  arch:renderArch([{t:'Online',d:'Encoder+Pred',cls:'ac'},'→预测→',{t:'Target',d:'Encoder(EMA)',cls:'ap'}],''),
+  chips:['不需要负样本','Online预测Target输出','Target用EMA更新','不对称设计防坍缩'],
+  explain:'BYOL连负样本都不要了。<strong>Online网络多看一个predictor层</strong>，学习预测target网络对另一增强的输出。target从不反向传播，只用EMA慢慢靠近online。这种不对称的bootstrapping防止了特征坍塌到常数。',upload:true,btn:'运行特征提取'},
+
+ijepa:{cat:'ssl',badgeCls:'b2',badge:'表征预测',
+  arch:renderArch([{t:'Context',d:'可见patch',cls:'ac'},'→',{t:'Predictor',d:'Transformer',cls:'at'},'→预测→',{t:'Target',d:'被遮patch表征',cls:'ae'}],''),
+  chips:['预测表征而非像素','更语义更高效','context→predict→target','不重建细节'],
+  explain:'I-JEPA不预测被遮区域的像素值，而是<strong>在表征空间预测被遮区域的特征</strong>。像素重建浪费算力在无关细节上，特征预测迫使模型学习更语义化的表示。比MAE更高效。',upload:true,btn:'运行特征提取'},
+
+'3dgs':{cat:'3d',badgeCls:'b7',badge:'实时渲染',
+  arch:renderArch([{t:'3D椭球集',d:'μ,Σ,α,sh',cls:'ap'},'→',{t:'投影2D',d:'光栅化',cls:'ac'},'→',{t:'α-blending',d:'排序混合',cls:'ae'},'→',{t:'RGB',d:'像素',cls:'af'}],''),
+  chips:['显式椭球几何表示','可微光栅化','比NeRF快100倍','百万椭球≈实时FPS'],
+  explain:'3DGS用<strong>几百万个3D高斯椭球</strong>明确表示场景。每个椭球存位置、协方差(形状)、透明度、球谐颜色。渲染时投影到2D→按深度排序→α-blending混合。显式表示+可微光栅化=NeRF精度+实时速度(100+FPS)。',upload:false,btn:'运行 3DGS 渲染'},
+
+c3d:{cat:'video',badgeCls:'b5',badge:'时空卷积',
+  arch:renderArch([{t:'16帧',d:'112²×3',cls:'ap'},'→',{t:'3DConv',d:'3×3×3',cls:'ac'},'→',{t:'ReLU',d:'',cls:'ar'},'→',{t:'3DPool',d:'',cls:'ap'},'→',{t:'3DConv',d:'3×3×3',cls:'ac'},'→',{t:'FC',d:'101类',cls:'af'}],''),
+  chips:['3D卷积核同时在x/y/t滑动','16帧输入clip','可从头训练不需预训练','后来被(2+1)D替代'],
+  explain:'C3D把2D卷积核扩展一维变成<strong>3×3×3时空核</strong>，同时在空间和时间上卷积。<strong>浅层学边缘+运动方向，深层学复杂动作语义</strong>。参数量大(比2D多数倍)，后来被(2+1)D分解卷积替代。',upload:true,btn:'运行 C3D 前向'},
+
+bytetrack:{cat:'video',badgeCls:'b5',badge:'多目标跟踪',
+  arch:renderArch([{t:'检测器',d:'YOLOX',cls:'ac'},'→',{t:'Kalman',d:'运动预测',cls:'ap'},'→',{t:'高分匹配',d:'IoU+外观',cls:'ae'},'→',{t:'低分恢复',d:'遮挡找回',cls:'af'}],''),
+  chips:['低分框≠错误','两阶段关联','Kalman+Hungarian','遮挡场景大幅提升'],
+  explain:'ByteTrack的核心洞察：<strong>低分检测框不一定是错的</strong>，常常只是被遮挡或模糊的真目标。第一轮用高分框做标准关联建立tracklet，<strong>第二轮把剩余低分框和未匹配tracklet再关联</strong>——找回大量被遮挡目标。',upload:true,btn:'运行 ByteTrack'},
+
+deeppose:{cat:'pose',badgeCls:'b5',badge:'DL姿态起点',
+  arch:renderArch([{t:'CNN',d:'AlexNet',cls:'ac'},'→',{t:'FC',d:'2K',cls:'af'},'→',{t:'(x₁,y₁...x_K,y_K)',d:'K个关键点',cls:'ae'}],'级联:Stage1粗定位→裁剪高分辨率→Stage2精修'),
+  chips:['CNN直接回归坐标','级联精修粗→细','AlexNet骨干','深度学习姿态估计起点'],
+  explain:'DeepPose开创了<strong>用CNN直接回归关键点坐标</strong>的方式。把分类网络的最后FC层改成2K个输出(K个关键点各x,y)，用L2损失直接回归。<strong>级联精修是精髓</strong>：第一级粗定位→裁剪高分辨率区域→后续级精修到像素级。',upload:true,btn:'运行 DeepPose'},
+
+openpose:{cat:'pose',badgeCls:'b5',badge:'多人姿态',
+  arch:renderArch([{t:'VGG-19',d:'前10层',cls:'ac'},'→',{t:'Heatmap',d:'关键点热力',cls:'ae'},'→',{t:'PAF',d:'肢体关联场',cls:'ap'}],'→二分图匹配→多人骨架'),
+  chips:['自底向上:先找点再组人','PAF=2D向量场连接关节','二分图匹配组装骨架','人数自适应无需预设'],
+  explain:'OpenPose是<strong>自底向上的多人姿态估计</strong>：先预测所有人的所有关键点热力图(不分人)，再预测PAF——Part Affinity Fields，2D向量场编码<strong>关节点之间的连接方向和强度</strong>。最后用二分图匹配把所有点连成每个人的完整骨架。',upload:true,btn:'运行 OpenPose'},
+
+bev:{cat:'3d',badgeCls:'b7',badge:'鸟瞰感知',
+  arch:renderArch([{t:'环视×6',d:'图像',cls:'ac'},'→',{t:'深度分布',d:'像素→3D',cls:'ae'},'→',{t:'Lift',d:'2D→3D视锥',cls:'ap'},'→',{t:'Splat',d:'→BEV网格',cls:'ac'},'→',{t:'检测头',d:'3D框',cls:'af'}],''),
+  chips:['Lift-Splat核心操作','环视→统一鸟瞰坐标','多相机特征融合','自动驾驶标配'],
+  explain:'BEV Perception把环视相机图像"抬"到鸟瞰网格。<strong>每张图先估计像素深度分布→按深度分散到3D视锥→投影到自顶向下BEV网格</strong>。多相机在统一坐标系融合，不同相机看到的同一物体落在同一网格。',upload:true,btn:'运行 BEV 变换'},
+
+};
+// Default fallback for any module not in DATA
+var mod=DATA[id];
+if(!mod){
+  mod={cat:'cnn',badgeCls:'b1',badge:'',
+    arch:renderArch([{t:'Input',d:'',cls:'ac'},'→',{t:'Module',d:id,cls:'ac'},'→',{t:'Output',d:'',cls:'af'}],''),
+    chips:[],explain:cfg.tagline||'',upload:true,btn:'运行算法'};
+}
+
+// Render page
+document.getElementById('title').textContent=cfg.title||id;
+document.getElementById('crumb').textContent=(cfg.phase||'')+' · ';
+document.getElementById('chips').innerHTML=(mod.chips||[]).map(function(c){return'<span class="chip">'+c+'</span>'}).join('');
+document.getElementById('arch').innerHTML=mod.arch||'';
+document.getElementById('explain').innerHTML=mod.explain||(cfg.tagline||'');
+
+var b1=document.getElementById('badge1');
+if(mod.badge){b1.style.display='';b1.textContent=mod.badge;b1.className='badge '+mod.badgeCls;}
+if(id==='detection'||id==='faster_rcnn'){var b2=document.getElementById('badge2');b2.style.display='';b2.textContent='目标检测';b2.className='badge b5';}
+if(id==='semantic'||id==='fcn'){var b2=document.getElementById('badge2');b2.style.display='';b2.textContent='语义分割';b2.className='badge b2';}
+if(id==='instance'||id==='mask_rcnn'){var b2=document.getElementById('badge2');b2.style.display='';b2.textContent='实例分割';b2.className='badge b2';}
+
+var isExt=mod.ext||(impl.category==='requires_external_weights');
+var runBtn=document.getElementById('runBtn');
+if(isExt){
+  document.getElementById('uploadZone').style.display='none';
+  runBtn.textContent=mod.btn||'需本地权重';
+  runBtn.classList.remove('brun');runBtn.classList.add('bdemo');
+  runBtn.disabled=false;
+  document.getElementById('actionTitle').textContent='说明';
+  document.getElementById('status').innerHTML='<div class="status sinfo">需要GPU+预训练权重文件。当前页面展示网络架构与原理。部分模块可本地运行—参见CNN基础页的交互实验。</div>';
+} else {
+  if(mod.upload){document.getElementById('uploadZone').style.display='';}
+  else {document.getElementById('uploadZone').style.display='none';runBtn.disabled=false;}
+  runBtn.textContent=mod.btn||'运行';
+}
+
+var file=null;
+document.getElementById('uploadZone').addEventListener('click',function(){document.getElementById('fileInput').click()});
+document.getElementById('fileInput').addEventListener('change',function(){if(this.files[0]){file=this.files[0];document.getElementById('uploadHint').textContent=file.name;runBtn.disabled=false}});
+document.getElementById('uploadZone').addEventListener('dragover',function(e){e.preventDefault()});
+document.getElementById('uploadZone').addEventListener('drop',function(e){e.preventDefault();if(e.dataTransfer.files[0]){file=e.dataTransfer.files[0];document.getElementById('uploadHint').textContent=file.name;runBtn.disabled=false}});
+
+runBtn.addEventListener('click',function(){
+  if(isExt)return;
+  if(mod.upload&&!file){document.getElementById('status').innerHTML='<div class="status serr">请先选择图片</div>';return}
+  var s=document.getElementById('status');
+  s.innerHTML='<div class="status sok">运行中...</div>';runBtn.disabled=true;
+  var fd=new FormData();if(file)fd.append('file',file);
+  fetch('/api/demo/'+id,{method:'POST',body:fd})
+    .then(function(r){return r.json().catch(function(){return null}).then(function(j){if(r.ok)return j;throw new Error((j&&j.error)||'HTTP '+r.status)})})
+    .then(function(d){
+      var html='';var steps=d.steps||[];
+      steps.forEach(function(s){
+        var img=s.image_base64?'data:image/png;base64,'+s.image_base64:(s.image||'');
+        if(img)html+='<div class="rc"><img src="'+img+'"><div class="c">'+s.name+'</div><div class="e">'+(s.explanation||'')+'</div></div>';
+      });
+      document.getElementById('results').innerHTML=html||'<div class="note">完成</div>';
+      var m=d.metrics||{};
+      var ms=Object.keys(m).slice(0,5).map(function(k){return'<span style="font-size:0.73rem;color:var(--muted)">'+k+': <b>'+m[k]+'</b></span>'}).join(' &nbsp;·&nbsp; ');
+      s.innerHTML='<div class="status sok">完成</div><div style="margin-top:6px">'+ms+'</div>';
+    })
+    .catch(function(e){s.innerHTML='<div class="status serr">失败: '+(e.message||e)+'</div>'})
+    .finally(function(){runBtn.disabled=false});
+});
+</script>
+<script>
+(function(){
+  var root = document.getElementById('app');
+  if (!root || !window.DATA) return;
+
+  var aliasMap = {
+    detection: 'faster_rcnn',
+    semantic: 'fcn',
+    instance: 'mask_rcnn',
+    stable_diffusion: 'diffusion',
+    vitpose: 'deeppose',
+    dino_det: 'detr',
+    grdino: 'detr',
+    controlnet: 'diffusion',
+    flux: 'diffusion',
+    dit: 'ddpm',
+    stylegan: 'gan',
+    sam2: 'sam',
+    mask2former: 'mask_rcnn',
+    botsort: 'bytetrack',
+    blip2: 'clip',
+    dino: 'vit',
+    mae: 'vit',
+    mediapipe: 'openpose',
+    occupy: 'bev',
+    dust3r: 'nerf',
+    orbslam3: 'bev'
+  };
+
+  var CLEAN_KNOWLEDGE = {
+    resnet: {
+      chips: ['残差连接让梯度直达浅层', 'Bottleneck 用 1x1-3x3-1x1 降低计算量', 'Grad-CAM 能回看分类依据', 'ImageNet 时代的标准骨干网'],
+      explain: 'ResNet 的核心不是“堆更深”，而是把每一层改写成学习残差 F(x)，最后输出 F(x)+x。这样即使新层学不到有效增量，信息也能通过恒等分支直接传过去，深层网络才真正可训练。',
+      pipeline: [['输入图像', '先做大卷积和池化，把分辨率快速降下来。'], ['残差块堆叠', '每个块只学习增量特征，而不是从头重建整层映射。'], ['全局汇聚', '把空间特征压成全局语义向量。'], ['分类与可解释', '输出类别概率，并用 Grad-CAM 标出模型最关注的位置。']],
+      storyIntro: '如果把 LeNet 看成 CNN 入门，ResNet 解决的就是“网络加深后为什么反而学不动”。它把优化问题从“学完整映射”改成“学相对修正”。',
+      cards: [
+        { type: 'arrows', title: '残差块的真实作用', text: '主分支负责提取新特征，捷径分支负责保底传输原始信息。最后两者相加，再过激活。', labels: ['x', 'F(x)', 'F(x)+x'] },
+        { type: 'bars', title: '为什么更深还能训练', text: '有了 shortcut，梯度不必层层衰减。即使某一块暂时没学好，也不会把整条信息链切断。', items: [{ label: '普通深网', value: 28, caption: '梯度易衰减', color: '#64748b' }, { label: 'ResNet', value: 88, caption: '梯度可直通', color: '#22c55e' }] },
+        { type: 'gradientSet', title: 'Grad-CAM 在看什么', text: '对目标类别反向传播，给最后卷积层通道赋权，再汇总成热力图。亮区就是判别贡献最大的区域。', rows: [{ label: 'grad', caption: '类别梯度', gradient: 'linear-gradient(90deg,#0f172a,#ef4444,#f8fafc,#3b82f6)' }, { label: 'cam', caption: '关注区域', gradient: 'linear-gradient(90deg,#020617,#7c3aed,#ef4444,#facc15)' }] }
+      ]
+    },
+    unet: {
+      chips: ['编码器抓语义，解码器还原细节', '跳跃连接补回边界信息', '像素级输出适合医学和工业分割', '是 FCN 之后最经典的分割结构'],
+      explain: 'U-Net 把“看懂整张图”和“保住局部边界”这两件事拆开做。左边编码器不断下采样获得大范围语义，右边解码器逐步上采样恢复分辨率，再用 skip connection 把浅层边缘细节接回来。',
+      pipeline: [['编码下采样', '分辨率下降、通道上升，语义逐层增强。'], ['瓶颈层', '在最低分辨率处整合全局上下文。'], ['解码上采样', '逐层恢复空间尺寸。'], ['跳跃融合', '把浅层精细边界与深层语义拼接后输出像素标签。']],
+      storyIntro: 'U-Net 不只是“像个 U”，它本质上是在解决卷积网络做密集预测时的两难：深层语义强，但定位糙；浅层定位准，但语义弱。',
+      cards: [
+        { type: 'bars', title: '语义 vs 边界 的分工', text: '编码器更擅长判断“这块区域是什么”，解码器加跳连更擅长恢复“边界具体在哪”。', items: [{ label: '编码器', value: 86, caption: '语义理解', color: '#3b82f6' }, { label: '跳连', value: 74, caption: '细节补回', color: '#22c55e' }] },
+        { type: 'arrows', title: '跳跃连接怎么工作', text: '同尺度浅层特征直接送到对应解码层，让高分辨率细节不必重新学一遍。', labels: ['浅层边缘', 'concat', '解码输出'] },
+        { type: 'gradientSet', title: '为什么分割边缘更稳', text: '深层语义负责大方向，浅层高频信息负责边缘，这种双路径融合比单一路径上采样更稳定。', rows: [{ label: 'deep', caption: '语义强', gradient: 'linear-gradient(90deg,#1e293b,#3b82f6,#60a5fa)' }, { label: 'shallow', caption: '边界细', gradient: 'linear-gradient(90deg,#0f172a,#22c55e,#86efac)' }] }
+      ]
+    },
+    fcn: {
+      chips: ['去掉全连接，改成全卷积', '可输出任意尺寸预测图', '转置卷积负责上采样', '是现代语义分割的起点'],
+      explain: 'FCN 把传统分类网络最后的全连接层改写成卷积层，使整网从“输出一个类别”变成“输出一张像素分类图”。这一步让分类网络第一次真正变成了密集预测网络。',
+      pipeline: [['分类骨干', '先用主干网络提取深层语义特征。'], ['1x1 映射', '把通道投影成类别维度。'], ['逐级上采样', '把低分辨率类别图恢复到输入尺寸。'], ['像素分类', '对每个像素做 softmax，得到语义标签。']],
+      storyIntro: 'FCN 的历史意义大于结构复杂度。它证明了：卷积网络不仅能做整图分类，也能做逐像素预测。',
+      cards: [
+        { type: 'arrows', title: '从分类到分割的关键一步', text: '只要把最后的全连接改成卷积，输出就能保留空间布局，不再丢掉像素位置。', labels: ['分类特征图', '1x1 conv', '类别热图'] },
+        { type: 'bars', title: '为什么需要跳级融合', text: '单纯从 1/32 分辨率直接上采样太粗，所以 FCN 会把中间层语义也加进来。', items: [{ label: '1/32', value: 38, caption: '语义强但粗', color: '#64748b' }, { label: '融合后', value: 76, caption: '边界更准', color: '#22c55e' }] }
+      ]
+    },
+    yolo: {
+      chips: ['单阶段直接回归框和类别', '速度优先，适合实时应用', '多尺度检测头覆盖大小目标', '检测流程极短，没有 RPN'],
+      explain: 'YOLO 的设计哲学是把检测变成一次前向传播内完成的回归问题。网络直接输出框、置信度和类别，不再先提 proposal 再逐个裁剪分类，因此速度非常快。',
+      pipeline: [['主干提特征', '先提取多尺度语义特征。'], ['FPN/PAN 融合', '把不同尺度特征融合给检测头。'], ['检测头回归', '每个位置直接预测框、类别和 objectness。'], ['后处理', '用阈值和 NMS 保留最终目标。']],
+      storyIntro: 'YOLO 代表的是“把流程压扁”。牺牲一部分两阶段方法的精细度，换来极高吞吐。',
+      cards: [
+        { type: 'bars', title: '检测速度来自哪里', text: '不做 proposal，不做逐 RoI 分类，而是整图一次性出结果。', items: [{ label: '两阶段', value: 42, caption: '步骤多', color: '#64748b' }, { label: 'YOLO', value: 92, caption: '单次前向', color: '#22c55e' }] },
+        { type: 'arrows', title: 'YOLO 的输出内容', text: '每个候选位置都会同时给出框的位置、是否有物体、属于什么类。', labels: ['box', 'obj', 'class'] }
+      ]
+    },
+    faster_rcnn: {
+      chips: ['RPN 先提候选框', 'RoIAlign / RoIPool 统一裁剪特征', '分类与回归解耦', '两阶段代表，精度优先'],
+      explain: 'Faster R-CNN 的思想是先粗筛，再精修。第一阶段用 RPN 在特征图上快速提 proposal，第二阶段对每个候选区域做更高质量的分类与框回归。',
+      pipeline: [['Backbone + FPN', '提取多尺度特征图。'], ['RPN 生成 proposal', '在每个位置预测候选框和前景概率。'], ['RoI 特征裁剪', '把不同大小候选区裁成统一尺寸。'], ['分类与框精修', '输出最终类别和更精确的位置。']],
+      storyIntro: '两阶段方法的优势不是流程复杂，而是给了网络第二次“看清楚”的机会。',
+      cards: [
+        { type: 'arrows', title: '为什么先 proposal 再分类', text: '整图先找“哪里像有东西”，再集中算力研究这些区域，精度会更稳。', labels: ['feature map', 'RPN', 'RoI head'] },
+        { type: 'bars', title: '速度和精度的取舍', text: '相比 YOLO，它的步骤更多，但候选区域被单独精修，所以小目标和复杂背景下通常更稳。', items: [{ label: '速度', value: 46, caption: '慢于单阶段', color: '#f97316' }, { label: '精度', value: 84, caption: '更细致', color: '#22c55e' }] }
+      ]
+    },
+    mask_rcnn: {
+      chips: ['在 Faster R-CNN 上再加掩码支路', 'RoIAlign 解决量化误差', '同时输出框、类别、实例掩码', '实例级分割的经典范式'],
+      explain: 'Mask R-CNN 在两阶段检测框架上新增了并行掩码头。关键不是多一个头，而是用 RoIAlign 保住对齐精度，这样 28x28 的掩码预测才不会被坐标量化误差拖垮。',
+      pipeline: [['候选区域生成', '先沿用 Faster R-CNN 的 proposal 机制。'], ['RoIAlign', '精确裁剪出每个实例的局部特征。'], ['检测头', '输出类别和边框。'], ['掩码头', '为每个实例输出像素级前景掩码。']],
+      storyIntro: '实例分割的难点不在“知道是什么”，而在“同类之间怎么切开”。Mask R-CNN 用“检测先分实例，再在实例内部做分割”的方式解决。',
+      cards: [
+        { type: 'bars', title: 'RoIPool vs RoIAlign', text: 'RoIPool 会取整，边界容易抖；RoIAlign 用双线性采样，掩码边缘更细。', items: [{ label: 'RoIPool', value: 48, caption: '量化误差', color: '#ef4444' }, { label: 'RoIAlign', value: 86, caption: '精确对齐', color: '#22c55e' }] },
+        { type: 'arrows', title: '三种输出同时存在', text: '一个实例最终会同时得到“框”“类别”“掩码”三份结果。', labels: ['box', 'class', 'mask'] }
+      ]
+    },
+    gan: {
+      chips: ['生成器和判别器对抗训练', 'G 学造假，D 学识假', '训练不稳定是经典难点', '是现代生成模型的重要起点'],
+      explain: 'GAN 不是单个网络，而是两个目标相反的网络共同训练。生成器想让假图尽可能像真图，判别器想把真伪区分开。整个过程像一场持续升级的对抗博弈。',
+      pipeline: [['采样噪声 z', '从随机向量出发，不从真实图像出发。'], ['生成器前向', '逐层上采样得到假图。'], ['判别器比较', '同时看真图和假图，输出真伪分数。'], ['交替更新', '先训 D，再训 G，让双方持续拉扯。']],
+      storyIntro: 'GAN 最大的价值是把“生成”写成了一个博弈问题，而不是直接拟合像素。',
+      cards: [
+        { type: 'arrows', title: '两人博弈的最小闭环', text: '噪声先送进 G 生成假图，再和真图一起送进 D 判别，损失从 D 反向传回 G。', labels: ['z', 'G(z)', 'D'] },
+        { type: 'bars', title: '为什么容易模式坍塌', text: '如果 G 发现少数几种样式最容易骗过 D，就可能反复生成相似结果，不再覆盖数据分布。', items: [{ label: '多样性', value: 34, caption: '坍塌时下降', color: '#ef4444' }, { label: '欺骗性', value: 82, caption: '局部提高', color: '#22c55e' }] }
+      ]
+    },
+    diffusion: {
+      chips: ['正向逐步加噪，反向逐步去噪', '学习的是噪声，不是直接生成像素', '生成稳定但推理较慢', '与 GAN 并列为两大生成范式'],
+      explain: '扩散模型不试图一步生成图片，而是从纯噪声出发，一步步把噪声去掉。训练时网络学的是“当前这一步混进了多少噪声”，推理时再把这个过程倒过来走。',
+      pipeline: [['正向扩散', '把真实图像逐步加噪到接近高斯噪声。'], ['网络学习噪声', '给定 x_t 和时间步 t，预测当前噪声项。'], ['反向采样', '从纯噪声开始逐步去噪。'], ['得到样本', '最后一步恢复成清晰图像。']],
+      storyIntro: '扩散模型的关键直觉是：与其一步到位画图，不如做一连串小而稳的去噪修正。',
+      cards: [
+        { type: 'gradientSet', title: '前向加噪是可定义的', text: '训练时的破坏过程是已知的，因此每一步该恢复什么有明确监督信号。', rows: [{ label: 'x0', caption: '干净图像', gradient: 'linear-gradient(90deg,#22c55e,#86efac)' }, { label: 'xt', caption: '半噪声', gradient: 'linear-gradient(90deg,#64748b,#cbd5e1)' }, { label: 'xT', caption: '纯噪声', gradient: 'linear-gradient(90deg,#e2e8f0,#475569)' }] },
+        { type: 'bars', title: '稳定性来自“小步修正”', text: '每一步都只修正一小点噪声，训练目标单纯、优化更稳，但采样步数也更多。', items: [{ label: '稳定性', value: 88, caption: '训练更稳', color: '#22c55e' }, { label: '速度', value: 36, caption: '推理更慢', color: '#f97316' }] }
+      ]
+    },
+    ddpm: {
+      chips: ['扩散范式的奠基版本', '高斯噪声 + 马尔可夫链', '核心目标是预测 epsilon', '后续 Stable Diffusion / DiT 都承接它'],
+      explain: 'DDPM 是最标准的离散扩散建模方式。它明确把图像到噪声的过程写成马尔可夫链，再让网络学习每一步如何逆转这条链。',
+      pipeline: [['定义噪声日程', '提前设定每一步加多少噪声。'], ['构造训练样本', '随机取某一步的带噪图像和对应噪声。'], ['预测噪声 epsilon', '网络输出当前步骤混进去的噪声。'], ['逐步反演', '按时间顺序从 T 走回 0。']],
+      storyIntro: '如果说“扩散模型”是思想，DDPM 就是第一个把这套思想完整落成可训练公式的版本。',
+      cards: [
+        { type: 'arrows', title: 'DDPM 的监督信号很直接', text: '因为训练时噪声是我们自己加进去的，所以“答案”天然已知。', labels: ['x0', 'add noise', 'predict epsilon'] },
+        { type: 'bars', title: '为何后续工作都在加速它', text: 'DDPM 效果稳，但离散采样步数太多，所以后续大量工作都在减少步数或改连续建模。', items: [{ label: '效果', value: 84, caption: '很稳', color: '#22c55e' }, { label: '速度', value: 28, caption: '偏慢', color: '#ef4444' }] }
+      ]
+    },
+    vit: {
+      chips: ['把图像切成 patch token', '纯自注意力全局建模', '弱归纳偏置，依赖大数据预训练', '代表 CNN 之后的新范式'],
+      explain: 'ViT 的关键变化不是层数，而是输入表示：图像不再通过卷积滑窗读取，而是被切成 patch 序列，再像 NLP token 一样送进 Transformer。',
+      pipeline: [['Patchify', '把图像切成固定大小的小块。'], ['线性投影 + 位置编码', '把 patch 变成 token 并保留位置信息。'], ['Transformer 编码', '用自注意力建模 patch 间关系。'], ['CLS 分类', '用全局 token 输出最终类别。']],
+      storyIntro: 'ViT 证明了图像建模不一定要靠卷积局部先验，自注意力也能学出全局视觉结构。',
+      cards: [
+        { type: 'pixels', title: '图像被重写成 token 序列', text: '每个 patch 不再是“像素块”，而是 Transformer 眼中的一个视觉单词。', rows: 6, cols: 10, palette: ['#1e293b','#334155','#475569','#64748b','#94a3b8','#cbd5e1'] },
+        { type: 'bars', title: '全局感受野是第一层就有的', text: '卷积要堆很多层才扩大感受野，而 ViT 第一层自注意力就能建立远距离关系。', items: [{ label: 'CNN首层', value: 12, caption: '局部', color: '#64748b' }, { label: 'ViT首层', value: 92, caption: '全局', color: '#22c55e' }] }
+      ]
+    },
+    swin: {
+      chips: ['窗口注意力降低复杂度', '移位窗口实现跨窗通信', '分层结构更适合检测分割', '是视觉 Transformer 的骨干网路线'],
+      explain: 'Swin Transformer 不是简单缩小 ViT，而是重新引入了类似 CNN 的层级金字塔结构，同时保留注意力建模能力。',
+      pipeline: [['Patch 划分', '先把图像转成基础 token。'], ['窗口注意力', '在局部窗口内做注意力，降低 O(N^2) 开销。'], ['移位窗口', '让相邻窗口在下一层发生信息交换。'], ['Patch Merge', '逐层降分辨率、提通道，形成多尺度特征。']],
+      storyIntro: 'Swin 的意义在于告诉我们：视觉 Transformer 要想真正在检测和分割中好用，多尺度结构几乎是必需的。',
+      cards: [
+        { type: 'bars', title: '复杂度为什么降下来了', text: '只在局部窗口内部做注意力，序列长度从全图 patch 数变成单窗 patch 数。', items: [{ label: '全局 MHSA', value: 92, caption: '开销大', color: '#ef4444' }, { label: '窗口 MHSA', value: 38, caption: '线性近似', color: '#22c55e' }] },
+        { type: 'arrows', title: '移位窗口的作用', text: '一层看本窗，下一层把窗平移半格，就能让原本不相邻的 patch 建立联系。', labels: ['W-MSA', 'shift', 'SW-MSA'] }
+      ]
+    },
+    detr: {
+      chips: ['Object Query 直接找目标', '匈牙利匹配替代 NMS', '端到端集合预测', '流程极简但收敛慢'],
+      explain: 'DETR 把目标检测从“生成大量候选框再去重”改成“固定数量 query 直接输出目标集合”。这让检测第一次在结构上真正像翻译任务那样端到端。',
+      pipeline: [['CNN 主干提特征', '先拿到图像语义特征图。'], ['Transformer 编码器', '把局部特征放到全局上下文中。'], ['Object Query 解码', '每个 query 负责去找一个潜在目标。'], ['匈牙利匹配', '把预测集和真值集做一一对应。']],
+      storyIntro: 'DETR 的革命点不在精度数字，而在于它把检测这个任务的形式彻底改写了。',
+      cards: [
+        { type: 'bars', title: 'Object Query 是什么', text: '可以把 query 理解成一组可学习的“探针”，它们在特征图里主动搜索目标，而不是被动等待 anchor 覆盖。', items: [{ label: 'Query 1', value: 82, caption: '大物体', color: '#ef4444' }, { label: 'Query 2', value: 64, caption: '中物体', color: '#f97316' }, { label: 'Query 3', value: 36, caption: '小物体', color: '#3b82f6' }] },
+        { type: 'threshold', title: '为什么不再需要 NMS', text: '匈牙利匹配要求每个真值只对应一个预测，因此网络天然被训练成“不要重复报同一个物体”。', position: 52 }
+      ]
+    },
+    clip: {
+      chips: ['图像塔 + 文本塔双编码', '对比学习拉近匹配图文', '零样本分类能力强', '是多模态基础模型代表'],
+      explain: 'CLIP 的关键不是“会看图”，而是把图像和文本放到同一个向量空间里比较相似度。只要文本提示写得对，它就能不经微调地识别新类别。',
+      pipeline: [['图像编码', '用视觉骨干把图像映射成向量。'], ['文本编码', '用文本 Transformer 把提示词映射成向量。'], ['对比学习', '拉近匹配图文、拉远不匹配样本。'], ['零样本推理', '选择与图像向量最相近的文本类别。']],
+      storyIntro: 'CLIP 真正改变的是“监督信号”。它不依赖封闭类别标签，而依赖开放自然语言。',
+      cards: [
+        { type: 'arrows', title: '双塔结构的核心闭环', text: '图像和文本各走一条编码路径，最后只在共享向量空间里相遇。', labels: ['image → v_img', 'text → v_txt', 'cosine sim'] },
+        { type: 'bars', title: '为什么能零样本', text: '因为类别本身就是文本描述，不需要为每个新类重新训练分类头。', items: [{ label: '固定标签头', value: 24, caption: '封闭类目', color: '#64748b' }, { label: '文本提示', value: 88, caption: '开放类目', color: '#22c55e' }] }
+      ]
+    },
+    sam: {
+      chips: ['图像编码只做一次', '提示驱动分割目标', '支持点/框/掩码提示', '基础模型式分割接口'],
+      explain: 'SAM 的关键不是单次分割质量，而是把分割任务变成了“图像编码 + 提示查询”的通用接口。图像特征可缓存，后续不同提示只需快速解码。',
+      pipeline: [['图像编码', '先用 ViT 把整张图编码成共享特征。'], ['提示编码', '把点、框或已有掩码转成提示 token。'], ['掩码解码', '融合图像特征和提示信息。'], ['输出候选掩码', '给出若干可能分割结果供选择。']],
+      storyIntro: 'SAM 更像“分割操作系统”而不是单个数据集上的专用模型。',
+      cards: [
+        { type: 'pixels', title: '提示不是标签，而是查询', text: '用户不必告诉模型“这是什么类”，只要指出“我想分哪一块”，模型就去切。', rows: 5, cols: 9, palette: ['#0f172a','#0f172a','#3b82f6','#f8fafc','#0f172a','#22c55e'] },
+        { type: 'bars', title: '为什么交互速度快', text: '重的图像编码只做一次，之后不同提示只需走轻量解码器。', items: [{ label: '图像编码', value: 84, caption: '一次缓存', color: '#3b82f6' }, { label: '提示解码', value: 34, caption: '反复查询', color: '#22c55e' }] }
+      ]
+    },
+    nerf: {
+      chips: ['MLP 隐式存储整个场景', '射线采样 + 体渲染', '从多视角图像学习 3D', '新视角合成的经典范式'],
+      explain: 'NeRF 不显式保存网格或点云，而是把场景编码在一个函数里。给它空间位置和视角方向，它返回该点的颜色与密度，再通过体渲染累积成像。',
+      pipeline: [['生成射线', '每个像素对应一条穿过场景的相机射线。'], ['沿射线采样', '在 3D 空间中取一串离散点。'], ['MLP 预测', '对每个点输出 RGB 和密度 sigma。'], ['体渲染积分', '按前到后可见性累积得到最终像素。']],
+      storyIntro: 'NeRF 最反直觉的地方在于：一个小网络，不是记住一张图，而是记住整个三维场景。',
+      cards: [
+        { type: 'arrows', title: '像素其实来自一条 3D 射线', text: '新视角渲染时，不是变换已有像素，而是重新从场景函数里沿射线积分。', labels: ['camera', 'ray', 'scene function'] },
+        { type: 'gradientSet', title: '体渲染为什么有效', text: '前景高密度点会更早截获光线，后景只有在前面较透明时才贡献颜色。', rows: [{ label: 'near', caption: '前景截获', gradient: 'linear-gradient(90deg,#020617,#ef4444,#facc15)' }, { label: 'far', caption: '后景残留', gradient: 'linear-gradient(90deg,#475569,#1e293b,#020617)' }] }
+      ]
+    },
+    pointnet: {
+      chips: ['直接处理无序点云', 'MaxPool 保证置换不变性', 'T-Net 学空间对齐', '点云深度学习入门代表'],
+      explain: 'PointNet 最大的突破是承认“点云没有天然顺序”，因此不能像图像那样依赖网格邻接。它用逐点 MLP 提特征，再用对称函数 MaxPool 聚成全局表征。',
+      pipeline: [['逐点特征提取', '对每个点独立做 MLP。'], ['空间变换', 'T-Net 学习把点云对齐到规范姿态。'], ['对称聚合', '用 MaxPool 聚成顺序无关的全局向量。'], ['分类/分割', '再接任务头输出类别或逐点标签。']],
+      storyIntro: 'PointNet 的价值不只是一个结构，而是第一次用神经网络认真回答了“无序集合该怎么学”。',
+      cards: [
+        { type: 'bars', title: '为什么一定要用对称函数', text: '输入点顺序一变，普通 MLP 输出就会变；而 max / sum 这类对称函数对顺序天然不敏感。', items: [{ label: '普通排列', value: 22, caption: '顺序敏感', color: '#ef4444' }, { label: 'MaxPool', value: 90, caption: '顺序无关', color: '#22c55e' }] },
+        { type: 'arrows', title: 'PointNet 的最小闭环', text: '每个点先单独编码，再用对称函数汇总，再把全局语义用于下游任务。', labels: ['points', 'point MLP', 'global max'] }
+      ]
+    },
+    simclr: {
+      chips: ['同图不同增强构成正样本', '大 batch 提供大量负样本', '投影头提升表示质量', '自监督对比学习基线'],
+      explain: 'SimCLR 的核心非常纯粹：同一张图经过两种增强后，特征应该靠近；不同图的特征应该远离。网络因此被迫学习增强不变的语义表示。',
+      pipeline: [['数据增强两次', '同一张图生成两个视图。'], ['共享编码器', '两路视图都过同一个主干网络。'], ['投影头映射', '把表示送到对比空间。'], ['NT-Xent 损失', '拉近正样本，推远负样本。']],
+      storyIntro: 'SimCLR 代表了“任务不是人工标签定义，而是数据增强定义”的自监督思路。',
+      cards: [
+        { type: 'bars', title: '正对和负对怎么来的', text: '同图双增强是正对，同 batch 其他图片都是负对。监督信号完全来自构造。', items: [{ label: 'positive', value: 92, caption: '同图双视图', color: '#22c55e' }, { label: 'negative', value: 22, caption: '其他样本', color: '#ef4444' }] },
+        { type: 'gradientSet', title: '为什么大 batch 很关键', text: '负样本越多，对比学习约束越强，所以 SimCLR 对 batch size 很敏感。', rows: [{ label: 'small batch', caption: '负样本少', gradient: 'linear-gradient(90deg,#ef4444,#f97316)' }, { label: 'large batch', caption: '负样本足', gradient: 'linear-gradient(90deg,#22c55e,#3b82f6)' }] }
+      ]
+    },
+    moco: {
+      chips: ['动量编码器稳定特征空间', '队列存大量负样本', '不再强依赖超大 batch', '对比学习工程化改进代表'],
+      explain: 'MoCo 的关键不是新损失，而是新样本管理机制。它用动量更新的 key encoder 和长队列缓存负样本，解决了 SimCLR 必须超大 batch 的问题。',
+      pipeline: [['query 编码器', '正常反向传播更新。'], ['key 编码器', '用动量方式缓慢跟随 query。'], ['特征入队', '把旧 key 存进队列作为负样本库。'], ['对比损失', '当前 query 与正 key / 负队列一起计算。']],
+      storyIntro: 'MoCo 是“自监督学习不只看理论，也看系统设计”的典型例子。',
+      cards: [
+        { type: 'arrows', title: '动量更新的意义', text: '如果 key encoder 跟着 query 每步剧烈变化，旧负样本就会失真；动量更新让特征空间更稳。', labels: ['query', 'EMA', 'key'] },
+        { type: 'bars', title: '队列为什么重要', text: '负样本不再只来自当前 batch，而来自历史累积，因此小 batch 也能做强对比。', items: [{ label: '当前 batch', value: 26, caption: '负样本少', color: '#64748b' }, { label: 'memory queue', value: 88, caption: '负样本丰富', color: '#22c55e' }] }
+      ]
+    },
+    byol: {
+      chips: ['不需要显式负样本', 'online / target 双网络', '预测头制造不对称性', '是自蒸馏路线代表'],
+      explain: 'BYOL 最有争议也最有启发的一点，是它没有显式负样本。它靠 online 网络去预测 target 网络在另一种增强视图上的表示，再通过结构不对称避免坍塌。',
+      pipeline: [['双视图增强', '同图得到两个不同观察。'], ['online 路径', '编码后再接 predictor。'], ['target 路径', '只编码，不回传梯度。'], ['回归一致', '让 online 预测 target 的表示。']],
+      storyIntro: 'BYOL 告诉我们：自监督学习不一定非要“拉开负样本”，也可以靠自蒸馏稳定学出好表征。',
+      cards: [
+        { type: 'arrows', title: '为什么 target 不反传', text: 'target 网络只用 EMA 跟随 online，提供一个缓慢变化的学习目标。', labels: ['online', 'predictor', 'target(EMA)'] },
+        { type: 'bars', title: '防坍塌靠什么', text: '关键在 predictor 和 stop-gradient 带来的不对称性，而不是负样本分离。', items: [{ label: '负样本', value: 0, caption: '不显式使用', color: '#64748b' }, { label: '结构不对称', value: 84, caption: '核心机制', color: '#22c55e' }] }
+      ]
+    },
+    ijepa: {
+      chips: ['预测表示而不是像素', '上下文块推断目标块', '比重建像素更偏语义', '自监督 Transformer 新路线'],
+      explain: 'I-JEPA 不要求模型去复原被遮挡区域的像素细节，而是去预测被遮挡区域在表示空间里的语义特征。这种目标更偏“理解内容”，而不是“还原纹理”。',
+      pipeline: [['划分上下文块', '保留一部分可见区域作为上下文。'], ['遮挡目标块', '把另一部分区域作为预测目标。'], ['预测表示', '用 predictor 预测目标块特征。'], ['表示对齐', '与 target encoder 产生的目标表示对齐。']],
+      storyIntro: 'I-JEPA 把自监督学习的焦点从“像素重建”推向了“语义推断”。',
+      cards: [
+        { type: 'pixels', title: '预测的是“看不见区域的语义”', text: '模型不需要补出每一个像素值，而是回答：被挡住的那块在高层语义上应该是什么。', rows: 6, cols: 10, palette: ['#0f172a','#0f172a','#f8fafc','#f8fafc','#0f172a','#3b82f6'] },
+        { type: 'bars', title: '和 MAE 的差别', text: 'MAE 更偏重建，I-JEPA 更偏预测表示，因此更聚焦全局语义结构。', items: [{ label: 'MAE', value: 58, caption: '像素重建', color: '#3b82f6' }, { label: 'I-JEPA', value: 84, caption: '语义表征', color: '#22c55e' }] }
+      ]
+    },
+    '3dgs': {
+      chips: ['显式高斯球替代隐式 MLP', '可微 splatting 实时渲染', '兼顾质量与速度', 'NeRF 之后的重要 3D 表示路线'],
+      explain: '3D Gaussian Splatting 不再用一个网络隐式表示场景，而是用大量带形状、颜色和透明度的三维高斯球显式堆出场景，再把它们投影到屏幕上融合渲染。',
+      pipeline: [['初始化高斯球', '从稀疏几何或图像重建结果出发。'], ['优化属性', '学习位置、协方差、颜色和透明度。'], ['投影到图像平面', '把 3D 高斯变成屏幕上的二维 footprint。'], ['透明度融合', '按深度和 alpha 叠加得到最终图像。']],
+      storyIntro: '3DGS 的亮点不只是“快”，而是把 3D 表示从隐式函数重新拉回可操控、可渲染的显式几何。',
+      cards: [
+        { type: 'bars', title: '显式 vs 隐式表示', text: 'NeRF 用网络函数查询，3DGS 用高斯球直接渲染，因此渲染吞吐大幅提升。', items: [{ label: 'NeRF', value: 28, caption: '查询式渲染', color: '#64748b' }, { label: '3DGS', value: 92, caption: '显式 splat', color: '#22c55e' }] },
+        { type: 'gradientSet', title: '高斯球如何参与成像', text: '每个高斯球都有空间扩展和透明度，投影后像一团可叠加的软墨滴。', rows: [{ label: 'sigma', caption: '空间范围', gradient: 'linear-gradient(90deg,#020617,#3b82f6,#e2e8f0)' }, { label: 'alpha', caption: '透明叠加', gradient: 'linear-gradient(90deg,#ef4444,#f8fafc)' }] }
+      ]
+    },
+    c3d: {
+      chips: ['3D 卷积同时看空间和时间', '输入是视频 clip 而不是单帧', '早期视频动作识别代表', '后来被更高效时空结构替代'],
+      explain: 'C3D 把 2D 卷积核扩展到时间维，让卷积核在 x、y、t 三个维度同时滑动。因此它学到的不只是形状，还包括动作随时间变化的模式。',
+      pipeline: [['采样视频片段', '把连续多帧打包成 clip。'], ['3D 卷积', '在时间和空间上一起提特征。'], ['时空池化', '逐层压缩时空分辨率。'], ['全连接分类', '输出动作类别。']],
+      storyIntro: 'C3D 是视频理解里“把图像 CNN 直接扩成时空 CNN”的代表思路。',
+      cards: [
+        { type: 'arrows', title: '3D 卷积核在看什么', text: '它不是看一张图的局部块，而是看一段短视频里的局部立方体。', labels: ['x', 'y', 't'] },
+        { type: 'bars', title: '比 2D CNN 多学了什么', text: '2D CNN 只能看单帧纹理，3D CNN 还能直接编码运动方向和速度变化。', items: [{ label: '2D CNN', value: 34, caption: '静态纹理', color: '#64748b' }, { label: '3D CNN', value: 82, caption: '时空动态', color: '#22c55e' }] }
+      ]
+    },
+    bytetrack: {
+      chips: ['先高分匹配，再低分补回', '低分框不等于坏框', 'Kalman + Hungarian 标准跟踪骨架', '遮挡恢复效果强'],
+      explain: 'ByteTrack 的突破点在于重新利用低置信度检测框。传统方法常把低分框直接丢掉，但很多被遮挡目标恰恰只剩低分响应。',
+      pipeline: [['目标检测', '先得到一组带分数的候选框。'], ['高分关联', '优先用高可信框维持已有轨迹。'], ['低分补关联', '再用低分框尝试找回未匹配轨迹。'], ['状态更新', '用卡尔曼滤波维护轨迹位置和速度。']],
+      storyIntro: 'ByteTrack 真正改变的不是主干检测器，而是“哪些检测框值得拿来追踪”的判断准则。',
+      cards: [
+        { type: 'bars', title: '低分框为什么值得留', text: '遮挡和模糊会让真正目标分数下降，但轨迹连续性仍然存在，因此不能粗暴丢弃。', items: [{ label: '传统丢弃', value: 24, caption: '召回下降', color: '#ef4444' }, { label: 'ByteTrack', value: 78, caption: '补回目标', color: '#22c55e' }] },
+        { type: 'arrows', title: '两轮关联流程', text: '先高分框稳定主干，再低分框修补缺口。', labels: ['high score', 'track match', 'low score recover'] }
+      ]
+    },
+    deeppose: {
+      chips: ['CNN 直接回归关键点坐标', '从分类头改成坐标头', '可级联粗到细精修', '深度姿态估计开山之作'],
+      explain: 'DeepPose 放弃了手工图模型和部件关系先验，直接让 CNN 从图像回归关键点坐标。这在今天看很朴素，但它开启了“姿态估计可直接端到端学习”的路线。',
+      pipeline: [['输入人体图像', '主干 CNN 提取姿态相关特征。'], ['全连接回归', '把特征映射成 2K 个坐标输出。'], ['粗定位', '先得到大致关节点位置。'], ['级联精修', '裁剪局部再继续把点修准。']],
+      storyIntro: 'DeepPose 的历史价值在于：它第一次证明“姿态估计可以像回归问题一样直接学”。',
+      cards: [
+        { type: 'bars', title: '热力图路线 vs 坐标回归路线', text: 'DeepPose 属于最直接的坐标回归；后续很多方法转向热力图，是为了让空间监督更细。', items: [{ label: '坐标回归', value: 66, caption: '直接简单', color: '#3b82f6' }, { label: '热力图', value: 84, caption: '空间约束强', color: '#22c55e' }] },
+        { type: 'arrows', title: '级联精修的作用', text: '先粗定位，再对局部高分辨率区域做二次回归，能显著提升关键点精度。', labels: ['coarse', 'crop', 'refine'] }
+      ]
+    },
+    openpose: {
+      chips: ['先找点，再连成人', 'PAF 建模肢体连接关系', '天然支持多人场景', '自底向上姿态估计代表'],
+      explain: 'OpenPose 的核心不是关键点热力图本身，而是 Part Affinity Fields。它把关节之间的连接方向和强度显式编码出来，因此同类关键点能被正确分配到不同人身上。',
+      pipeline: [['骨干提特征', '共享特征供两条分支使用。'], ['热力图分支', '预测所有关节点候选位置。'], ['PAF 分支', '预测肢体连接方向场。'], ['图匹配组人', '把点和边组合成多个人体骨架。']],
+      storyIntro: 'OpenPose 的精髓在于“多人姿态不是多次单人姿态”，而是一个图匹配问题。',
+      cards: [
+        { type: 'bars', title: '为什么必须有 PAF', text: '只有点的位置，不知道这些点属于谁；PAF 提供了“点之间应如何相连”的证据。', items: [{ label: 'heatmap only', value: 34, caption: '点孤立', color: '#ef4444' }, { label: 'heatmap + PAF', value: 86, caption: '可组骨架', color: '#22c55e' }] },
+        { type: 'arrows', title: '自底向上流程', text: '不是先找人框再估姿态，而是先估所有点，再组装成人。', labels: ['all keypoints', 'PAF links', 'multi-person skeletons'] }
+      ]
+    },
+    bev: {
+      chips: ['多相机特征统一到鸟瞰坐标', 'Lift-Splat 是核心变换', '更适合自动驾驶场景规划', '把透视图转成可操作空间图'],
+      explain: 'BEV 感知不是单纯换个视角，而是把多个相机看到的透视图特征投到统一的平面坐标系中。这样检测、车道线、占用都能在同一空间里表达。',
+      pipeline: [['多视角提特征', '每路相机先单独提图像特征。'], ['深度分布估计', '预测每个像素可能落在 3D 空间的哪里。'], ['Lift 到 3D', '把 2D 特征抬升到空间体素/射线。'], ['Splat 到 BEV', '把空间特征汇聚到鸟瞰网格上做检测。']],
+      storyIntro: 'BEV 的价值是把“看上去在不同相机里很乱的世界”，重排成“规划系统能直接操作的地图”。',
+      cards: [
+        { type: 'arrows', title: 'Lift-Splat 的本质', text: '先把图像特征抬到三维，再把三维压到俯视平面，不是直接透视变换图片。', labels: ['image feat', 'lift 3D', 'splat BEV'] },
+        { type: 'bars', title: '为什么下游更喜欢 BEV', text: 'BEV 坐标下距离关系、车道方向和障碍布局都更接近真实几何，规划模块更容易用。', items: [{ label: '透视图', value: 38, caption: '几何扭曲大', color: '#64748b' }, { label: 'BEV', value: 86, caption: '空间结构清晰', color: '#22c55e' }] }
+      ]
+    }
+  };
+
+  var showcaseId = aliasMap[id] || id;
+  var showcaseMod = DATA[showcaseId] || mod || {};
+  var clean = CLEAN_KNOWLEDGE[showcaseId] || null;
+  var story = cfg.visualStory || {};
+  var principles = Array.isArray(cfg.principles) ? cfg.principles : [];
+  var pipeline = Array.isArray(cfg.pipeline) ? cfg.pipeline : [];
+  var requiresUpload = !!(impl && impl.requires_upload);
+  var isUnavailable = !!(impl && (impl.category === 'requires_external_weights' || impl.category === 'not_implemented' || impl.category === 'model_not_available'));
+  var selectedFile = null;
+  var FAMILY_GUIDES = {
+    classifier: {
+      objective: '把输入映射成类别概率分布，优化目标通常是交叉熵，让正确类别的对数概率尽可能大。',
+      formulae: [
+        { name: '分类头', expr: 'p(y|x) = softmax(Wf(x) + b)', plain: '主干先提特征 f(x)，最后一层把特征投到类别空间，再归一化成概率。' },
+        { name: '训练目标', expr: 'L = -log p(y*)', plain: '只要真实类别 y* 的概率不够高，损失就会增大，反向传播会逼着特征更可分。' }
+      ],
+      observe: ['先看最高概率类别是否稳定，而不是只看有没有“猜对一次”。', '再看特征究竟盯住了目标主体还是背景纹理，这决定泛化是否可靠。', '如果多个类别分数接近，往往说明特征还没有把关键判别边界拉开。'],
+      pitfalls: ['高置信错误通常意味着模型抓住了错误捷径，例如背景、颜色或拍摄视角。', '类别不平衡时，整体准确率可能还行，但长尾类会明显塌陷。', '只看最终类别会忽略中间特征是否已经失真。'],
+      metrics: ['Top-1 / Top-5 看分类是否正确。', '置信度校准看“高分是否真的可信”。', '可解释热图用来检查模型到底在看哪里。']
+    },
+    semantic_seg: {
+      objective: '对每个像素输出类别，既要语义正确，也要边界尽量贴合真实区域。',
+      formulae: [
+        { name: '像素分类', expr: 'P(c|u,v) = softmax(z_{u,v})', plain: '网络为每个像素位置给出一组类别 logit，再独立归一化。' },
+        { name: '常见损失', expr: 'L = CE + Dice / IoU term', plain: '交叉熵管类别正确性，Dice 或 IoU 项通常用来抑制类别不平衡并强化区域重叠。' }
+      ],
+      observe: ['先看大区域语义有没有分对，再看边界是否抖动、漏细条结构。', '如果输出过于平滑，常见原因是深层语义强但浅层细节补得不够。', '医学和工业场景里，小目标是否被吞掉比整体大块区域更值得盯。'],
+      pitfalls: ['只上采样不做浅层融合，边界通常会糊。', '类别极不平衡时，背景会吃掉前景。', '低分辨率特征图直接恢复原图时容易出现块状边缘。'],
+      metrics: ['mIoU 衡量整体区域重叠。', 'Dice 对小目标和不平衡类别更敏感。', 'Boundary F-score 更能看出边缘是否贴合。']
+    },
+    detection: {
+      objective: '同时回答“哪里有目标”和“它是什么”，因此训练目标总是框定位损失与分类损失的组合。',
+      formulae: [
+        { name: '检测头输出', expr: 'box + score + class', plain: '每个候选位置不仅要回归边框，还要给出前景置信度和类别分布。' },
+        { name: '总损失', expr: 'L = L_box + L_cls (+ L_obj)', plain: '定位、分类、前景判断通常被拆开优化，三者平衡决定模型的速度与精度取向。' }
+      ],
+      observe: ['先看召回够不够，再看重复框和误检是否太多。', '框的位置偏差和类别判断错误要分开看，它们往往来自不同模块。', '小目标、密集目标、遮挡目标通常最能暴露结构短板。'],
+      pitfalls: ['阈值设太高会丢目标，太低会堆出大量误检。', '如果 backbone 语义足够但多尺度融合弱，小目标表现会先崩。', 'NMS 或匹配策略不合理时，错误不在主干而在后处理。'],
+      metrics: ['mAP 是检测的主指标。', 'Recall 决定有没有把目标找出来。', '不同 IoU 阈值能分辨“框住了”和“框准了”不是一回事。']
+    },
+    instance_seg: {
+      objective: '先分清实例，再在每个实例内部做像素级分割，检测与分割必须同时成立。',
+      formulae: [
+        { name: '多头输出', expr: 'class + box + mask', plain: '一个实例最终要同时得到类别、位置和掩码三种结果。' },
+        { name: '联合损失', expr: 'L = L_det + L_mask', plain: '检测头负责找到实例，掩码头负责切轮廓，任何一侧弱都会拖垮最终掩码质量。' }
+      ],
+      observe: ['先看实例有没有被拆开，再看掩码边缘是否贴合。', '框是对的但 mask 差，通常是对齐或局部特征裁剪出了问题。', '多人或密集物体场景最能检验实例分离能力。'],
+      pitfalls: ['实例没分开时，语义正确也不能算成功。', 'RoI 对齐粗糙会直接把掩码边缘做坏。', '只盯 box AP 会掩盖 mask 分支的真实问题。'],
+      metrics: ['Box AP 和 Mask AP 要分开看。', '小实例 AP 往往更能暴露结构问题。', '边界质量通常比主体区域更难。']
+    },
+    prompt_seg: {
+      objective: '把提示信息和图像特征联合起来，输出与提示一致的前景区域，而不是做封闭类别分割。',
+      formulae: [
+        { name: '提示驱动', expr: 'mask = Decoder(ImageEmb, PromptEmb)', plain: '图像编码先固定，再把点、框、已有 mask 等提示编码送进解码器。' },
+        { name: '质量估计', expr: 'mask + IoU score', plain: '除了掩码本身，模型通常还会估计这张掩码的质量，用来帮助选择结果。' }
+      ],
+      observe: ['提示轻微变化后，输出是否稳定，是判断模型是否真懂交互意图的关键。', '先看召回，再看轮廓；交互式分割通常优先把目标找全。', '多解场景里要关注模型给出的多候选掩码是否互补。'],
+      pitfalls: ['提示过稀时，模型容易抓到局部但漏主体。', '边界复杂物体通常需要多轮提示才能切准。', '只看单次点击结果会低估交互式模型的真实能力。'],
+      metrics: ['Mask IoU 看区域重叠。', '点击次数能反映交互效率。', '稳定性看相邻提示是否导致大幅抖动。']
+    },
+    gan: {
+      objective: '生成器要骗过判别器，判别器要识别真伪，训练是一个动态对抗而不是单一监督回归。',
+      formulae: [
+        { name: '对抗目标', expr: 'min_G max_D E[log D(x)] + E[log(1 - D(G(z)))]', plain: 'D 拉开真实与生成分布，G 反过来逼着生成样本更像真实数据。' },
+        { name: '训练节奏', expr: 'update D, then update G', plain: '两边交替更新，任何一方过强都会让训练进入不稳定区域。' }
+      ],
+      observe: ['先看样本多样性，再看单张图是否逼真。', '判别器过强时，生成器梯度会很差；过弱时，假图又没有约束。', '生成任务里“像不像”只是第一步，“是否覆盖分布”同样重要。'],
+      pitfalls: ['模式坍塌会让模型只会少数几种样子。', '损失曲线好看不等于视觉结果就好。', '判别器和生成器学习率不平衡时最容易振荡。'],
+      metrics: ['FID 看生成分布是否接近真实分布。', 'IS 关注类别可分性与多样性。', '视觉检查仍然不可替代，因为指标可能漏掉伪影。']
+    },
+    diffusion: {
+      objective: '学习每一步该去掉多少噪声，从而把纯噪声逐步还原成符合数据分布的样本。',
+      formulae: [
+        { name: '噪声预测', expr: 'epsilon_hat = epsilon_theta(x_t, t, cond)', plain: '给定带噪样本和时间步，网络直接预测当前混入的噪声。' },
+        { name: '训练目标', expr: 'L = ||epsilon - epsilon_hat||^2', plain: '因为训练时噪声是自己加进去的，所以监督信号天然已知。' }
+      ],
+      observe: ['先看中间步是否逐渐成形，而不是只看最后一步。', '采样步数减少后，模糊、脏边、结构断裂最容易先出现。', '条件控制失效时，问题常在条件注入而不是 UNet 主干。'],
+      pitfalls: ['步数太少会快，但容易把细节和全局结构一起丢掉。', '指导强度太大时会变得“听话但不自然”。', '只看最终清晰度会忽略采样过程是否稳定。'],
+      metrics: ['噪声预测误差决定训练是否在收敛。', '采样步数影响速度与质量权衡。', '条件一致性决定提示词或控制条件是否真正生效。']
+    },
+    multimodal: {
+      objective: '把图像和文本拉进同一语义空间，让匹配图文相互靠近，不匹配图文彼此远离。',
+      formulae: [
+        { name: '相似度', expr: 's = cos(v_img, v_txt)', plain: '编码后的图像向量和文本向量用余弦相似度比较。' },
+        { name: '对比损失', expr: 'L = InfoNCE(image, text)', plain: '正确配对相似度被拉高，错误配对被压低，双塔都在同一空间里学习。' }
+      ],
+      observe: ['先看匹配排序而不是单一标签输出，因为它本质上是对齐问题。', '提示词改写后相似度是否合理变化，是多模态模型理解力的重要证据。', '图像看起来对但文本不对，通常说明共享空间没有对齐好。'],
+      pitfalls: ['提示词表述差异会显著影响结果。', '训练分布里的流行表达会形成偏置。', '只看零样本分类容易低估检索与对齐能力。'],
+      metrics: ['Recall@K 看检索是否把正确项排到前面。', '余弦相似度只可相对比较，不宜孤立解释。', '零样本分类准确率能反映开放词表泛化。']
+    },
+    representation: {
+      objective: '不依赖人工标签，直接学出稳定又可迁移的表征空间，让同一样本的不同视图在表征上保持一致。',
+      formulae: [
+        { name: '正对拉近', expr: 'sim(z_i, z_j) ↑', plain: '同一样本经过两种增强后的表征应尽可能接近。' },
+        { name: '表征目标', expr: 'alignment + uniformity', plain: '好的自监督特征既要聚合同一语义，也要避免整体坍塌成常数。' }
+      ],
+      observe: ['不要只看训练损失，真正关键是线性探针或下游迁移性能。', '增强策略本身就是监督信号，增强错了，学到的表示也会歪。', '表征空间是否塌成一团，比单次前向结果更值得检查。'],
+      pitfalls: ['过强增强会把语义也洗掉。', '没有足够负样本或不对称设计时，容易出现表征坍塌。', '仅看 embedding 可视化容易误判。'],
+      metrics: ['Linear probe 最能看表征可用性。', 'kNN 分类可快速估计语义聚类效果。', 'alignment / uniformity 能辅助判断空间是否塌缩。']
+    },
+    three_d: {
+      objective: '把二维观测组织成可渲染、可匹配或可推理的三维表示，关键在几何一致性而不只是外观正确。',
+      formulae: [
+        { name: '几何表示', expr: 'scene -> geometry + appearance', plain: '无论是隐式场、点云还是高斯球，核心都是同时表示形状与外观。' },
+        { name: '渲染 / 聚合', expr: 'view = Render(scene, camera)', plain: '三维表示最终都要回到相机视角下生成可比较的图像或几何结果。' }
+      ],
+      observe: ['先看跨视角是否一致，再看单视角是否漂亮。', '3D 任务里“看起来对”不等于几何真对。', '遮挡、稀疏视角和尺度变化最容易暴露表示问题。'],
+      pitfalls: ['过拟合单视角会导致新视角崩塌。', '几何和外观绑得太死时，优化容易进入伪解。', '只看渲染图而不看深度/几何残差会漏问题。'],
+      metrics: ['PSNR / SSIM 常用于渲染质量。', 'Chamfer / IoU 更偏几何一致性。', '新视角稳定性比训练视角重建更有说服力。']
+    },
+    video: {
+      objective: '同时建模空间纹理和时间动态，让模型识别“画面里有什么”以及“它如何变化”。',
+      formulae: [
+        { name: '时空特征', expr: 'f = VideoEncoder(x, y, t)', plain: '时间维不再是多帧拼接，而是与空间维共同参与特征提取。' },
+        { name: '分类目标', expr: 'L = CE(action)', plain: '动作识别仍然可以落到类别监督，但特征必须覆盖运动模式。' }
+      ],
+      observe: ['先看动作节奏和方向是否被编码到特征里。', '如果模型只盯单帧外观，它会把相似静态场景动作混淆。', '短时动作和长时上下文不足时，错误模式完全不同。'],
+      pitfalls: ['只堆帧数但不提升时序建模，信息并不会自动用起来。', '背景和场景偏置在视频任务里依旧非常强。', '采样策略会决定模型到底学到动作还是截图。'],
+      metrics: ['Top-1 看动作类别是否正确。', '多 clip 投票能观察时序稳定性。', '混淆矩阵能暴露相近动作之间的边界。']
+    },
+    tracking: {
+      objective: '在连续帧里维持目标身份一致，关键不是每帧检测一次，而是把跨帧关联做稳。',
+      formulae: [
+        { name: '运动预测', expr: 'x_t^- = Kalman(x_{t-1})', plain: '先根据上一时刻状态预测当前位置，再拿观测去修正。' },
+        { name: '数据关联', expr: 'match = Hungarian(cost)', plain: '把当前检测框与历史轨迹按代价最小原则做一一匹配。' }
+      ],
+      observe: ['先看 ID 是否连续，再看有没有漏跟和误跟。', '遮挡恢复能力通常比无遮挡场景更能说明方法好坏。', '跟踪问题常常不是检测精度不够，而是关联策略太保守或太激进。'],
+      pitfalls: ['短时遮挡后轨迹断裂是最典型错误。', '只看每帧检测 AP 会错过身份切换问题。', '低分检测框粗暴丢弃会严重伤害召回。'],
+      metrics: ['MOTA 看整体错误率。', 'IDF1 更关注身份一致性。', 'HOTA 能更平衡地衡量检测与关联。']
+    },
+    pose: {
+      objective: '定位人体关键点或肢体连接，难点不只是找点，更是保证结构关系正确。',
+      formulae: [
+        { name: '关键点表示', expr: 'coords or heatmaps', plain: '姿态方法要么直接回归坐标，要么先预测空间热力图再解码峰值。' },
+        { name: '结构约束', expr: 'limb consistency', plain: '人体不是点集散沙，点之间的连接关系和相对布局同样重要。' }
+      ],
+      observe: ['先看大关节，再看手脚等细节部位。', '遮挡、交叉和多人场景最能暴露姿态模型是否真正理解结构。', '点位置基本正确但骨架连接错，通常是关联机制有问题。'],
+      pitfalls: ['只回归坐标时，空间约束往往不够细。', '多人姿态里同类关键点很容易串人。', '小关节和遮挡部位最先掉点。'],
+      metrics: ['PCK / OKS 看关键点是否落在合理位置。', 'AP 常用于多人姿态 benchmark。', '肢体连接正确率能补充点级指标看不到的问题。']
+    }
+  };
+  var MODULE_GUIDES = {
+    resnet: {
+      formulae: [
+        { name: '残差单元', expr: 'y = F(x) + x', plain: '主分支学习增量，捷径分支直接保留输入，所以“学不好时至少别学坏”。' },
+        { name: '瓶颈块', expr: '1x1 -> 3x3 -> 1x1', plain: '先降维、再做空间卷积、最后升维，用更低代价堆出更深的网络。' }
+      ],
+      preview: ['输入图像先被粗下采样成稳定低层纹理。', '残差块逐层把边缘、部件、物体语义叠起来。', '末端全局池化把空间证据压成类别判断。']
+    },
+    unet: {
+      formulae: [
+        { name: '跳连拼接', expr: 'h_l = concat(enc_l, up_{l+1})', plain: '同尺度浅层细节直接送给解码器，所以边界不必靠深层重新猜。' },
+        { name: '分割目标', expr: 'L = CE + Dice', plain: '分类项负责像素标签，Dice 项负责前景区域完整度。' }
+      ],
+      preview: ['编码器先把局部纹理压成强语义特征。', '瓶颈层整合全局上下文。', '解码器借助跳连把边界细节一层层补回来。']
+    },
+    fcn: {
+      formulae: [
+        { name: '全卷积改写', expr: 'FC -> 1x1 Conv', plain: '保留空间布局，是 FCN 能从分类走向分割的关键一步。' },
+        { name: '上采样恢复', expr: 'score map -> upsample -> mask', plain: '先在低分辨率上做语义判断，再恢复到输入尺寸。' }
+      ]
+    },
+    yolo: {
+      formulae: [
+        { name: '单阶段输出', expr: '[x,y,w,h,obj,cls]', plain: '每个候选位置一次性给出框、目标性和类别，不再单独生成 proposal。' },
+        { name: '训练目标', expr: 'L = L_box + L_obj + L_cls', plain: '框回归、前景判断、类别预测同时训练，速度来自一体化设计。' }
+      ],
+      preview: ['主干和 FPN/PAN 先生成多尺度特征。', '检测头在多个尺度上直接回归框和类别。', '阈值与 NMS 负责把密集候选清成最终目标。']
+    },
+    faster_rcnn: {
+      formulae: [
+        { name: '两阶段结构', expr: 'proposal -> RoI -> classify/refine', plain: '先找疑似区域，再把每个区域单独看细，精度来自第二次聚焦。' },
+        { name: '联合损失', expr: 'L = L_rpn + L_roi', plain: 'RPN 负责找候选框，RoI head 负责更精细的分类和回归。' }
+      ]
+    },
+    detr: {
+      formulae: [
+        { name: '集合预测', expr: 'queries -> N objects', plain: '固定数量的 object query 直接输出一组目标，而不是密集滑窗。' },
+        { name: '匈牙利匹配', expr: 'match(pred, gt) = Hungarian(cost)', plain: '先做全局最优匹配，再对匹配项计算损失，因此不再依赖 NMS。' }
+      ],
+      preview: ['CNN 或 backbone 先提局部视觉特征。', 'Transformer 编码器建立全局关系。', 'Object query 在解码器里“询问”场景并直接吐出目标集合。']
+    },
+    mask_rcnn: {
+      formulae: [
+        { name: '掩码分支', expr: 'mask = FCN(RoI feature)', plain: '掩码预测只在每个实例内部做，所以不会把同类目标粘在一起。' },
+        { name: '精确对齐', expr: 'RoIAlign(feature, box)', plain: '不用取整采样，才能把 28x28 mask 边缘切得更稳。' }
+      ]
+    },
+    sam: {
+      formulae: [
+        { name: '提示编码', expr: 'PromptEmb = Enc(point / box / mask)', plain: '用户给什么提示，模型就把什么提示编码成可对齐的条件向量。' },
+        { name: '解码输出', expr: 'mask, score = Dec(ImageEmb, PromptEmb)', plain: '图像编码只做一次，交互时主要变化的是提示条件和解码结果。' }
+      ]
+    },
+    gan: {
+      preview: ['随机噪声先进入生成器，逐层上采样成候选假图。', '判别器同时看真图和假图，给出真伪判断。', '损失沿着判别路径反传，逼着生成器不断改进样本。']
+    },
+    diffusion: {
+      formulae: [
+        { name: '正向加噪', expr: 'x_t = sqrt(alpha_t)x_0 + sqrt(1-alpha_t)epsilon', plain: '真实样本被逐步破坏成噪声，每个时刻的噪声比例都可控。' },
+        { name: '反向去噪', expr: 'x_{t-1} <- epsilon_theta(x_t, t)', plain: '推理时从纯噪声出发，按时间逆序一步步还原结构。' }
+      ],
+      preview: ['前几步只是从纯噪声里拉出大致轮廓。', '中间步开始建立局部结构和语义关系。', '最后几步主要负责细节锐化与去残余噪声。']
+    },
+    ddpm: {
+      formulae: [
+        { name: '马尔可夫加噪', expr: 'q(x_t|x_{t-1})', plain: '每一步都只加一点高斯噪声，所以整个破坏过程容易写成清晰的概率链。' },
+        { name: '反向分布', expr: 'p_theta(x_{t-1}|x_t)', plain: '网络学习的本质就是如何把这条噪声链逐步反演回来。' }
+      ]
+    },
+    vit: {
+      formulae: [
+        { name: 'Patch token', expr: 'z_0 = [x_cls; x_p^1E; ...; x_p^NE] + E_pos', plain: '图像先被切成 patch，再像语言 token 一样加位置编码送进 Transformer。' },
+        { name: '自注意力', expr: 'Attn(Q,K,V) = softmax(QK^T / sqrt(d))V', plain: '任意两个 patch 从第一层起就能互相通信，这就是全局建模的来源。' }
+      ]
+    },
+    swin: {
+      formulae: [
+        { name: '窗口注意力', expr: 'MSA inside local window', plain: '把注意力限制在小窗口里，复杂度才不会随着分辨率飙升。' },
+        { name: '移位窗口', expr: 'W-MSA -> SW-MSA', plain: '相邻 block 通过窗口平移实现跨窗信息流动。' }
+      ]
+    },
+    clip: {
+      formulae: [
+        { name: '共享空间', expr: 'v_img = E_i(x), v_txt = E_t(t)', plain: '图像编码器和文本编码器各自独立，但最终投到同一向量空间。' },
+        { name: '图文对比', expr: 'L = InfoNCE(v_img, v_txt)', plain: '一张图只该靠近配套文本，而不是任意文本描述。' }
+      ],
+      preview: ['图像和文本先分别编码。', '两侧向量被映射到统一语义空间。', '相似度矩阵最终决定检索、对齐和零样本分类结果。']
+    },
+    nerf: {
+      formulae: [
+        { name: '场函数', expr: '(x, d) -> (sigma, rgb)', plain: '给定空间位置和观察方向，MLP 输出该点密度和颜色。' },
+        { name: '体渲染', expr: 'C(r) = Σ T_i(1-exp(-sigma_i delta_i))c_i', plain: '一条光线上的采样点按可见性累积，最后得到该像素颜色。' }
+      ],
+      preview: ['沿每条相机射线在三维空间中采样。', 'MLP 预测每个采样点的颜色和密度。', '体渲染把这些局部贡献累成最终像素。']
+    },
+    pointnet: {
+      formulae: [
+        { name: '对称聚合', expr: 'g(X) = max_i h(x_i)', plain: '点顺序可以乱，但 max pooling 后全局特征保持不变。' },
+        { name: '空间对齐', expr: 'X\' = T-Net(X)', plain: '先学一个变换把点云规整到更稳定的姿态。' }
+      ]
+    },
+    simclr: {
+      formulae: [
+        { name: '正对构造', expr: '(x_i^a, x_i^b)', plain: '同一张图做两种随机增强，构成一个正样本对。' },
+        { name: 'NT-Xent', expr: 'L = -log exp(sim(i,j)/tau) / Σ exp(sim(i,k)/tau)', plain: '正对相似度被拉高，batch 里其他样本天然充当负样本。' }
+      ]
+    },
+    moco: {
+      formulae: [
+        { name: '动量更新', expr: 'theta_k <- m theta_k + (1-m) theta_q', plain: 'key 编码器不直接反传，而是平滑跟随 query 编码器。' },
+        { name: '动态队列', expr: 'queue = [k_1 ... k_N]', plain: '历史 key 被保存在队列里，为当前 batch 提供大量负样本。' }
+      ]
+    },
+    byol: {
+      formulae: [
+        { name: '自蒸馏', expr: 'q(online(x1)) -> stopgrad(target(x2))', plain: 'online 网络去预测 target 网络的表征，但 target 不反传。' },
+        { name: 'EMA target', expr: 'theta_t <- tau theta_t + (1-tau) theta_o', plain: 'target 由 online 的指数滑动平均得到，因此整体训练更稳。' }
+      ]
+    },
+    ijepa: {
+      formulae: [
+        { name: '表征预测', expr: 'Predict(context) -> target representation', plain: '它预测的是被遮挡区域的高层表示，不是像素值本身。' },
+        { name: '语义目标', expr: 'L = ||z_pred - z_target||', plain: '目标在表示空间上对齐，因此模型被迫学习更抽象的语义结构。' }
+      ]
+    },
+    '3dgs': {
+      formulae: [
+        { name: '高斯表示', expr: 'G_i = (mu_i, Sigma_i, alpha_i, color_i)', plain: '每个高斯球都有位置、形状、透明度和颜色信息。' },
+        { name: '前向混合', expr: 'C = Σ T_i alpha_i c_i', plain: '投影到图像平面后，按深度次序做 alpha blending 得到最终像素。' }
+      ],
+      preview: ['场景被显式表示成大量可微高斯球。', '当前视角下先把高斯投影到图像平面。', '再按深度排序和透明度混合完成渲染。']
+    },
+    c3d: {
+      formulae: [
+        { name: '3D 卷积', expr: 'K in R^(t x h x w)', plain: '卷积核在时间和空间上同时滑动，所以能直接编码局部运动。' },
+        { name: '时空堆叠', expr: 'clip -> 3D conv -> pool -> class', plain: '从短时运动片段一路压缩到动作语义标签。' }
+      ]
+    },
+    bytetrack: {
+      formulae: [
+        { name: '两轮关联', expr: 'high-score match -> low-score recover', plain: '先用高可信检测稳定轨迹，再用低分框补回遮挡目标。' },
+        { name: '轨迹更新', expr: 'track_t = update(pred_t, det_t)', plain: '卡尔曼预测给出先验位置，匹配成功后再用观测修正。' }
+      ],
+      preview: ['检测器先产出一批带分数的候选框。', '高分框优先匹配现有轨迹。', '低分框专门用来找回被遮挡或暂时模糊的目标。']
+    },
+    deeppose: {
+      formulae: [
+        { name: '坐标回归', expr: 'y = Wf(x)', plain: '最后不做类别输出，而是直接回归 2K 个关键点坐标。' },
+        { name: '级联精修', expr: 'coarse -> crop -> refine', plain: '先粗定位，再在局部高分辨率区域把点修准。' }
+      ]
+    },
+    openpose: {
+      formulae: [
+        { name: '关键点热图', expr: 'H_k(u,v)', plain: '每种关键点都用一张热图表示其可能出现的位置。' },
+        { name: 'PAF', expr: 'F_l(u,v) in R^2', plain: '每条肢体连接都用二维向量场表达方向和连通强度。' }
+      ]
+    },
+    bev: {
+      formulae: [
+        { name: 'Lift', expr: '2D feature + depth -> 3D frustum', plain: '先把图像特征按深度分布抬升进三维视锥。' },
+        { name: 'Splat', expr: '3D frustum -> BEV grid', plain: '再把三维特征汇聚到统一鸟瞰平面，供检测和规划模块使用。' }
+      ],
+      preview: ['多路相机先各自提特征。', '像素级深度分布把 2D 特征抬进 3D。', '所有相机特征最终被压到统一 BEV 网格上。']
+    }
+  };
+
+  function injectStyle() {
+    if (document.getElementById('nn-showcase-refresh')) return;
+    var style = document.createElement('style');
+    style.id = 'nn-showcase-refresh';
+    style.textContent = [
+      '.nn-showcase{display:grid;gap:14px}',
+      '.nn-top{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px}',
+      '.nn-hero,.nn-meta,.nn-structure,.nn-runtime,.nn-story,.nn-results{padding:16px}',
+      '.nn-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#b8ffe4;font-size:.74rem;font-weight:760;letter-spacing:.08em;text-transform:uppercase}',
+      '.nn-subtitle{color:var(--cv-muted);font-size:.9rem;line-height:1.6;max-width:860px;margin-top:8px}',
+      '.nn-pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}',
+      '.nn-pill,.nn-task-pill{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border:1px solid rgba(148,163,184,.16);border-radius:999px;background:rgba(255,255,255,.06);color:var(--cv-text);font-size:.78rem;font-weight:700}',
+      '.nn-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px}',
+      '.nn-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}',
+      '.nn-section-head h2{font-size:1rem;font-weight:760}',
+      '.nn-section-head span{color:var(--cv-muted);font-size:.8rem;line-height:1.5}',
+      '.nn-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
+      '.nn-meta-item{padding:10px 12px;border:1px solid rgba(148,163,184,.13);border-radius:8px;background:rgba(255,255,255,.04)}',
+      '.nn-meta-label{font-size:.72rem;color:var(--cv-faint);text-transform:uppercase;letter-spacing:.06em}',
+      '.nn-meta-value{margin-top:4px;color:var(--cv-text);font-size:.88rem;font-weight:720;line-height:1.45}',
+      '.nn-chip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px}',
+      '.nn-chip{padding:10px 12px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.04);color:var(--cv-muted);font-size:.78rem;line-height:1.55}',
+      '.nn-chip strong{display:block;margin-bottom:4px;color:var(--cv-text);font-size:.82rem}',
+      '.nn-pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0 14px}',
+      '.nn-pipe-card{padding:12px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-pipe-step{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:rgba(56,189,248,.16);color:#7dd3fc;font-size:.74rem;font-weight:760}',
+      '.nn-pipe-title{margin:8px 0 6px;color:var(--cv-text);font-size:.84rem;font-weight:720}',
+      '.nn-pipe-desc{color:var(--cv-muted);font-size:.78rem;line-height:1.55}',
+      '.nn-explain{padding:14px;border:1px solid rgba(56,189,248,.14);border-radius:8px;background:rgba(56,189,248,.05);color:var(--cv-muted);font-size:.82rem;line-height:1.7}',
+      '.nn-explain strong{color:var(--cv-text)}',
+      '.nn-upload{display:block;border:2px dashed rgba(148,163,184,.2);border-radius:10px;padding:18px;cursor:pointer;transition:border-color .18s,background-color .18s}',
+      '.nn-upload:hover,.nn-upload.active{border-color:rgba(102,242,194,.48);background:rgba(102,242,194,.06)}',
+      '.nn-upload input{display:none}',
+      '.nn-upload-hint{display:grid;gap:4px;color:var(--cv-muted);font-size:.84rem;text-align:center}',
+      '.nn-upload-name{color:var(--cv-text);font-weight:720}',
+      '.nn-controls{display:grid;gap:10px;margin:12px 0}',
+      '.nn-control{padding:12px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-control-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}',
+      '.nn-control-head label{font-size:.82rem;color:var(--cv-text);font-weight:700}',
+      '.nn-control-value{font-size:.78rem;color:#7dd3fc;font-weight:720}',
+      '.nn-control input[type=range],.nn-control select{width:100%}',
+      '.nn-run-btn{display:block;width:100%;min-height:40px;padding:10px 14px;border:0;border-radius:8px;background:linear-gradient(135deg,rgba(102,242,194,.95),rgba(56,189,248,.86));color:#04110d;font-size:.88rem;font-weight:760;cursor:pointer;box-shadow:0 18px 40px rgba(102,242,194,.16)}',
+      '.nn-run-btn:disabled{opacity:.45;cursor:not-allowed}',
+      '.nn-run-btn.muted{background:rgba(148,163,184,.14);color:var(--cv-muted);box-shadow:none}',
+      '.nn-status{display:grid;gap:8px;margin-top:12px}',
+      '.nn-status-line{padding:10px 12px;border-radius:8px;font-size:.8rem;line-height:1.55}',
+      '.nn-status-ok{background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.18)}',
+      '.nn-status-info{background:rgba(56,189,248,.08);color:#93c5fd;border:1px solid rgba(56,189,248,.16)}',
+      '.nn-status-err{background:rgba(239,68,68,.1);color:#fecaca;border:1px solid rgba(239,68,68,.18)}',
+      '.nn-run-note{margin-top:10px;color:var(--cv-muted);font-size:.82rem;line-height:1.6}',
+      '.nn-story-intro{color:var(--cv-muted);font-size:.82rem;line-height:1.6;margin-bottom:12px}',
+      '.nn-story-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}',
+      '.nn-story-card{padding:14px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-story-title{color:var(--cv-text);font-size:.88rem;font-weight:760;margin-bottom:8px}',
+      '.nn-story-text{color:var(--cv-muted);font-size:.79rem;line-height:1.58;margin-bottom:10px}',
+      '.nn-crumb{color:var(--cv-faint);font-size:.76rem;letter-spacing:.04em;margin-bottom:10px}',
+      '.nn-objective{padding:14px;border:1px solid rgba(102,242,194,.16);border-radius:8px;background:rgba(102,242,194,.06);color:var(--cv-muted);font-size:.82rem;line-height:1.7}',
+      '.nn-objective strong{color:var(--cv-text)}',
+      '.nn-formula-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}',
+      '.nn-formula-card{padding:14px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-formula-name{color:var(--cv-faint);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase}',
+      '.nn-formula-expr{margin:8px 0;color:var(--cv-text);font-size:.88rem;font-weight:760;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}',
+      '.nn-formula-plain{color:var(--cv-muted);font-size:.79rem;line-height:1.58}',
+      '.nn-guide-stack{display:grid;gap:12px}',
+      '.nn-guide-block{padding:14px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-guide-block h3{margin:0 0 10px;color:var(--cv-text);font-size:.86rem}',
+      '.nn-guide-list{display:grid;gap:8px}',
+      '.nn-guide-item{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:flex-start;color:var(--cv-muted);font-size:.79rem;line-height:1.6}',
+      '.nn-guide-bullet{display:grid;place-items:center;width:18px;height:18px;border-radius:999px;background:rgba(56,189,248,.12);color:#7dd3fc;font-size:.72rem;font-weight:760}',
+      '.nn-preview-badge{display:inline-flex;align-items:center;min-height:20px;padding:0 8px;border-radius:999px;background:rgba(56,189,248,.12);color:#7dd3fc;font-size:.7rem;font-weight:760}',
+      '.nn-bars{display:grid;gap:8px}',
+      '.nn-bar-row{display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:center}',
+      '.nn-bar-label{font-size:.76rem;color:var(--cv-muted)}',
+      '.nn-bar-track{height:14px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}',
+      '.nn-bar-fill{height:100%;border-radius:inherit}',
+      '.nn-bar-caption{font-size:.74rem;color:var(--cv-faint)}',
+      '.nn-grad-list{display:grid;gap:10px}',
+      '.nn-grad-row{display:grid;grid-template-columns:58px 1fr;gap:10px;align-items:center}',
+      '.nn-grad-label{color:var(--cv-text);font-size:.76rem;font-weight:700}',
+      '.nn-grad-rail{height:20px;border-radius:999px;border:1px solid rgba(148,163,184,.14)}',
+      '.nn-grad-caption{grid-column:2;color:var(--cv-faint);font-size:.74rem}',
+      '.nn-flow-mini{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+      '.nn-flow-node{padding:8px 10px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.05);color:var(--cv-text);font-size:.76rem;font-weight:700}',
+      '.nn-flow-arrow{color:var(--cv-muted);font-size:.8rem}',
+      '.nn-pixel-grid{display:grid;gap:2px;padding:4px;border-radius:8px;background:#050812;border:1px solid rgba(148,163,184,.14)}',
+      '.nn-pixel-cell{aspect-ratio:1/1;border-radius:2px}',
+      '.nn-threshold{position:relative;height:20px;border-radius:999px;background:linear-gradient(90deg,#1e293b,#475569,#94a3b8,#e2e8f0);overflow:hidden}',
+      '.nn-threshold-cut{position:absolute;top:-2px;bottom:-2px;width:2px;background:#f8fafc;box-shadow:0 0 0 4px rgba(248,250,252,.1)}',
+      '.nn-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}',
+      '.nn-results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}',
+      '.nn-step-card{display:grid;overflow:hidden;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(255,255,255,.03)}',
+      '.nn-step-card.input{border-left:3px solid #38bdf8}',
+      '.nn-step-card.process{border-left:3px solid #8b5cf6}',
+      '.nn-step-card.output{border-left:3px solid #66f2c2}',
+      '.nn-step-media{display:grid;place-items:center;min-height:180px;background:#050812}',
+      '.nn-step-media img{width:100%;height:100%;object-fit:cover;display:block}',
+      '.nn-step-info{padding:12px 14px}',
+      '.nn-step-meta{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:.72rem;color:var(--cv-faint);text-transform:uppercase;letter-spacing:.06em}',
+      '.nn-step-title{color:var(--cv-text);font-size:.9rem;font-weight:760}',
+      '.nn-step-desc{margin-top:6px;color:var(--cv-muted);font-size:.79rem;line-height:1.58}',
+      '.nn-note{padding:18px;text-align:center;color:var(--cv-muted);font-size:.84rem}',
+      '@media (max-width:980px){.nn-top,.nn-grid{grid-template-columns:1fr}.nn-meta-grid{grid-template-columns:1fr 1fr}}',
+      '@media (max-width:720px){.nn-meta-grid,.nn-pipeline,.nn-story-grid,.nn-results-grid,.nn-metrics{grid-template-columns:1fr}.nn-section-head{flex-direction:column}.nn-bar-row,.nn-grad-row{grid-template-columns:1fr}.nn-grad-caption{grid-column:1}}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function text(value, fallback) {
+    return value == null || value === '' ? (fallback || '') : String(value);
+  }
+
+  function escapeHtml(value) {
+    return text(value).replace(/[&<>"]/g, function(ch) {
+      return ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[ch];
+    });
+  }
+
+  function taskBadge(moduleId) {
+    if (moduleId === 'detection' || moduleId === 'faster_rcnn' || moduleId === 'detr' || moduleId === 'dino_det' || moduleId === 'grdino') return '目标检测';
+    if (moduleId === 'semantic' || moduleId === 'fcn' || moduleId === 'unet') return '语义分割';
+    if (moduleId === 'instance' || moduleId === 'mask_rcnn' || moduleId === 'mask2former') return '实例分割';
+    if (moduleId === 'sam' || moduleId === 'sam2') return '可提示分割';
+    if (moduleId === 'gan' || moduleId === 'diffusion' || moduleId === 'ddpm' || moduleId === 'stable_diffusion' || moduleId === 'controlnet' || moduleId === 'flux' || moduleId === 'stylegan') return '生成模型';
+    if (moduleId === 'clip' || moduleId === 'blip2') return '多模态';
+    if (moduleId === 'nerf' || moduleId === '3dgs' || moduleId === 'bev' || moduleId === 'occupy' || moduleId === 'dust3r' || moduleId === 'orbslam3' || moduleId === 'pointnet') return '3D感知';
+    if (moduleId === 'deeppose' || moduleId === 'openpose' || moduleId === 'vitpose' || moduleId === 'mediapipe') return '姿态估计';
+    if (moduleId === 'bytetrack' || moduleId === 'botsort') return '多目标跟踪';
+    if (moduleId === 'simclr' || moduleId === 'moco' || moduleId === 'byol' || moduleId === 'ijepa' || moduleId === 'dino' || moduleId === 'mae') return '自监督学习';
+    if (moduleId === 'c3d') return '视频理解';
+    if (moduleId === 'vit' || moduleId === 'swin' || moduleId === 'dit') return 'Transformer视觉';
+    return '';
+  }
+
+  function implementationState(meta) {
+    if (!meta) return { cls: 'nn-status-info', label: '未声明' };
+    if (meta.category === 'requires_external_weights') return { cls: 'nn-status-info', label: meta.status || '需要外部权重' };
+    if (meta.category === 'not_implemented' || meta.category === 'model_not_available') return { cls: 'nn-status-err', label: meta.status || '当前不可运行' };
+    if (meta.real_model) return { cls: 'nn-status-ok', label: meta.status || '真实预训练模型' };
+    return { cls: 'nn-status-info', label: meta.status || '本地算法实现' };
+  }
+
+  function extraControls(moduleId) {
+    if (moduleId === 'detection' || moduleId === 'faster_rcnn' || moduleId === 'detr' || moduleId === 'dino_det' || moduleId === 'grdino') {
+      return [{ name: 'threshold', label: '置信度阈值', type: 'range', min: .2, max: .9, step: .05, value: .5 }];
+    }
+    if (moduleId === 'instance' || moduleId === 'mask_rcnn' || moduleId === 'mask2former') {
+      return [
+        { name: 'threshold', label: '检测阈值', type: 'range', min: .2, max: .9, step: .05, value: .5 },
+        { name: 'mask_threshold', label: '掩码阈值', type: 'range', min: .3, max: .8, step: .05, value: .5 }
+      ];
+    }
+    if (moduleId === 'diffusion' || moduleId === 'stable_diffusion' || moduleId === 'controlnet' || moduleId === 'ddpm') {
+      return [{ name: 'num_steps', label: '去噪步数', type: 'range', min: 10, max: 100, step: 10, value: 50 }];
+    }
+    return [];
+  }
+
+  function renderPipelineCards() {
+    var items = clean && clean.pipeline ? clean.pipeline.slice(0, 4) : pipeline.slice(0, 4);
+    if (!items.length) {
+      items = ((clean && clean.chips) || showcaseMod.chips || []).slice(0, 4).map(function(item) {
+        return [item, '把这个模型最关键的设计点单独拎出来理解。'];
+      });
+    }
+    return items.map(function(item, index) {
+      return '<div class="nn-pipe-card">' +
+        '<span class="nn-pipe-step">' + (index + 1) + '</span>' +
+        '<div class="nn-pipe-title">' + escapeHtml(item[0]) + '</div>' +
+        '<div class="nn-pipe-desc">' + escapeHtml(item[1] || '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderBarCard(card) {
+    return '<div class="nn-bars">' + (card.items || []).map(function(item) {
+      return '<div class="nn-bar-row">' +
+        '<span class="nn-bar-label">' + escapeHtml(item.label) + '</span>' +
+        '<span class="nn-bar-track"><span class="nn-bar-fill" style="width:' + Number(item.value || 0) + '%;background:' + escapeHtml(item.color || '#38bdf8') + '"></span></span>' +
+        '<span class="nn-bar-caption">' + escapeHtml(item.caption || '') + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderGradientCard(card) {
+    return '<div class="nn-grad-list">' + (card.rows || []).map(function(row) {
+      return '<div class="nn-grad-row">' +
+        '<span class="nn-grad-label">' + escapeHtml(row.label) + '</span>' +
+        '<span class="nn-grad-rail" style="background:' + escapeHtml(row.gradient || 'linear-gradient(90deg,#38bdf8,#66f2c2)') + '"></span>' +
+        '<span class="nn-grad-caption">' + escapeHtml(row.caption || '') + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderArrowCard(card) {
+    return '<div class="nn-flow-mini">' + (card.labels || []).map(function(label, index, arr) {
+      return '<span>' +
+        '<span class="nn-flow-node">' + escapeHtml(label) + '</span>' +
+        (index < arr.length - 1 ? '<span class="nn-flow-arrow">→</span>' : '') +
+      '</span>';
+    }).join('') + '</div>';
+  }
+
+  function renderPixelCard(card) {
+    var rows = Number(card.rows || 6);
+    var cols = Number(card.cols || 10);
+    var palette = card.palette || ['#1e293b', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
+    var cells = '';
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var color = palette[(r * cols + c) % palette.length];
+        cells += '<span class="nn-pixel-cell" style="background:' + escapeHtml(color) + '"></span>';
+      }
+    }
+    return '<div class="nn-pixel-grid" style="grid-template-columns:repeat(' + cols + ',1fr)">' + cells + '</div>';
+  }
+
+  function renderThresholdCard(card) {
+    var position = Math.max(0, Math.min(100, Number(card.position || 50)));
+    return '<div class="nn-threshold"><span class="nn-threshold-cut" style="left:calc(' + position + '% - 1px)"></span></div>';
+  }
+
+  function renderStoryCard(card) {
+    var body = '';
+    if (card.type === 'bars') body = renderBarCard(card);
+    else if (card.type === 'gradientSet') body = renderGradientCard(card);
+    else if (card.type === 'arrows') body = renderArrowCard(card);
+    else if (card.type === 'pixels') body = renderPixelCard(card);
+    else if (card.type === 'threshold') body = renderThresholdCard(card);
+    return '<article class="nn-story-card">' +
+      '<div class="nn-story-title">' + escapeHtml(card.title || '核心视角') + '</div>' +
+      '<div class="nn-story-text">' + escapeHtml(card.text || '') + '</div>' +
+      body +
+    '</article>';
+  }
+
+  function buildStoryGrid() {
+    var cards = clean && clean.cards ? clean.cards.slice(0, 4) : (Array.isArray(story.cards) ? story.cards.slice(0, 4) : []);
+    if (!cards.length && principles.length) {
+      cards = principles.slice(0, 4).map(function(item, index) {
+        return { title: '原则 ' + (index + 1), text: item };
+      });
+    }
+    return cards.map(renderStoryCard).join('');
+  }
+
+  function moduleFamily(moduleId) {
+    if (moduleId === 'resnet' || moduleId === 'vit' || moduleId === 'swin') return 'classifier';
+    if (moduleId === 'unet' || moduleId === 'fcn') return 'semantic_seg';
+    if (moduleId === 'yolo' || moduleId === 'faster_rcnn' || moduleId === 'detr') return 'detection';
+    if (moduleId === 'mask_rcnn') return 'instance_seg';
+    if (moduleId === 'sam') return 'prompt_seg';
+    if (moduleId === 'gan') return 'gan';
+    if (moduleId === 'diffusion' || moduleId === 'ddpm') return 'diffusion';
+    if (moduleId === 'clip') return 'multimodal';
+    if (moduleId === 'simclr' || moduleId === 'moco' || moduleId === 'byol' || moduleId === 'ijepa') return 'representation';
+    if (moduleId === 'nerf' || moduleId === 'pointnet' || moduleId === '3dgs' || moduleId === 'bev') return 'three_d';
+    if (moduleId === 'c3d') return 'video';
+    if (moduleId === 'bytetrack') return 'tracking';
+    if (moduleId === 'deeppose' || moduleId === 'openpose') return 'pose';
+    return 'classifier';
+  }
+
+  function teachingPack(moduleId) {
+    var family = FAMILY_GUIDES[moduleFamily(moduleId)] || {};
+    var override = MODULE_GUIDES[moduleId] || {};
+    return {
+      objective: override.objective || family.objective || '',
+      formulae: override.formulae || family.formulae || [],
+      observe: override.observe || family.observe || [],
+      pitfalls: override.pitfalls || family.pitfalls || [],
+      metrics: override.metrics || family.metrics || [],
+      preview: override.preview || []
+    };
+  }
+
+  var pack = teachingPack(showcaseId);
+
+  function renderFormulaCards() {
+    var cards = (pack.formulae || []).slice(0, 4);
+    if (!cards.length) {
+      return '<div class="nn-note">当前模块暂未补充公式卡片。</div>';
+    }
+    return cards.map(function(card) {
+      return '<article class="nn-formula-card">' +
+        '<div class="nn-formula-name">' + escapeHtml(card.name || '公式') + '</div>' +
+        '<div class="nn-formula-expr">' + escapeHtml(card.expr || '') + '</div>' +
+        '<div class="nn-formula-plain">' + escapeHtml(card.plain || '') + '</div>' +
+      '</article>';
+    }).join('');
+  }
+
+  function renderGuideList(items) {
+    items = (items || []).slice(0, 4);
+    if (!items.length) {
+      return '<div class="nn-note">当前模块暂未补充讲解要点。</div>';
+    }
+    return '<div class="nn-guide-list">' + items.map(function(item, index) {
+      return '<div class="nn-guide-item"><span class="nn-guide-bullet">' + (index + 1) + '</span><span>' + escapeHtml(item) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function previewSteps() {
+    var fromPack = (pack.preview || []).slice(0, 4).map(function(item, index, arr) {
+      return { kind: index === 0 ? 'input' : (index === arr.length - 1 ? 'output' : 'process'), name: '预期阶段 ' + (index + 1), explanation: item };
+    });
+    if (fromPack.length) return fromPack;
+    var source = clean && clean.pipeline ? clean.pipeline : pipeline;
+    return (source || []).slice(0, 4).map(function(item, index, arr) {
+      return {
+        kind: index === 0 ? 'input' : (index === arr.length - 1 ? 'output' : 'process'),
+        name: item[0] || ('阶段 ' + (index + 1)),
+        explanation: item[1] || '运行后可把这一阶段和真实输出对照起来看。'
+      };
+    });
+  }
+
+  function buildControls() {
+    return extraControls(id).map(function(control) {
+      if (control.type === 'range') {
+        return '<div class="nn-control" data-control="' + escapeHtml(control.name) + '">' +
+          '<div class="nn-control-head"><label for="ctrl_' + escapeHtml(control.name) + '">' + escapeHtml(control.label) + '</label>' +
+          '<span class="nn-control-value" id="val_' + escapeHtml(control.name) + '">' + escapeHtml(control.value) + '</span></div>' +
+          '<input id="ctrl_' + escapeHtml(control.name) + '" name="' + escapeHtml(control.name) + '" type="range" min="' + escapeHtml(control.min) + '" max="' + escapeHtml(control.max) + '" step="' + escapeHtml(control.step) + '" value="' + escapeHtml(control.value) + '">' +
+        '</div>';
+      }
+      return '';
+    }).join('');
+  }
+
+  function setStatus(kind, lines) {
+    var statusEl = document.getElementById('nnStatus');
+    if (!statusEl) return;
+    var cls = kind === 'error' ? 'nn-status-err' : (kind === 'ok' ? 'nn-status-ok' : 'nn-status-info');
+    statusEl.innerHTML = (lines || []).map(function(line) {
+      return '<div class="nn-status-line ' + cls + '">' + line + '</div>';
+    }).join('');
+  }
+
+  function renderMetrics(metrics) {
+    var entries = Object.keys(metrics || {}).slice(0, 8);
+    var html = entries.map(function(key) {
+      return '<div class="nn-meta-item"><div class="nn-meta-label">' + escapeHtml(key) + '</div><div class="nn-meta-value">' + escapeHtml(metrics[key]) + '</div></div>';
+    }).join('');
+    if (!html) {
+      html = (pack.metrics || []).slice(0, 4).map(function(item, index) {
+        return '<div class="nn-meta-item"><div class="nn-meta-label">关注指标 ' + (index + 1) + '</div><div class="nn-meta-value">' + escapeHtml(item) + '</div></div>';
+      }).join('') || '<div class="nn-note">运行后会在这里显示数值指标。</div>';
+    }
+    document.getElementById('nnMetrics').innerHTML = html;
+  }
+
+  function renderResults(steps) {
+    var source = (steps && steps.length) ? steps : previewSteps();
+    var html = (source || []).map(function(step, index, arr) {
+      var stage = index === 0 ? 'input' : (index === arr.length - 1 ? 'output' : 'process');
+      var img = step.image_base64 ? ('data:image/png;base64,' + step.image_base64) : (step.image || '');
+      return '<article class="nn-step-card ' + stage + '">' +
+        '<div class="nn-step-media">' + (img ? '<img src="' + img + '" alt="' + escapeHtml(step.name || '') + '">' : '<div class="nn-note"><span class="nn-preview-badge">' + ((steps && steps.length) ? '无图像返回' : '运行前预览') + '</span><div style="margin-top:10px">此处会对应网络中的一个关键阶段。</div></div>') + '</div>' +
+        '<div class="nn-step-info">' +
+          '<div class="nn-step-meta"><span>Step ' + String(index + 1).padStart(2, '0') + '</span><span>' + (stage === 'input' ? 'Input' : stage === 'output' ? 'Output' : 'Process') + '</span></div>' +
+          '<div class="nn-step-title">' + escapeHtml(step.name || ('步骤 ' + (index + 1))) + '</div>' +
+          '<div class="nn-step-desc">' + escapeHtml(step.explanation || '') + '</div>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+    document.getElementById('nnResults').innerHTML = html || '<div class="nn-note">当前实现没有返回中间步骤。</div>';
+  }
+
+  function currentFacts() {
+    return [
+      { label: 'phase', value: cfg.phase || '深度学习 / 前沿视觉' },
+      { label: 'backend', value: impl.backend || '未声明' },
+      { label: 'model', value: impl.model || '教学展示' },
+      { label: 'inference', value: impl.local_inference === false ? '需外部资源' : '可直接在当前项目调用' }
+    ];
+  }
+
+  injectStyle();
+  root.className = 'page nn-showcase';
+  root.innerHTML = '' +
+    '<header class="page-header nn-hero">' +
+      '<div class="nn-crumb" id="nnCrumb"></div>' +
+      '<div class="nn-top">' +
+        '<section class="hero-copy">' +
+          '<div class="nn-eyebrow">Neural Network Studio</div>' +
+          '<h1 id="nnTitle"></h1>' +
+          '<p class="nn-subtitle" id="nnSubtitle"></p>' +
+          '<div class="nn-pill-row">' +
+            '<span class="status" id="nnImplPill"></span>' +
+            '<span class="nn-pill" id="nnBadge1" hidden></span>' +
+            '<span class="nn-task-pill" id="nnBadge2" hidden></span>' +
+          '</div>' +
+          '<div class="nn-chip-grid" id="nnChipGrid"></div>' +
+        '</section>' +
+        '<aside class="panel nn-meta">' +
+          '<div class="nn-section-head"><h2>实现状态</h2><span id="nnPhase"></span></div>' +
+          '<div class="nn-meta-grid" id="nnFacts"></div>' +
+        '</aside>' +
+      '</div>' +
+    '</header>' +
+    '<section class="nn-grid">' +
+      '<article class="panel nn-structure">' +
+        '<div class="nn-section-head"><h2>结构总览</h2><span>先把模型主干和任务流程走一遍。</span></div>' +
+        '<div class="arch" id="nnArch"></div>' +
+        '<div class="nn-pipeline" id="nnPipeline"></div>' +
+        '<div class="nn-explain" id="nnExplain"></div>' +
+      '</article>' +
+      '<aside class="panel nn-runtime">' +
+        '<div class="nn-section-head"><h2>交互运行</h2><span id="nnRunHint"></span></div>' +
+        '<label class="nn-upload" id="nnUpload" hidden>' +
+          '<input type="file" id="nnFileInput" accept="image/*">' +
+          '<div class="nn-upload-hint"><span id="nnUploadPrompt">点击或拖入图片</span><span class="nn-upload-name" id="nnUploadName">未选择文件</span></div>' +
+        '</label>' +
+        '<div class="nn-controls" id="nnControls"></div>' +
+        '<button class="nn-run-btn" id="nnRunBtn"></button>' +
+        '<div class="nn-status" id="nnStatus"></div>' +
+        '<p class="nn-run-note" id="nnRunNote"></p>' +
+      '</aside>' +
+    '</section>' +
+    '<section class="nn-grid">' +
+      '<article class="panel nn-formula">' +
+        '<div class="nn-section-head"><h2>训练目标与公式</h2><span>先看这个模型到底在优化什么，再看它怎么做结构设计。</span></div>' +
+        '<div class="nn-objective" id="nnObjective"></div>' +
+        '<div class="nn-formula-grid" id="nnFormulas"></div>' +
+      '</article>' +
+      '<article class="panel nn-reading">' +
+        '<div class="nn-section-head"><h2>结果应该怎么看</h2><span>把 LeNet 那种“看结构也看输出含义”的讲解方式补到每个神经网络页面。</span></div>' +
+        '<div class="nn-guide-stack">' +
+          '<section class="nn-guide-block"><h3>先看什么</h3><div id="nnObserve"></div></section>' +
+          '<section class="nn-guide-block"><h3>常见误区</h3><div id="nnPitfalls"></div></section>' +
+        '</div>' +
+      '</article>' +
+    '</section>' +
+    '<section class="panel nn-story">' +
+      '<div class="nn-section-head"><h2>理解这个模型</h2><span>用和 LeNet 同一档的教学粒度解释关键设计。</span></div>' +
+      '<p class="nn-story-intro" id="nnStoryIntro"></p>' +
+      '<div class="nn-story-grid" id="nnStoryGrid"></div>' +
+    '</section>' +
+    '<section class="panel nn-results">' +
+      '<div class="nn-section-head"><h2>运行结果</h2><span id="nnResultHint">运行前先看预期阶段，运行后再对照真实中间结果。</span></div>' +
+      '<div class="nn-metrics" id="nnMetrics"></div>' +
+      '<div class="nn-results-grid" id="nnResults"><div class="nn-note">正在加载预期阶段</div></div>' +
+    '</section>';
+
+  document.getElementById('nnCrumb').textContent = (cfg.phase || '深度学习') + ' / ' + (cfg.title || id);
+  document.getElementById('nnTitle').textContent = cfg.title || id;
+  document.getElementById('nnSubtitle').textContent = (clean && clean.explain) || cfg.tagline || cfg.english || '把网络结构、训练目标和运行结果放在一个统一工作台里理解。';
+  document.getElementById('nnPhase').textContent = cfg.phase || '深度学习 / 前沿视觉';
+  document.getElementById('nnArch').innerHTML = showcaseMod.arch || mod.arch || '';
+  document.getElementById('nnPipeline').innerHTML = renderPipelineCards();
+  document.getElementById('nnExplain').innerHTML = (clean && clean.explain) || showcaseMod.explain || cfg.tagline || '';
+  document.getElementById('nnObjective').innerHTML = '<strong>这一页不只是展示 UI。</strong>' + escapeHtml(pack.objective || '这一类模型的目标是把结构、训练目标和输出解释连起来理解。');
+  document.getElementById('nnFormulas').innerHTML = renderFormulaCards();
+  document.getElementById('nnObserve').innerHTML = renderGuideList(pack.observe);
+  document.getElementById('nnPitfalls').innerHTML = renderGuideList(pack.pitfalls);
+  document.getElementById('nnStoryIntro').textContent = (clean && clean.storyIntro) || story.intro || '这一栏不是结果面板，而是把模型真正重要的设计思想拆成几个局部切片。';
+  document.getElementById('nnStoryGrid').innerHTML = buildStoryGrid() || '<div class="nn-note">当前模块暂未补充额外的概念拆解卡片。</div>';
+  document.getElementById('nnChipGrid').innerHTML = ((clean && clean.chips) || showcaseMod.chips || []).slice(0, 4).map(function(item, index) {
+    return '<div class="nn-chip"><strong>重点 ' + (index + 1) + '</strong>' + escapeHtml(item) + '</div>';
+  }).join('') || '<div class="nn-chip"><strong>模块说明</strong>' + escapeHtml(cfg.tagline || '暂无概览信息') + '</div>';
+  document.getElementById('nnFacts').innerHTML = currentFacts().map(function(item) {
+    return '<div class="nn-meta-item"><div class="nn-meta-label">' + escapeHtml(item.label) + '</div><div class="nn-meta-value">' + escapeHtml(item.value) + '</div></div>';
+  }).join('');
+
+  var state = implementationState(impl);
+  var implPill = document.getElementById('nnImplPill');
+  implPill.textContent = state.label;
+  implPill.className = 'status ' + state.cls;
+
+  var badge1 = document.getElementById('nnBadge1');
+  if (showcaseMod.badge) {
+    badge1.hidden = false;
+    badge1.textContent = showcaseMod.badge;
+  }
+
+  var badge2 = document.getElementById('nnBadge2');
+  var task = taskBadge(id);
+  if (task) {
+    badge2.hidden = false;
+    badge2.textContent = task;
+  }
+
+  var uploadEl = document.getElementById('nnUpload');
+  var fileInput = document.getElementById('nnFileInput');
+  var uploadName = document.getElementById('nnUploadName');
+  var runBtn = document.getElementById('nnRunBtn');
+  var controlsWrap = document.getElementById('nnControls');
+
+  controlsWrap.innerHTML = buildControls();
+  Array.prototype.slice.call(controlsWrap.querySelectorAll('input[type=range]')).forEach(function(input) {
+    var valueEl = document.getElementById('val_' + input.name);
+    var sync = function() {
+      valueEl.textContent = Number(input.value) % 1 === 0 ? input.value : Number(input.value).toFixed(2);
+    };
+    input.addEventListener('input', sync);
+    sync();
+  });
+
+  function syncRunButton() {
+    if (isUnavailable) {
+      runBtn.disabled = true;
+      runBtn.classList.add('muted');
+      runBtn.textContent = showcaseMod.btn || '当前不可运行';
+      return;
+    }
+    if (requiresUpload && !selectedFile) {
+      runBtn.disabled = true;
+      runBtn.classList.remove('muted');
+      runBtn.textContent = showcaseMod.btn || '请先上传图片';
+      return;
+    }
+    runBtn.disabled = false;
+    runBtn.classList.remove('muted');
+    runBtn.textContent = showcaseMod.btn || '运行';
+  }
+
+  if (requiresUpload) {
+    uploadEl.hidden = false;
+    uploadEl.addEventListener('click', function() { fileInput.click(); });
+    uploadEl.addEventListener('dragover', function(event) {
+      event.preventDefault();
+      uploadEl.classList.add('active');
+    });
+    uploadEl.addEventListener('dragleave', function() {
+      uploadEl.classList.remove('active');
+    });
+    uploadEl.addEventListener('drop', function(event) {
+      event.preventDefault();
+      uploadEl.classList.remove('active');
+      if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+        selectedFile = event.dataTransfer.files[0];
+        uploadName.textContent = selectedFile.name;
+        syncRunButton();
+      }
+    });
+    fileInput.addEventListener('change', function() {
+      if (fileInput.files && fileInput.files[0]) {
+        selectedFile = fileInput.files[0];
+        uploadName.textContent = selectedFile.name;
+        syncRunButton();
+      }
+    });
+  }
+
+  document.getElementById('nnRunHint').textContent = requiresUpload ? '上传图片后，调用当前模块的真实实现或本地回退实现。' : '当前模块可以直接运行，不需要额外上传输入图像。';
+  document.getElementById('nnRunNote').textContent = impl.note || '该工作台会保留结构讲解，再把运行输出按步骤展开。';
+
+  if (isUnavailable) {
+    setStatus('info', [impl.note || '当前模块需要外部权重或远程资源，所以这里只展示结构与原理。']);
+  } else {
+    setStatus('info', [requiresUpload ? '先上传一张图片，再运行该模型。' : '可以直接点击运行，查看当前模型的分步输出。']);
+  }
+  renderMetrics({});
+  renderResults([]);
+  syncRunButton();
+
+  runBtn.addEventListener('click', function() {
+    if (isUnavailable || runBtn.disabled) return;
+    var form = new FormData();
+    if (selectedFile) form.append('file', selectedFile);
+    Array.prototype.slice.call(controlsWrap.querySelectorAll('input,select')).forEach(function(input) {
+      form.append(input.name, input.value);
+    });
+
+    runBtn.disabled = true;
+    setStatus('info', ['正在调用 ' + (cfg.title || id) + ' 的实现...', '返回结果后会按步骤重新铺开。']);
+
+    fetch('/api/demo/' + id, { method: 'POST', body: form })
+      .then(function(resp) {
+        return resp.json().catch(function() { return null; }).then(function(payload) {
+          if (resp.ok) return payload;
+          throw new Error((payload && payload.error) || ('HTTP ' + resp.status));
+        });
+      })
+      .then(function(payload) {
+        renderMetrics(payload.metrics || {});
+        renderResults(payload.steps || []);
+        document.getElementById('nnResultHint').textContent = '已完成一次运行。现在可以把结构总览和分步结果对照起来看。';
+        setStatus('ok', ['运行完成。', '指标和中间结果已经同步更新到下方结果区。']);
+      })
+      .catch(function(err) {
+        setStatus('error', ['运行失败：' + (err.message || err)]);
+      })
+      .finally(function() {
+        syncRunButton();
+      });
+  });
+})();
+</script>
+</body>
+</html>

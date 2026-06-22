@@ -126,3 +126,50 @@ def train_kernel(target_preset='edge_detect', kernel_size=3, input_size=7,
         'final_kernel': np.round(current, 4).tolist(),
         'final_loss': round(float(final_loss), 6),
     }
+
+
+def build_pipeline(image_path=None, target_preset='edge_detect', **kwargs):
+    """Real kernel training demo via gradient descent."""
+    import numpy as np
+    from PIL import Image
+    import io, base64
+
+    result = train_kernel(target_preset=target_preset, kernel_size=3, input_size=7,
+                          learning_rate=0.1, iterations=100)
+
+    def _b64(arr):
+        b = io.BytesIO(); Image.fromarray(arr).save(b, 'PNG')
+        return base64.b64encode(b.getvalue()).decode()
+
+    # Loss curve visualization
+    losses = result.get('loss_history', [])
+    loss_vis = np.zeros((150, 300, 3), dtype=np.uint8) + 20
+    if losses:
+        max_l = max(losses) if losses else 1
+        for i, l in enumerate(losses):
+            x = int(i / max(len(losses)-1, 1) * 280) + 10
+            y = 130 - int(l / max(max_l, 1e-8) * 110)
+            loss_vis[y:y+2, x:x+2] = [239, 68, 68]
+
+    # Kernel visualization
+    target = np.array(result.get('target_kernel', [])).reshape(3,3) if result.get('target_kernel') else np.zeros((3,3))
+    final = np.array(result.get('final_kernel', [])).reshape(3,3) if result.get('final_kernel') else np.zeros((3,3))
+    kv = np.zeros((80, 160, 3), dtype=np.uint8) + 30
+    if target.size == 9 and final.size == 9:
+        for r in range(3):
+            for c in range(3):
+                tv = int((target[r,c] - target.min()) / max(target.max()-target.min(), 1e-8) * 60)
+                fv = int((final[r,c] - final.min()) / max(final.max()-final.min(), 1e-8) * 60)
+                kv[10+r*22:10+r*22+tv, 10+c*22:10+c*22+15] = [59,130,246]
+                kv[10+r*22:10+r*22+fv, 90+c*22:90+c*22+15] = [34,197,94]
+
+    return {'steps': [
+        {'id': 'loss', 'name': '损失曲线 (100轮)', 'image': _b64(loss_vis),
+         'explanation': f'SGD训练100轮，最终损失={result.get("final_loss",0):.6f}。红色=损失下降轨迹。'},
+        {'id': 'kernels', 'name': '目标核(蓝) vs 学习核(绿)', 'image': _b64(kv),
+         'explanation': '左=目标核，右=梯度下降学到的核。绿色接近蓝色表示学习成功。'},
+    ], 'metrics': {
+        'status': 'numpy_algorithm', 'backend': 'NumPy SGD',
+        'algorithm': 'Kernel Gradient Descent',
+        'iterations': 100, 'final_loss': round(result.get('final_loss', 0), 6),
+    }}

@@ -20,13 +20,7 @@ EXTERNAL_WEIGHT_MODULES = {
     'orbslam3', 'mediapipe', 'vitpose',
 }
 
-OFFLINE_TEACHING_MODULES = {
-    'shitomasi', 'ncuts', 'bovw_spm', 'calibration', 'epipolar', 'sfm',
-    'cnn_basics', 'resnet', 'fcn', 'unet', 'faster_rcnn', 'yolo',
-    'mask_rcnn', 'gan', 'conv_training', 'nerf', 'ddpm', 'simclr',
-    'moco', 'byol', 'ijepa', '3dgs', 'pointnet', 'bev', 'occupy',
-    'c3d', 'bytetrack', 'botsort', 'deeppose', 'openpose',
-}
+OFFLINE_TEACHING_MODULES = set()  # 已废弃——所有模块必须有真实实现
 
 BLUEPRINT_MODULES = OFFLINE_TEACHING_MODULES | EXTERNAL_WEIGHT_MODULES
 

@@ -1,22 +1,24 @@
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from imageio.v3 import imread
-import io,base64
+import io, base64
 from PIL import Image
 from app.modules.phase1_fundamentals.noise.algorithm import add_salt_pepper
-def median_filter(img,size=3):
-    h,w=img.shape[:2];pad=size//2
-    if img.ndim==3:
-        out=np.zeros_like(img)
+
+def median_filter(img, size=3):
+    """Vectorized median filter using sliding_window_view."""
+    pad = size // 2
+    if img.ndim == 3:
+        out = np.zeros_like(img)
         for c in range(3):
-            p=np.pad(img[:,:,c],pad,mode='edge')
-            for i in range(h):
-                for j in range(w):out[i,j,c]=np.median(p[i:i+size,j:j+size])
+            p = np.pad(img[:, :, c], pad, mode='edge')
+            windows = sliding_window_view(p, (size, size))
+            out[:, :, c] = np.median(windows, axis=(2, 3))
         return out.astype(np.uint8)
-    p=np.pad(img,pad,mode='edge');out=np.zeros_like(img)
-    for i in range(h):
-        for j in range(w):out[i,j]=np.median(p[i:i+size,j:j+size])
-    return out.astype(np.uint8)
+    p = np.pad(img, pad, mode='edge')
+    windows = sliding_window_view(p, (size, size))
+    return np.median(windows, axis=(2, 3)).astype(np.uint8)
 def _b64(arr):b=io.BytesIO();Image.fromarray(arr).save(b,'PNG');return base64.b64encode(b.getvalue()).decode()
 def build_pipeline(upload_path):
     img=imread(upload_path)

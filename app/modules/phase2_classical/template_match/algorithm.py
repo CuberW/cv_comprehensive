@@ -1,16 +1,31 @@
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from imageio.v3 import imread
-import io,base64
-from PIL import Image,ImageDraw
-def ncc_match(img,template):
-    h,w=img.shape[:2];th,tw=template.shape[:2];result=np.zeros((h-th+1,w-tw+1))
-    tm=template.mean();ts=template.std() or 1e-8
-    for i in range(h-th+1):
-        for j in range(w-tw+1):
-            p=img[i:i+th,j:j+tw];pm=p.mean();ps=p.std() or 1e-8
-            result[i,j]=((p-pm)*(template-tm)).mean()/(ps*ts)
-    return result
+import io, base64
+from PIL import Image, ImageDraw
+
+def ncc_match(img, template):
+    """Vectorized NCC template matching using sliding_window_view."""
+    h, w = img.shape[:2]
+    th, tw = template.shape[:2]
+    # Extract all windows: shape (H-th+1, W-tw+1, th, tw)
+    windows = sliding_window_view(img, (th, tw))
+    n_windows = (h - th + 1) * (w - tw + 1)
+    windows_flat = windows.reshape(n_windows, th * tw).astype(np.float64)
+
+    tm_flat = template.ravel().astype(np.float64)
+    tm_mean = tm_flat.mean()
+    tm_std = float(tm_flat.std()) or 1e-8
+    tm_norm = (tm_flat - tm_mean) / tm_std
+
+    p_mean = windows_flat.mean(axis=1, keepdims=True)
+    p_std = windows_flat.std(axis=1, keepdims=True)
+    p_std = np.maximum(p_std, 1e-8)
+    p_norm = (windows_flat - p_mean) / p_std
+
+    ncc = (p_norm * tm_norm).sum(axis=1) / (th * tw)
+    return ncc.reshape(h - th + 1, w - tw + 1)
 def _b64(arr):b=io.BytesIO();Image.fromarray(arr).save(b,'PNG');return base64.b64encode(b.getvalue()).decode()
 def build_pipeline(upload_path):
     img=imread(upload_path)

@@ -15,4 +15,4 @@ class VisionTransformerViTModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'vit.html'
+        return 'nn_interactive.html?id=vit'

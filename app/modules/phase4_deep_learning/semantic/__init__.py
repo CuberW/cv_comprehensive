@@ -17,4 +17,4 @@ class SemanticModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'detection_segmentation.html?module=semantic'
+        return 'nn_interactive.html?id=semantic'

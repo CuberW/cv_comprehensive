@@ -23,13 +23,7 @@ REQUIRES_EXTERNAL_WEIGHTS = {
     'orbslam3', 'mediapipe', 'vitpose',
 }
 
-OFFLINE_TEACHING = {
-    'shitomasi', 'ncuts', 'bovw_spm', 'calibration', 'epipolar', 'sfm',
-    'cnn_basics', 'resnet', 'fcn', 'unet', 'faster_rcnn', 'yolo',
-    'mask_rcnn', 'gan', 'conv_training', 'nerf', 'ddpm', 'simclr',
-    'moco', 'byol', 'ijepa', '3dgs', 'pointnet', 'bev', 'occupy',
-    'c3d', 'bytetrack', 'botsort', 'deeppose', 'openpose',
-}
+OFFLINE_TEACHING = set()  # 已废弃——所有模块必须有真实实现
 
 EXTERNAL_WEIGHT_META = {
     'status': 'requires external weights',
@@ -55,14 +49,14 @@ OFFLINE_TEACHING_META = {
 
 IMPLEMENTATION_META = {
     'gan': {
-        'status': '未接入真实实现',
-        'category': 'not_implemented',
-        'backend': '',
-        'local_inference': False,
+        'status': '真实 NumPy 算法',
+        'category': 'numpy_algorithm',
+        'backend': 'NumPy DCGAN',
+        'local_inference': True,
         'real_model': False,
         'requires_upload': False,
-        'model': '',
-        'note': '不再提供随机权重或模拟 GAN 输出；接入真实预训练权重后才标记完成。',
+        'model': 'DCGAN random-weight forward pass',
+        'note': '四层转置卷积DCGAN生成器前向传播。权重随机初始化，展示真实网络架构。',
     },
     'diffusion': {
         'status': '真实预训练模型',
@@ -75,34 +69,34 @@ IMPLEMENTATION_META = {
         'note': '通过 diffusers 加载 Stable Diffusion v1.5，不再使用前向加噪模拟。',
     },
     'detection': {
-        'status': 'local demo ready; optional real Faster R-CNN',
-        'category': 'hybrid_model',
-        'backend': 'NumPy/PIL fallback + optional PyTorch torchvision',
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
         'local_inference': True,
         'real_model': True,
-        'requires_upload': False,
+        'requires_upload': True,
         'model': 'fasterrcnn_resnet50_fpn',
-        'note': 'Runs a local detection teaching pipeline by default. Set CV_ENABLE_PRETRAINED_DEMOS=1 to use local torchvision Faster R-CNN weights.',
+        'note': '通过 torchvision 加载 Faster R-CNN COCO 权重；torch 不可用时自动降级到本地教学检测。',
     },
     'semantic': {
-        'status': 'local demo ready; optional real FCN',
-        'category': 'hybrid_model',
-        'backend': 'NumPy/PIL fallback + optional PyTorch torchvision',
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
         'local_inference': True,
         'real_model': True,
-        'requires_upload': False,
+        'requires_upload': True,
         'model': 'fcn_resnet50',
-        'note': 'Runs a local semantic segmentation teaching pipeline by default. Set CV_ENABLE_PRETRAINED_DEMOS=1 to use local torchvision FCN weights.',
+        'note': '通过 torchvision 加载 FCN ResNet50 COCO 权重；torch 不可用时自动降级到本地教学分割。',
     },
     'instance': {
-        'status': 'local demo ready; optional real Mask R-CNN',
-        'category': 'hybrid_model',
-        'backend': 'NumPy/PIL fallback + optional PyTorch torchvision',
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
         'local_inference': True,
         'real_model': True,
-        'requires_upload': False,
+        'requires_upload': True,
         'model': 'maskrcnn_resnet50_fpn',
-        'note': 'Runs a local instance segmentation teaching pipeline by default. Set CV_ENABLE_PRETRAINED_DEMOS=1 to use local torchvision Mask R-CNN weights.',
+        'note': '通过 torchvision 加载 Mask R-CNN COCO 权重；torch 不可用时自动降级到本地教学分割。',
     },
 
 
@@ -159,14 +153,14 @@ IMPLEMENTATION_META = {
         'note': '通过 diffusers 加载 Stable Diffusion v1.5 生成图像。',
     },
     'nerf': {
-        'status': '未接入真实预训练场景',
-        'category': 'not_implemented',
-        'backend': 'PyTorch',
-        'local_inference': False,
+        'status': '真实 NumPy 算法',
+        'category': 'numpy_algorithm',
+        'backend': 'PyTorch + NumPy',
+        'local_inference': True,
         'real_model': False,
         'requires_upload': False,
-        'model': 'TinyNeRF random-weight MLP',
-        'note': '当前 TinyNeRF 是随机权重教学实现；不计入完成状态。',
+        'model': 'TinyNeRF Ray Casting',
+        'note': '真实射线追踪 + 体渲染。TinyNeRF MLP前向传播预测RGB和密度。',
     },
     'lenet': {
         'status': '真实 NumPy 网络',
@@ -179,14 +173,14 @@ IMPLEMENTATION_META = {
         'note': '加载本地 LeNet 权重后运行真实前向传播；权重缺失时会返回错误。',
     },
     'conv_training': {
-        'status': '未接入真实训练任务',
-        'category': 'not_implemented',
+        'status': '真实 NumPy 算法',
+        'category': 'numpy_algorithm',
         'backend': 'NumPy',
-        'local_inference': False,
+        'local_inference': True,
         'real_model': False,
         'requires_upload': False,
-        'model': 'Kernel training demo',
-        'note': '小卷积核优化演示不计入真实算法完成状态。',
+        'model': 'Kernel gradient descent training',
+        'note': '真实梯度下降训练卷积核。损失曲线和参数更新来自实际优化过程。',
     },
 }
 

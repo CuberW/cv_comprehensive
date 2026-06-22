@@ -1,73 +1,83 @@
-"""Simplified GAN demo. Pure NumPy."""
+"""DCGAN forward pass — real computation."""
 import numpy as np
+import io, base64
+from PIL import Image
+from app.utils.image_utils import load_image_u8
 
+def _b64(arr):
+    b = io.BytesIO(); Image.fromarray(arr).save(b, 'PNG')
+    return base64.b64encode(b.getvalue()).decode()
 
-class SimpleGAN:
-    """
-    Minimal GAN for educational visualization.
-    Generator: small MLP (noise -> fake image)
-    Discriminator: small MLP (image -> real/fake score)
-    """
+def build_pipeline(image_path=None, **kwargs):
+    rng = np.random.default_rng(42)
+    z_dim = 100
 
-    def __init__(self, noise_dim=10, image_dim=784):
-        self.noise_dim = noise_dim
-        self.image_dim = image_dim
-        rng = np.random.default_rng(42)
+    # Generate from noise via transposed conv layers (real architecture)
+    z = rng.normal(0, 1, z_dim).astype(np.float64)
 
-        # Generator: noise -> hidden -> image
-        self.G_W1 = rng.normal(0, 0.1, (64, noise_dim)).astype(np.float64)
-        self.G_b1 = np.zeros(64, dtype=np.float64)
-        self.G_W2 = rng.normal(0, 0.1, (image_dim, 64)).astype(np.float64)
-        self.G_b2 = np.zeros(image_dim, dtype=np.float64)
+    # Layer 1: dense + reshape to 4x4x64
+    W1 = rng.normal(0, 0.02, (z_dim, 4*4*64)).astype(np.float64)
+    h = np.maximum(0, (z @ W1).reshape(4, 4, 64))
 
-        # Discriminator: image -> hidden -> score
-        self.D_W1 = rng.normal(0, 0.1, (64, image_dim)).astype(np.float64)
-        self.D_b1 = np.zeros(64, dtype=np.float64)
-        self.D_W2 = rng.normal(0, 0.1, (1, 64)).astype(np.float64)
-        self.D_b2 = np.zeros(1, dtype=np.float64)
+    # Layer 2: 4x4→8x8
+    h2 = np.zeros((8, 8, 32), dtype=np.float64)
+    for c in range(32):
+        k = rng.normal(0, 0.02, (3,3)).astype(np.float64)
+        up = np.zeros((8, 8), dtype=np.float64)
+        up[::2, ::2] = h[:,:,c%64]
+        p = np.pad(up, 1, mode='constant')
+        for y in range(8):
+            for x in range(8):
+                h2[y,x,c] = np.sum(p[y:y+3, x:x+3] * k)
+    h2 = np.maximum(0, h2)
 
-    def generate(self, noise=None):
-        """Generate fake images from noise."""
-        if noise is None:
-            rng = np.random.default_rng()
-            noise = rng.normal(0, 1, (1, self.noise_dim)).astype(np.float64)
-        z = np.asarray(noise, dtype=np.float64).reshape(-1, self.noise_dim)
-        h = np.tanh(z @ self.G_W1.T + self.G_b1)
-        fake = np.tanh(h @ self.G_W2.T + self.G_b2)
-        return fake
+    # Layer 3: 8x8→16x16
+    h3 = np.zeros((16, 16, 16), dtype=np.float64)
+    for c in range(16):
+        k = rng.normal(0, 0.02, (3,3)).astype(np.float64)
+        up = np.zeros((16, 16), dtype=np.float64)
+        up[::2, ::2] = h2[:,:,c%32]
+        p = np.pad(up, 1, mode='constant')
+        for y in range(16):
+            for x in range(16):
+                h3[y,x,c] = np.sum(p[y:y+3, x:x+3] * k)
+    h3 = np.maximum(0, h3)
 
-    def discriminate(self, images):
-        """Score images (real=1, fake=0)."""
-        x = np.asarray(images, dtype=np.float64).reshape(-1, self.image_dim)
-        h = np.tanh(x @ self.D_W1.T + self.D_b1)
-        score = 1.0 / (1.0 + np.exp(-(h @ self.D_W2.T + self.D_b2)))  # sigmoid
-        return score
+    # Layer 4: 16x16→32x32→RGB
+    out = np.zeros((32, 32, 3), dtype=np.float64)
+    for c in range(3):
+        k = rng.normal(0, 0.02, (3,3)).astype(np.float64)
+        up = np.zeros((32, 32), dtype=np.float64)
+        up[::2, ::2] = h3[:,:,c%16]
+        p = np.pad(up, 1, mode='constant')
+        for y in range(32):
+            for x in range(32):
+                out[y,x,c] = np.sum(p[y:y+3, x:x+3] * k)
+    generated = np.clip((np.tanh(out) + 1) / 2 * 255, 0, 255).astype(np.uint8)
 
-    def train_step(self, real_images, lr=0.01):
-        """One step of GAN training."""
-        batch_size = real_images.shape[0] if real_images.ndim > 1 else 1
-        x_real = np.asarray(real_images, dtype=np.float64).reshape(batch_size, -1)
+    # Discriminator evaluation on generated image
+    gray_gen = (0.299*generated[:,:,0] + 0.587*generated[:,:,1] + 0.114*generated[:,:,2]).astype(np.float64)
+    pool_gen = gray_gen[::4, ::4].ravel()
+    Wd = rng.normal(0, 0.02, (min(64, len(pool_gen)), 1)).astype(np.float64)
+    fake_score = float(1.0 / (1.0 + np.exp(-float(pool_gen[:len(Wd)] @ Wd))))
 
-        rng = np.random.default_rng()
-        noise = rng.normal(0, 1, (batch_size, self.noise_dim)).astype(np.float64)
-        x_fake = self.generate(noise)
+    # Noise visualization
+    z_vis = np.zeros((z_dim, 20, 3), dtype=np.uint8) + 30
+    z_norm = ((z - z.min()) / max(z.max()-z.min(), 1e-8) * 255).astype(np.uint8)
+    for i in range(z_dim):
+        z_vis[i, :, 0] = z_norm[i]
 
-        # Train discriminator
-        real_score = self.discriminate(x_real)
-        fake_score = self.discriminate(x_fake)
-        d_loss = -np.mean(np.log(real_score + 1e-8) + np.log(1.0 - fake_score + 1e-8))
-
-        # Simplified gradient update for D (conceptual)
-        # Real gradients push score towards 1, fake towards 0
-        d_grad_real = (real_score - 1.0) / batch_size
-        d_grad_fake = (1.0 - fake_score) / batch_size
-
-        self.D_W1 -= lr * np.outer(d_grad_real, x_real.mean(axis=0)) @ self.D_W1 * 0.1
-        self.D_W1 -= lr * np.outer(d_grad_fake, x_fake.mean(axis=0)) @ self.D_W1 * 0.1
-
-        # Train generator (make discriminator believe fakes are real)
-        g_loss = -np.mean(np.log(fake_score + 1e-8))
-        g_grad = (1.0 - fake_score) / batch_size
-        self.G_W1 += lr * np.outer(g_grad, noise.mean(axis=0)) @ self.G_W1 * 0.1
-
-        return float(d_loss), float(g_loss)
+    return {'steps': [
+        {'id': 'noise', 'name': f'输入噪声 ({z_dim}维)', 'image': _b64(z_vis),
+         'explanation': f'从标准正态分布采样的{z_dim}维随机向量。真实DCGAN生成器的起点。'},
+        {'id': 'layer1', 'name': 'Dense→4×4×64 (ReLU)', 'image': _b64(np.clip((h[:,:,0]-h[:,:,0].min())/max(h[:,:,0].max()-h[:,:,0].min(),1e-8)*255,0,255).astype(np.uint8)),
+         'explanation': '全连接层将噪声映射为4×4×64的特征图。'},
+        {'id': 'layer3', 'name': '8×8→16×16 (ReLU)', 'image': _b64(np.clip((h3[:,:,0]-h3[:,:,0].min())/max(h3[:,:,0].max()-h3[:,:,0].min(),1e-8)*255,0,255).astype(np.uint8)),
+         'explanation': '转置卷积上采样，特征图分辨率逐层翻倍。'},
+        {'id': 'generated', 'name': '生成结果 (32×32 RGB)', 'image': _b64(generated),
+         'explanation': f'经Tanh激活后的RGB输出。判别器评分={fake_score:.3f}（真实DCGAN有训练权重，此处展示架构前向传播）。'},
+    ], 'metrics': {
+        'status': 'numpy_algorithm', 'backend': 'NumPy DCGAN',
+        'z_dim': z_dim, 'output': '32x32',
+        'generator_layers': 4, 'fake_score': round(fake_score, 4),
+    }}

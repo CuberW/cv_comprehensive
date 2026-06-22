@@ -17,4 +17,4 @@ class DetectionModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'detection_segmentation.html?module=detection'
+        return 'nn_interactive.html?id=detection'

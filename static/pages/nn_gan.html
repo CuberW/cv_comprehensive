@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAN 生成对抗网络 - Cvtoolkits</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+:root{--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:var(--text)}
+.nn-page{max-width:960px;margin:0 auto;padding:16px 20px}
+.nn-topbar{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.nn-topbar h1{font-size:1.15rem}
+.badge{padding:3px 10px;border-radius:999px;font-size:0.75rem}
+.badge-g{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge-d{background:rgba(239,68,68,.15);color:#f87171}
+.nn-grid{display:grid;grid-template-columns:1.2fr 0.8fr;gap:14px;margin-bottom:14px}
+.nn-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.nn-panel h3{font-size:0.9rem;margin-bottom:10px}
+.guide-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.guide-chip{padding:5px 10px;border-radius:999px;font-size:0.75rem;background:rgba(100,116,139,.1);border:1px solid var(--border);color:var(--muted)}
+.arch-flow{display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap}
+.arch-node{padding:10px 16px;border-radius:8px;text-align:center;font-size:0.78rem}
+.node-noise{background:rgba(100,116,139,.2);border:1px dashed rgba(100,116,139,.4)}
+.node-gen{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3)}
+.node-fake{background:rgba(239,68,68,.1);border:1px dashed rgba(239,68,68,.3)}
+.node-real{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)}
+.node-disc{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3)}
+.arch-arrow{color:var(--muted);font-size:1.2rem}
+.btn{display:block;width:100%;padding:10px;border-radius:8px;border:0;font-size:0.85rem;cursor:pointer;font-weight:600;margin-bottom:8px}
+.btn-gen{background:#3b82f6;color:#fff}
+.btn-gen:disabled{opacity:.5}
+.canvas-wrap{border-radius:8px;overflow:hidden;background:#000;min-height:180px;display:grid;place-items:center;margin:8px 0}
+.canvas-wrap img{max-width:100%;display:block}
+.canvas-wrap .placeholder{color:var(--muted);font-size:0.85rem;padding:40px;text-align:center}
+.status-bar{padding:6px 12px;border-radius:6px;font-size:0.8rem;margin-top:8px}
+.s-ok{background:rgba(34,197,94,.1);color:#4ade80}
+.s-err{background:rgba(239,68,68,.1);color:#f87171}
+.score-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.score-card{background:rgba(0,0,0,.2);border-radius:8px;padding:12px;text-align:center}
+.score-card .val{font-size:1.4rem;font-weight:700}
+.score-card .lbl{font-size:0.75rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="nn-page">
+  <div class="nn-topbar">
+    <a href="cnn_basics_hub.html" style="color:var(--muted);text-decoration:none;font-size:0.82rem;">← CNN基础</a>
+    <h1>GAN 生成对抗网络</h1>
+    <span class="badge badge-g">生成器 G</span>
+    <span class="badge badge-d">判别器 D</span>
+  </div>
+
+  <div class="nn-grid">
+    <div class="nn-panel">
+      <h3>网络结构 & 训练博弈</h3>
+      <div class="guide-chips">
+        <span class="guide-chip">G 从噪声生成图像，试图骗过 D</span>
+        <span class="guide-chip">D 学习区分真实图和生成图</span>
+        <span class="guide-chip">零和博弈：G 变强 → D 被迫更强</span>
+        <span class="guide-chip">模式坍塌：G 只学会少数几种输出</span>
+      </div>
+      <div class="arch-flow">
+        <span class="arch-node node-noise">随机噪声<br>z ~ N(0,1)<br>100维</span>
+        <span class="arch-arrow">→</span>
+        <span class="arch-node node-gen">生成器 G<br>Dense→4×4×64<br>↑ 8×8×32<br>↑ 16×16×16<br>↑ 32×32×3</span>
+        <span class="arch-arrow">→</span>
+        <span class="arch-node node-fake">生成图<br>32×32 RGB</span>
+      </div>
+      <div class="arch-flow" style="justify-content:center">
+        <span class="arch-node node-real">真实图<br>32×32</span>
+        <span class="arch-arrow">↘</span>
+        <span class="arch-node node-disc">判别器 D<br>Conv→Pool<br>→FC→1<br>Sigmoid</span>
+        <span class="arch-arrow">↗</span>
+        <span class="arch-node node-fake">生成图</span>
+      </div>
+      <div style="text-align:center;margin-top:10px;font-size:0.8rem;color:var(--muted)">
+        D(real)→1 &nbsp; D(fake)→0 &nbsp; G 的梯度来自 D(fake)→1
+      </div>
+    </div>
+
+    <div class="nn-panel">
+      <h3>运行生成</h3>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px">DCGAN 前向传播——四层转置卷积将噪声逐步上采样为 RGB 图像</p>
+      <button class="btn btn-gen" id="genBtn">生成图像</button>
+      <div class="canvas-wrap" id="genCanvas">
+        <div class="placeholder">点击「生成图像」运行 DCGAN 前向传播</div>
+      </div>
+      <div id="status"></div>
+      <div class="score-grid" id="scores"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('genBtn').addEventListener('click', function(){
+  var btn = this; btn.disabled = true;
+  document.getElementById('status').innerHTML = '<div class="status-bar s-ok">正在运行 DCGAN...</div>';
+  fetch('/api/demo/gan', {method:'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.error) throw new Error(data.error);
+      var steps = data.steps || [];
+      var html = '';
+      steps.forEach(function(s){
+        if (s.image_base64) {
+          html += '<img src="data:image/png;base64,' + s.image_base64 + '" alt="'+(s.name||'')+'" style="max-width:100%;margin-bottom:8px;border-radius:6px">';
+        }
+      });
+      document.getElementById('genCanvas').innerHTML = html || '<div class="placeholder">无输出</div>';
+
+      var m = data.metrics || {};
+      document.getElementById('scores').innerHTML =
+        '<div class="score-card"><div class="val">'+m.z_dim+'</div><div class="lbl">噪声维度</div></div>' +
+        '<div class="score-card"><div class="val">'+m.output+'</div><div class="lbl">输出尺寸</div></div>' +
+        '<div class="score-card"><div class="val">'+(m.fake_score||0).toFixed(3)+'</div><div class="lbl">D 对生成图评分</div></div>' +
+        '<div class="score-card"><div class="val">'+m.generator_layers+'</div><div class="lbl">转置卷积层数</div></div>';
+      document.getElementById('status').innerHTML = '<div class="status-bar s-ok">DCGAN 前向传播完成</div>';
+    })
+    .catch(function(e){
+      document.getElementById('status').innerHTML = '<div class="status-bar s-err">失败: ' + (e.message||e) + '</div>';
+    })
+    .finally(function(){ btn.disabled = false; });
+});
+</script>
+</body>
+</html>

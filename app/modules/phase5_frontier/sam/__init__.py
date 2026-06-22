@@ -15,4 +15,4 @@ class SegmentAnythingSAMModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'sam.html'
+        return 'nn_interactive.html?id=sam'

@@ -1,17 +1,10 @@
-"""Stereo block matching for disparity estimation. Pure NumPy."""
+"""Stereo block matching for disparity estimation. Pure NumPy, vectorized."""
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def block_matching_disparity(left_img, right_img, block_size=9, max_disparity=64):
-    """
-    Compute disparity map using block matching (SAD - Sum of Absolute Differences).
-    For each pixel in the left image, find the best matching patch in the right image
-    along the same row (epipolar constraint).
-
-    disparity = x_left - x_right  (larger = closer object)
-
-    Returns: disparity map (float, same size as input)
-    """
+    """Vectorized block matching using sliding_window_view."""
     left = np.asarray(left_img, dtype=np.float64)
     right = np.asarray(right_img, dtype=np.float64)
 
@@ -22,26 +15,44 @@ def block_matching_disparity(left_img, right_img, block_size=9, max_disparity=64
 
     h, w = left.shape
     half = block_size // 2
-    disparity = np.zeros((h, w), dtype=np.float64)
+    bs = block_size
 
-    for y in range(half, h - half):
-        for x in range(half, w - half):
-            patch_left = left[y-half:y+half+1, x-half:x+half+1]
-            best_sad = np.inf
-            best_d = 0
+    if h < bs or w < bs:
+        return np.zeros((h, w), dtype=np.float64)
 
-            # Search range: from x-max_disparity to x
-            search_start = max(half, x - max_disparity)
-            for d in range(search_start, x - half + 1):
-                patch_right = right[y-half:y+half+1, d-half:d+half+1]
-                sad = np.sum(np.abs(patch_left - patch_right))
-                if sad < best_sad:
-                    best_sad = sad
-                    best_d = x - d
+    # Right image: extract all patches (H, W-bs+1, bs, bs)
+    right_patches = sliding_window_view(right, (bs, bs))
+    rh, rw = right_patches.shape[:2]
 
-            disparity[y, x] = best_d
+    # Left patches: only need the valid region (H-bs+1, W-bs+1, bs, bs)
+    left_patches = sliding_window_view(left, (bs, bs))
+    # Reshape for broadcasting: (H-bs+1, W-bs+1, 1, bs*bs)
+    L = left_patches.reshape(rh, rw, 1, bs * bs)
 
-    return disparity
+    # SAD for each disparity
+    best_sad = np.full((h, w), np.inf, dtype=np.float64)
+    best_disp = np.zeros((h, w), dtype=np.float64)
+
+    # Process disparities in chunks to manage memory
+    max_disp = min(max_disparity, rw - 1)
+    for disp in range(0, max_disp + 1):
+        # Right patches shifted by disp: (H-bs+1, valid_width, bs*bs)
+        valid_w = rw - disp
+        if valid_w <= 0:
+            break
+        R = right_patches[:, disp:disp + valid_w, :, :].reshape(rh, valid_w, 1, bs * bs)
+        L_valid = L[:, :valid_w, :, :]
+
+        # SAD: sum(|L - R|) across patch pixels
+        sad_map = np.sum(np.abs(L_valid[:, :, 0, :] - R[:, :, 0, :]), axis=2)  # (rh, valid_w)
+
+        # Update best: where sad_map < current best
+        y0, x0 = half, half
+        better = sad_map < best_sad[y0:y0 + rh, x0:x0 + valid_w]
+        best_sad[y0:y0 + rh, x0:x0 + valid_w][better] = sad_map[better]
+        best_disp[y0:y0 + rh, x0:x0 + valid_w][better] = disp
+
+    return best_disp
 
 
 def disparity_to_depth(disparity, baseline=0.1, focal_length=500):

@@ -1,6 +1,4 @@
-"""Semantic segmentation demo with local fallback and optional FCN."""
-import os
-
+"""Semantic segmentation with real FCN and local NumPy fallback."""
 import numpy as np
 
 from app.modules.offline_teaching import _load_or_fixture
@@ -10,11 +8,24 @@ from app.utils.image_utils import load_image_u8
 _MODEL = None
 _WEIGHTS = None
 _DEVICE = None
+_TORCH_AVAILABLE = None
+
+
+def _check_torch():
+    global _TORCH_AVAILABLE
+    if _TORCH_AVAILABLE is None:
+        try:
+            import torch  # noqa: F401
+            import torchvision  # noqa: F401
+            _TORCH_AVAILABLE = True
+        except ImportError:
+            _TORCH_AVAILABLE = False
+    return _TORCH_AVAILABLE
 
 
 def _get_model():
     global _MODEL, _WEIGHTS, _DEVICE
-    if _MODEL is None:
+    if _MODEL is None and _check_torch():
         import torch
         from torchvision.models.segmentation import FCN_ResNet50_Weights, fcn_resnet50
 
@@ -27,8 +38,11 @@ def _get_model():
 
 
 def build_pipeline(image_path=None, **kwargs):
-    """Run real FCN when explicitly enabled; otherwise run local segmentation."""
-    if os.environ.get('CV_ENABLE_PRETRAINED_DEMOS') != '1' or not image_path:
+    """Run real FCN by default; fall back to local heuristic if torch unavailable."""
+    if not image_path:
+        return _build_local_pipeline(image_path=image_path, **kwargs)
+
+    if not _check_torch():
         return _build_local_pipeline(image_path=image_path, **kwargs)
 
     img_u8 = load_image_u8(image_path, mode='rgb', max_side=768)

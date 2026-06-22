@@ -23,7 +23,7 @@ const App = (() => {
     { phase:'phase2', color:'#10B981', name:'阶段二 · 经典特征检测', en:'Classical Features', sub:'从像素到结构', diff:2, subs:null, algo:[
       {id:'canny',       n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线:高斯→Sobel→NMS→双阈值→滞后'},
       {id:'harris',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R,特征值三分法'},
-      {id:'shitomasi',   n:'Shi-Tomasi角点', en:'Shi-Tomasi',        d:'R=min(λ₁,λ₂),光流追踪首选', planned:true},
+      {id:'shitomasi',   n:'Shi-Tomasi角点', en:'Shi-Tomasi',        d:'R=min(λ₁,λ₂),光流追踪首选'},
       {id:'sift',        n:'SIFT特征',       en:'SIFT',              d:'四阶段:DoG→极值→方向→128D描述子'},
       {id:'tpl_match',   n:'模板匹配',       en:'Template Match',    d:'CCORR/NCC滑窗,多目标Quickselect'},
       {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)/(x,y,r)参数空间投票'},
@@ -34,24 +34,24 @@ const App = (() => {
     { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'', diff:3, subs:[
       {key:'3A', label:'图像分割', color:'#F59E0B', algo:[
         {id:'kmeans',    n:'K-Means分割',   en:'K-Means Seg',      d:'RGB像素聚类,无监督分割入口'},
-        {id:'ncuts',     n:'Normalized Cuts',en:'Normalized Cuts',  d:'谱聚类:拉普拉斯→Fiedler向量', planned:true},
+        {id:'ncuts',     n:'Normalized Cuts',en:'Normalized Cuts',  d:'谱聚类:拉普拉斯→Fiedler向量'},
         {id:'watershed', n:'分水岭分割',     en:'Watershed',        d:'梯度图→地形浸没+标记控制'},
         {id:'grabcut',   n:'GrabCut',        en:'GrabCut',          d:'GraphCut+迭代GMM交互式抠图'},
         {id:'slic',      n:'SLIC超像素',     en:'SLIC Superpixel',  d:'Lab+xy五维K-means聚类'},
       ]},
       {key:'3B', label:'传统识别管线', color:'#FBBF24', algo:[
         {id:'hog_svm',   n:'HOG+SVM',       en:'HOG+SVM',          d:'梯度直方图+LinearSVM行人检测'},
-        {id:'bovw_spm',  n:'BoVW+SPM',      en:'BoVW+SPM',         d:'SIFT→K-Means词汇→SPM→Chi2SVM', planned:true},
+        {id:'bovw_spm',  n:'BoVW+SPM',      en:'BoVW+SPM',         d:'SIFT→K-Means词汇→SPM→Chi2SVM'},
         {id:'sift_ransac',n:'SIFT+RANSAC',  en:'SIFT+RANSAC',      d:'L2距离→ratio test→RANSAC单应性'},
       ]},
       {key:'3C', label:'运动估计', color:'#FB923C', algo:[
         {id:'optical_flow',n:'光流',        en:'Optical Flow',      d:'LK稀疏+Farneback稠密+金字塔'},
       ]},
       {key:'3D', label:'几何视觉', color:'#EF4444', algo:[
-        {id:'calibration',n:'相机标定',     en:'Camera Calibration',d:'针孔→K[R|t]→畸变→DLT→Cholesky', planned:true},
-        {id:'epipolar',  n:'对极几何',      en:'Epipolar Geometry', d:'F/E矩阵→8点法→SVD恢复R,t', planned:true},
+        {id:'calibration',n:'相机标定',     en:'Camera Calibration',d:'针孔→K[R|t]→畸变→DLT→Cholesky'},
+        {id:'epipolar',  n:'对极几何',      en:'Epipolar Geometry', d:'F/E矩阵→8点法→SVD恢复R,t'},
         {id:'stereo',    n:'立体匹配',       en:'Stereo Matching',   d:'SAD/SSD→视差图→深度Z=fB/d'},
-        {id:'sfm',       n:'三角测量与SfM', en:'SfM',               d:'P₀,P₁→SVD→稀疏点云', planned:true},
+        {id:'sfm',       n:'三角测量与SfM', en:'SfM',               d:'P₀,P₁→SVD→稀疏点云'},
         {id:'stitching', n:'图像拼接',       en:'Image Stitching',   d:'单应性+warpPerspective+融合'},
       ]},
     ]},
@@ -179,7 +179,15 @@ const App = (() => {
     'fcn','unet','faster_rcnn','yolo','mask_rcnn','ddpm','simclr','moco','byol','ijepa',
     '3dgs','pointnet','bev','occupy','c3d','bytetrack','botsort','deeppose','openpose',
   ]);
-  const SPECIAL_PAGE_IDS=new Set(['convolution','edge','corner','sift','match']);
+  const SPECIAL_PAGE_IDS=new Set(['convolution','edge','corner','sift','match','cnn_basics',
+    'resnet','gan','unet','yolo','fcn','faster_rcnn','mask_rcnn',
+    'detection','semantic','instance',
+    'swin','dino','mae','dino_det','grdino','mask2former','sam2','blip2',
+    'ddpm','controlnet','dit','flux','stylegan',
+    'simclr','moco','byol','ijepa',
+    '3dgs','dust3r','pointnet','bev','occupy',
+    'c3d','bytetrack','botsort',
+    'deeppose','openpose','nerf']);
   function _implInfo(id){
     const m=_apiMap[id];
     if(m && m.implementation) return m.implementation;
@@ -340,7 +348,13 @@ const App = (() => {
     const ready=state.ready;
     const isNew=a.planned;
     const cls=['algo-card',ready?'realized':(isNew?'planned':'pending')].filter(Boolean).join(' ');
-    const tag=_implRealModel(impl) ? (impl.category==='requires_external_weights' ? '需要权重' : '真实模型') : (impl.category==='not_implemented' ? '未接入' : (impl.category==='requires_external_weights' ? '需要权重' : (ready?'可体验':(isNew?'规划中':'待实现'))));
+    var tag;
+    if (impl.category === 'numpy_algorithm') tag = 'NumPy 真实运算';
+    else if (impl.category === 'pretrained_model' || impl.category === 'numpy_model') tag = '真实模型';
+    else if (impl.category === 'teaching_simulation') tag = '离线教学';
+    else if (impl.category === 'requires_external_weights') tag = '需要权重';
+    else if (impl.category === 'not_implemented') tag = '未接入';
+    else tag = ready ? '可体验' : (isNew ? '规划中' : '待实现');
     // Difficulty stars: find which phase this algo belongs to
     let diff=1; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===a.id))diff=p.diff;});
     return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><div class="card-meta"><span class="card-tag">${tag}</span></div></div>`;
@@ -380,7 +394,8 @@ const App = (() => {
   // ── Iframe messages ──
   function _onIframeMsg(e){const{type,payload}=e.data||{};if(!type)return;
     switch(type){case'toast':Utils.toast(payload?.message||'',payload?.duration);break;
-      case'navigate':Router.go('/module/'+(payload?.moduleId||''));break;}
+      case'navigate':Router.go('/module/'+(payload?.moduleId||''));break;
+      case'closeDetail':closeDetail();break;}
   }
 
   window.addEventListener('DOMContentLoaded',init);

@@ -23,3 +23,18 @@ static/fonts/
 
 # 环境
 .env
+
+# 模型权重
+*.pt
+*.pth
+*.onnx
+
+# 临时图片
+*.jpg
+*.jpeg
+*.png
+
+# 临时脚本
+test.py
+test_seg.py
+update_nn_pages.py

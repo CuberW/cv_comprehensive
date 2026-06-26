@@ -1,6 +1,6 @@
 """Live camera filter presets and server-side filter application. Pure NumPy."""
 import numpy as np
-from app.utils.image_utils import conv2d, to_uint8
+from app.utils.image_utils import conv2d, load_image_u8, to_uint8
 
 # ── Preset convolution kernels ──
 PRESETS = {
@@ -112,3 +112,67 @@ def apply_filter(image, kernel_name='edge_detect'):
 
     result = conv2d(img_u8, kernel, padding='edge')
     return _normalize_and_clip(result)
+
+
+def build_pipeline(image_path=None, image=None, kernel_name='edge_detect', **_kwargs):
+    """Return demo steps for the live filter endpoint without breaking apply_filter."""
+    if image is None and image_path:
+        image = load_image_u8(image_path, mode='rgb', max_side=384)
+    if image is None:
+        y, x = np.mgrid[0:128, 0:160]
+        image = np.zeros((128, 160, 3), dtype=np.uint8)
+        image[..., 0] = (x * 255 // 159).astype(np.uint8)
+        image[..., 1] = (y * 255 // 127).astype(np.uint8)
+        image[..., 2] = 120
+        image[32:96, 44:116] = [230, 120, 60]
+
+    if kernel_name not in PRESETS:
+        kernel_name = 'edge_detect'
+    kernel = np.array(PRESETS[kernel_name]['kernel'], dtype=np.float32)
+    result = apply_filter(image, kernel_name=kernel_name)
+    return {
+        'steps': [
+            {
+                'id': 'input',
+                'name': 'Input frame',
+                'image': to_uint8(image),
+                'explanation': 'Input image or camera frame used by the live filter.',
+                'formula': 'I(x,y)',
+            },
+            {
+                'id': 'kernel',
+                'name': PRESETS[kernel_name]['name'],
+                'image': _kernel_visual(kernel),
+                'explanation': PRESETS[kernel_name]['description'],
+                'formula': 'Y(i,j)=sum_{u,v} K(u,v) I(i+u,j+v)',
+                'data': {'kernel': kernel.tolist()},
+            },
+            {
+                'id': 'filtered',
+                'name': 'Filtered frame',
+                'image': result,
+                'explanation': 'The selected convolution kernel is applied to every local window of the frame.',
+                'formula': 'Y = I * K',
+            },
+        ],
+        'metrics': {
+            'status': 'numpy_algorithm',
+            'kernel': kernel_name,
+            'kernel_size': f'{kernel.shape[0]}x{kernel.shape[1]}',
+        },
+    }
+
+
+def _kernel_visual(kernel, cell=42):
+    kernel = np.asarray(kernel, dtype=np.float32)
+    k = kernel.copy()
+    mn, mx = float(k.min()), float(k.max())
+    norm = (k - mn) / max(mx - mn, 1e-8)
+    img = np.repeat(np.repeat(norm, cell, axis=0), cell, axis=1)
+    rgb = np.stack([img * 255, (1.0 - np.abs(img - 0.5) * 2) * 220, (1.0 - img) * 255], axis=-1)
+    out = rgb.astype(np.uint8)
+    out[::cell, :] = [15, 23, 42]
+    out[:, ::cell] = [15, 23, 42]
+    out[-1:, :] = [15, 23, 42]
+    out[:, -1:] = [15, 23, 42]
+    return out

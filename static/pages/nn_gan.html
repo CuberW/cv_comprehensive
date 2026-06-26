@@ -31,8 +31,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:var
 .btn{display:block;width:100%;padding:10px;border-radius:8px;border:0;font-size:0.85rem;cursor:pointer;font-weight:600;margin-bottom:8px}
 .btn-gen{background:#3b82f6;color:#fff}
 .btn-gen:disabled{opacity:.5}
-.canvas-wrap{border-radius:8px;overflow:hidden;background:#000;min-height:180px;display:grid;place-items:center;margin:8px 0}
+.canvas-wrap{border-radius:8px;overflow:hidden;background:#000;min-height:180px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;place-items:stretch;margin:8px 0;padding:10px}
 .canvas-wrap img{max-width:100%;display:block}
+.canvas-wrap .result-card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.canvas-wrap .result-card .cap{padding:8px 10px 4px;font-size:.78rem;font-weight:700}
+.canvas-wrap .result-card .exp{padding:0 10px 8px;color:var(--muted);font-size:.72rem;line-height:1.45}
 .canvas-wrap .placeholder{color:var(--muted);font-size:0.85rem;padding:40px;text-align:center}
 .status-bar{padding:6px 12px;border-radius:6px;font-size:0.8rem;margin-top:8px}
 .s-ok{background:rgba(34,197,94,.1);color:#4ade80}
@@ -42,6 +45,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:var
 .score-card .val{font-size:1.4rem;font-weight:700}
 .score-card .lbl{font-size:0.75rem;color:var(--muted)}
 </style>
+<link rel="stylesheet" href="../css/iframe-theme.css">
+<script src="../js/theme-sync.js"></script>
 </head>
 <body>
 <div class="nn-page">
@@ -104,9 +109,14 @@ document.getElementById('genBtn').addEventListener('click', function(){
       var steps = data.steps || [];
       var html = '';
       steps.forEach(function(s){
-        if (s.image_base64) {
-          html += '<img src="data:image/png;base64,' + s.image_base64 + '" alt="'+(s.name||'')+'" style="max-width:100%;margin-bottom:8px;border-radius:6px">';
-        }
+        var img = s.image_base64
+          ? '<img src="data:image/png;base64,' + s.image_base64 + '" alt="'+(s.name||'')+'" style="max-width:100%;margin-bottom:8px;border-radius:6px">'
+          : '';
+        html += '<article class="result-card">' + img +
+          '<div class="cap">' + (s.name || s.id || 'Step') + '</div>' +
+          '<div class="exp">' + (s.explanation || '') + '</div>' +
+          (s.formula ? '<code class="step-formula">' + s.formula + '</code>' : '') +
+          '</article>';
       });
       document.getElementById('genCanvas').innerHTML = html || '<div class="placeholder">无输出</div>';
 

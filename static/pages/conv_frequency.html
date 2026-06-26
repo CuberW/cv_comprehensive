@@ -741,6 +741,7 @@
             if(s.image_b64) html+='<img src="data:image/png;base64,'+s.image_b64+'" alt="'+s.name+'">';
             html+='<div class="step-info"><div class="step-name">'+s.name+'</div>';
             if(s.explanation) html+='<div class="step-desc">'+s.explanation+'</div>';
+            if(s.formula) html+='<code class="step-formula">'+s.formula+'</code>';
             html+='</div></div>';
           });
           results.innerHTML=html;

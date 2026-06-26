@@ -16,6 +16,22 @@ def _conv_block(x, filters, rng):
     out = np.maximum(0, out)
     return out
 
+def _upsample_to(x, target_hw):
+    """Nearest-neighbor upsample/crop/pad to target height and width."""
+    th, tw = target_hw
+    scale_y = max(1, int(np.ceil(th / max(1, x.shape[0]))))
+    scale_x = max(1, int(np.ceil(tw / max(1, x.shape[1]))))
+    up = np.repeat(np.repeat(x, scale_y, axis=0), scale_x, axis=1)
+    out = np.zeros((th, tw, x.shape[2]), dtype=x.dtype)
+    h = min(th, up.shape[0])
+    w = min(tw, up.shape[1])
+    out[:h, :w, :] = up[:h, :w, :]
+    if h < th:
+        out[h:, :w, :] = out[h - 1:h, :w, :]
+    if w < tw:
+        out[:, w:, :] = out[:, w - 1:w, :]
+    return out
+
 def build_pipeline(image_path=None, **kwargs):
     if image_path:
         img = load_image_u8(image_path, mode='rgb', max_side=128)
@@ -29,16 +45,12 @@ def build_pipeline(image_path=None, **kwargs):
     e2 = _conv_block(e1[::2,::2,:], 8, rng)
     e3 = _conv_block(e2[::2,::2,:], 16, rng)
 
-    # Decoder: upsample + skip
-    d2_up = np.zeros((e2.shape[0]*2, e2.shape[1]*2, 16), dtype=np.float64)
-    for f in range(16):
-        d2_up[::2,::2, f] = e3[:,:,f] if f < e3.shape[2] else 0
-    d2 = _conv_block(np.concatenate([d2_up[:,:,:1], e2[:,:,:1]], axis=-1) if d2_up.ndim==3 and e2.ndim==3 else d2_up[:,:,0], 8, rng)
+    # Decoder: upsample to the matching encoder feature size, then add skip features.
+    d2_up = _upsample_to(e3, e2.shape[:2])
+    d2 = _conv_block(np.concatenate([d2_up[:, :, :1], e2[:, :, :1]], axis=-1), 8, rng)
 
-    d1_up = np.zeros((e1.shape[0]*2, e1.shape[1]*2, 8), dtype=np.float64)
-    for f in range(8):
-        d1_up[::2,::2, f] = d2[:,:,f] if f < d2.shape[2] else 0
-    d1 = _conv_block(np.concatenate([d1_up[:,:,:1], e1[:,:,:1]], axis=-1) if d1_up.ndim==3 and e1.ndim==3 else d1_up[:,:,0], 4, rng)
+    d1_up = _upsample_to(d2, e1.shape[:2])
+    d1 = _conv_block(np.concatenate([d1_up[:, :, :1], e1[:, :, :1]], axis=-1), 4, rng)
 
     # Output: binary mask
     output = np.clip((d1[:,:,0] - d1[:,:,0].min()) / max(d1[:,:,0].max()-d1[:,:,0].min(), 1e-8) * 255, 0, 255).astype(np.uint8)

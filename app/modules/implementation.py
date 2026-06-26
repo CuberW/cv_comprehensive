@@ -16,14 +16,19 @@ DEFAULT_IMPLEMENTATION = {
     'note': '项目内手写算法实现，返回真实中间结果。',
 }
 
-REQUIRES_EXTERNAL_WEIGHTS = {
+LOCAL_TEACHING_MODELS = {
     'vit', 'detr', 'clip', 'sam', 'stable_diffusion',
+}
+
+LOCAL_FRONTIER_ALGORITHMS = {
     'swin', 'dino', 'mae', 'dino_det', 'grdino', 'mask2former', 'sam2',
     'blip2', 'controlnet', 'dit', 'flux', 'stylegan', 'dust3r',
     'orbslam3', 'mediapipe', 'vitpose',
 }
 
 OFFLINE_TEACHING = set()  # 已废弃——所有模块必须有真实实现
+
+REQUIRES_EXTERNAL_WEIGHTS = set()
 
 EXTERNAL_WEIGHT_META = {
     'status': 'requires external weights',
@@ -45,6 +50,28 @@ OFFLINE_TEACHING_META = {
     'requires_upload': False,
     'model': '',
     'note': 'Offline teaching visualization; not a pretrained-model inference result.',
+}
+
+LOCAL_TEACHING_MODEL_META = {
+    'status': 'local deterministic teaching visualization',
+    'category': 'numpy_algorithm',
+    'backend': 'NumPy/PIL deterministic teaching visualization',
+    'local_inference': True,
+    'real_model': False,
+    'requires_upload': False,
+    'model': 'local teaching pipeline',
+    'note': 'This page shows the algorithm mechanics with deterministic local NumPy/PIL visualizations. It is not a downloaded pretrained-model inference result.',
+}
+
+LOCAL_FRONTIER_ALGORITHM_META = {
+    'status': 'local small algorithm implementation',
+    'category': 'numpy_algorithm',
+    'backend': 'NumPy/PIL local mechanism implementation',
+    'local_inference': True,
+    'real_model': False,
+    'requires_upload': False,
+    'model': 'local mechanism pipeline',
+    'note': 'Local small algorithm implementation; not pretrained-weight inference.',
 }
 
 IMPLEMENTATION_META = {
@@ -77,6 +104,16 @@ IMPLEMENTATION_META = {
         'requires_upload': True,
         'model': 'fasterrcnn_resnet50_fpn',
         'note': '通过 torchvision 加载 Faster R-CNN COCO 权重；torch 不可用时自动降级到本地教学检测。',
+    },
+    'resnet': {
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
+        'local_inference': True,
+        'real_model': True,
+        'requires_upload': False,
+        'model': 'resnet50',
+        'note': '通过 torchvision 加载 ResNet-50 ImageNet 权重，包含 Grad-CAM 热力图可视化。不需上传图片，也可上传任意图片测试分类+Grad-CAM。',
     },
     'semantic': {
         'status': '真实预训练模型',
@@ -188,11 +225,24 @@ IMPLEMENTATION_META = {
 def get_implementation_meta(module_id):
     """Return public implementation metadata for a module id."""
     meta = dict(DEFAULT_IMPLEMENTATION)
+    if module_id in LOCAL_TEACHING_MODELS:
+        meta.update(LOCAL_TEACHING_MODEL_META)
+    if module_id in LOCAL_FRONTIER_ALGORITHMS:
+        meta.update(LOCAL_FRONTIER_ALGORITHM_META)
     if module_id in REQUIRES_EXTERNAL_WEIGHTS:
         meta.update(EXTERNAL_WEIGHT_META)
     if module_id in OFFLINE_TEACHING:
         meta.update(OFFLINE_TEACHING_META)
     meta.update(IMPLEMENTATION_META.get(module_id, {}))
+    if module_id in LOCAL_TEACHING_MODELS:
+        # These homepage-visible foundation models deliberately use local
+        # deterministic visualizations unless the project explicitly wires
+        # real weights later.
+        meta.update(LOCAL_TEACHING_MODEL_META)
+    if module_id in LOCAL_FRONTIER_ALGORITHMS:
+        # These frontier modules run small local mechanism implementations.
+        # They are intentionally not reported as pretrained inference.
+        meta.update(LOCAL_FRONTIER_ALGORITHM_META)
     if module_id in REQUIRES_EXTERNAL_WEIGHTS:
         # Keep plan-selected offline behavior even if older per-module metadata
         # says a pretrained model exists locally.
@@ -201,7 +251,7 @@ def get_implementation_meta(module_id):
         # Keep local teaching demos runnable even if older metadata marked them
         # as placeholders.
         meta.update(OFFLINE_TEACHING_META)
-    if module_id == 'sam' and module_id not in REQUIRES_EXTERNAL_WEIGHTS:
+    if module_id == 'sam' and module_id not in REQUIRES_EXTERNAL_WEIGHTS and module_id not in LOCAL_TEACHING_MODELS:
         import os
         checkpoint = os.environ.get('SAM_CHECKPOINT', 'models/sam_vit_b_01ec64.pth')
         candidates = [checkpoint, 'E:/SAM/sam_vit_b_01ec64.pth', 'sam_vit_b_01ec64.pth']
@@ -216,7 +266,12 @@ def get_implementation_meta(module_id):
     # Remote runners are intentionally ignored for external-weight modules in
     # offline mode so UI/API behavior stays deterministic and never depends on
     # tokens or network availability.
-    if module_id not in REQUIRES_EXTERNAL_WEIGHTS and module_id not in {'detection', 'semantic', 'instance'}:
+    if (
+        module_id not in LOCAL_TEACHING_MODELS
+        and module_id not in LOCAL_FRONTIER_ALGORITHMS
+        and module_id not in REQUIRES_EXTERNAL_WEIGHTS
+        and module_id not in {'detection', 'semantic', 'instance'}
+    ):
         try:
             from app.runners import get_remote_runner
             runner = get_remote_runner(module_id)

@@ -190,7 +190,7 @@ def build_pipeline(image_path=None, **kwargs):
     depth_vis = np.clip((views[0][2] - views[0][2].min()) / max(views[0][2].max()-views[0][2].min(),1e-8)*255,0,255).astype(np.uint8)
 
     return {'steps': [
-        {'id': 'rays', 'name': '射线采样', 'image': _b64(views[0][0]),
+        {'id': 'rays', 'name': '射线采样', 'image': _b64(views[0][1]),
          'explanation': '从相机每个像素发射一条射线，沿射线均匀采样3D点。每条射线64个采样点。'},
         {'id': 'render_0', 'name': '视角 0°', 'image': _b64(views[0][1]),
          'explanation': 'TinyNeRF MLP预测每个采样点的RGB和密度，体渲染累加得到像素颜色。'},

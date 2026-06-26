@@ -60,6 +60,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .explain{background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.1);border-radius:8px;padding:12px 14px;font-size:0.8rem;color:var(--muted);line-height:1.65;margin-top:10px}
 .explain strong{color:var(--text)}
 </style>
+<link rel="stylesheet" href="../css/iframe-theme.css">
+<script src="../js/theme-sync.js"></script>
 </head>
 <body>
 <div class="page">
@@ -159,7 +161,7 @@ rb.addEventListener('click',function(){
       var html='';
       steps.forEach(function(s){
         var img=s.image_base64?'data:image/png;base64,'+s.image_base64:(s.image||'');
-        if(img)html+='<div class="result-card"><img src="'+img+'"><div class="cap">'+s.name+'</div><div class="exp">'+(s.explanation||'')+'</div></div>';
+        if(img)html+='<div class="result-card"><img src="'+img+'"><div class="cap">'+s.name+'</div><div class="exp">'+(s.explanation||'')+'</div>'+(s.formula?'<code class="step-formula">'+s.formula+'</code>':'')+'</div>';
       });
       rd.innerHTML=html||'<div style="color:var(--muted);padding:16px">推理完成</div>';
 

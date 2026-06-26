@@ -28,7 +28,19 @@
 .spin{display:none;text-align:center;padding:24px;color:var(--text-dim);font-size:14px}
 .spin.show{display:block}
 .hint{font-size:13px;color:var(--text-muted);margin-top:12px}
+
+.steps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.step-card{overflow:hidden;border-radius:13px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.13);transition:transform .18s}
+.step-card:hover{transform:translateY(-3px);border-color:rgba(102,242,194,.3)}
+.step-img{min-height:120px;display:grid;place-items:center;background:rgba(2,6,23,.42)}
+.step-img img{width:100%;display:block}
+.step-body{padding:10px 12px}
+.step-body strong{display:block;font-size:.82rem;color:#f8fafc}
+.step-body p{margin:4px 0 0;color:#94a3b8;font-size:.74rem;line-height:1.5}
+.no-img{color:#64748b;font-size:.8rem}
+.result-img{display:none}
 </style>
+<link rel="stylesheet" href="../css/iframe-theme.css">
 <script src="../js/theme-sync.js"></script>
 </head>
 <body>
@@ -47,7 +59,7 @@
 </div>
 </div>
 <div class="col">
-<div class="rbox" id="rbox"><div class="card"><h3>📊 处理结果</h3><img class="result-img" id="res"></div></div>
+<div class="rbox" id="rbox"><div class="card"><h3>📊 处理结果 — 中间步骤</h3><div class="steps-grid" id="stepsGrid"></div></div></div>
 </div>
 </div>
 </main>
@@ -73,10 +85,14 @@ BTN.addEventListener('click',async()=>{
   try{const r=await fetch('/api/demo/histogram',{method:'POST',body:d});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
-    if(j.steps&&j.steps.length){RES.src=j.steps[j.steps.length-1].image_base64?('data:image/png;base64,'+j.steps[j.steps.length-1].image_base64):j.original_image}
-    else if(j.result_image){RES.src='data:image/png;base64,'+j.result_image}
-    else{RES.src=j.original_image}
+    if(j.steps&&j.steps.length){
+    var grid=document.getElementById('stepsGrid');
+    grid.innerHTML=j.steps.map(function(s,i){
+      var img=s.image_base64?'<img src="data:image/png;base64,'+s.image_base64+'" alt="'+esc(s.name||'')+'" loading="lazy">':'<span class="no-img">无图像</span>';
+      return '<article class="step-card"><div class="step-img">'+img+'</div><div class="step-body"><strong>'+esc((i+1)+'. '+(s.name||s.id||'Step'))+'</strong><p>'+esc(s.explanation||'')+'</p>'+(s.formula?'<code class="step-formula">'+esc(s.formula)+'</code>':'')+'</div></article>';
+    }).join('')
     RBOX.classList.add('show');
+    }
   }catch(e){alert('处理失败: '+e.message)}
   BTN.disabled=false;SPIN.classList.remove('show');
 });

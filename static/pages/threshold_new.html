@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>阈值化 — Cvtoolkits</title>
+<link rel="stylesheet" href="../css/iframe-theme.css"><script src="../js/theme-sync.js"></script>
+<style>
+.page{max-width:1180px;margin:0 auto;padding:20px 22px 42px}
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-bottom:14px}
+.hero-main,.panel{border:1px solid var(--cv-border);background:var(--cv-panel);;border-radius:18px;backdrop-filter:blur(12px)}
+.hero-main{padding:18px 20px}.eyebrow{color:#a78bfa;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
+h1{margin:6px 0 8px;font-size:clamp(1.55rem,3vw,2.35rem)}.subtitle{margin:0;color:#a5b4fc;font-size:.94rem;line-height:1.65}
+.analogy{margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.16);color:#ddd6fe;font-size:.84rem;line-height:1.6}.analogy strong{color:#a78bfa}
+.workspace{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:14px;align-items:start}
+.panel{padding:16px}.panel h3{margin:0 0 10px;font-size:1rem}
+.upload-zone{border:1.5px dashed rgba(148,163,184,.32);border-radius:16px;padding:14px;background:rgba(2,6,23,.3)}.upload-zone.dragover{border-color:#a78bfa;background:rgba(167,139,250,.08)}
+.upload-row{display:flex;gap:10px;align-items:center}
+button{font:inherit;border:0;border-radius:12px;cursor:pointer}
+.upload-btn,.run-btn{padding:10px 14px;color:#06121f;font-weight:900;background:linear-gradient(135deg,#a78bfa,#c084fc)}button:disabled{opacity:.48;cursor:not-allowed}
+.file-meta{color:#94a3b8;font-size:.82rem}.file-meta strong{color:#e2e8f0}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.ghost-btn{padding:10px 13px;color:#cbd5e1;border:1px solid rgba(148,163,184,.2);background:rgba(148,163,184,.11)}
+.thresh-viz{position:relative;height:60px;margin:12px 0;border-radius:10px;overflow:hidden;background:rgba(2,6,23,.42);border:1px solid rgba(148,163,184,.12)}
+.thresh-viz .tv-bg{position:absolute;inset:0;background:linear-gradient(90deg,#0f172a,#f8fafc)}
+.thresh-viz .tv-line{position:absolute;top:0;bottom:0;width:2px;background:#a78bfa;box-shadow:0 0 12px rgba(167,139,250,.6);left:55%}
+.thresh-viz .tv-left,.thresh-viz .tv-right{position:absolute;top:50%;transform:translateY(-50%);font-size:10px;font-weight:800;color:var(--text)}
+.thresh-viz .tv-left{left:8px;color:#f8fafc}.thresh-viz .tv-right{right:8px;color:#0f172a}
+.params{margin-top:12px}.param label{display:flex;justify-content:space-between;color:#cbd5e1;font-size:.82rem;margin-bottom:5px}.param b{color:#a78bfa}input[type=range]{width:100%;accent-color:#a78bfa}
+.loading{display:none;text-align:center;padding:40px;border-radius:14px;color:#94a3b8;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.12)}
+.error{display:none;padding:14px;border-radius:14px;color:#fecaca;background:rgba(127,29,29,.24);border:1px solid rgba(248,113,113,.32)}
+.spinner{width:30px;height:30px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(148,163,184,.22);border-top-color:#a78bfa;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.results-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.results-head p{margin:0;color:#94a3b8;font-size:.84rem}
+.steps-grid{display:grid;display:flex;flex-wrap:wrap;gap:12px}
+.step-card{flex:1 1 220px;min-width:200px;max-width:320px;overflow:hidden;border-radius:13px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.13)}.step-card:hover{transform:translateY(-3px);box-shadow:0 0 24px rgba(56,189,248,.12)}
+.step-img{min-height:120px;display:grid;place-items:center;background:rgba(2,6,23,.42)}.step-img img{width:100%;display:block}
+.step-body{padding:10px 12px}.step-body strong{display:block;font-size:.82rem;color:#f8fafc}.step-body p{margin:4px 0 0;color:#94a3b8;font-size:.74rem;line-height:1.5}
+@media(max-width:860px){.hero,.workspace{grid-template-columns:1fr}}
+</style></head><body>
+<main class="page"><section class="hero"><div class="hero-main">
+<div class="eyebrow">Thresholding</div><h1>阈值化：最简单的分割——一刀切</h1>
+<p class="subtitle">设定一个亮度"门槛"，高于门槛的变白（前景），低于门槛的变黑（背景）。Otsu 算法自动找到最佳门槛——让类间方差最大。</p>
+<div class="analogy"><strong>🔪 直觉：</strong>你有一袋混合的黑芝麻和白芝麻。你要把它们分开——最简单的办法：找一个筛子，孔的大小刚好让黑芝麻过、白芝麻留。阈值就是那个"孔的大小"。Otsu 算法做的事就是<strong>自动找到那个最佳的筛子孔径</strong>——让分出来的两堆尽可能"纯"。</div>
+<div class="thresh-viz"><div class="tv-bg"></div><div class="tv-line" id="tvLine"></div><div class="tv-left">背景</div><div class="tv-right">前景</div></div>
+</div><aside class="panel"><h3>📥 上传图片</h3>
+<div class="upload-zone" id="uploadZone"><input type="file" id="fileInput" accept="image/*" hidden><div class="upload-row"><button class="upload-btn" id="uploadBtn">选择图片</button><div class="file-meta"><strong id="fileName">未选择</strong><br>Otsu自动找最佳阈值</div></div></div>
+<div class="params"><div class="param"><label>手动阈值 <b id="threshVal">—</b></label><input type="range" id="threshold" min="0" max="255" value="128" step="1" disabled></div></div>
+<div class="actions"><button class="run-btn" id="runBtn" disabled>▶ Otsu自动阈值化</button><button class="ghost-btn" id="sampleBtn">内置示例</button></div></aside></section>
+<section class="workspace"><aside class="panel" style="display:none"></aside><section class="panel">
+<div class="results-head"><h3>处理结果</h3><p id="resultHint">Otsu自动找到最佳阈值——让前景和背景的类间方差最大</p></div>
+<div class="loading" id="loading"><div class="spinner"></div>Otsu搜索最优阈值中…</div><div class="error" id="errorBox"></div><div class="steps-grid" id="stepsGrid"></div></section></section></main>
+<script>
+(function(){var sf=null,fi=document.getElementById('fileInput'),uz=document.getElementById('uploadZone'),fn=document.getElementById('fileName'),ub=document.getElementById('uploadBtn'),rb=document.getElementById('runBtn'),sb=document.getElementById('sampleBtn'),ld=document.getElementById('loading'),eb=document.getElementById('errorBox'),sg=document.getElementById('stepsGrid'),rh=document.getElementById('resultHint'),ts=document.getElementById('threshold'),tv=document.getElementById('threshVal'),tline=document.getElementById('tvLine');
+ub.addEventListener('click',function(){fi.click()});fi.addEventListener('change',function(e){sf=e.target.files[0]||null;if(sf){fn.textContent=sf.name;rb.disabled=false}});uz.addEventListener('dragover',function(e){e.preventDefault();uz.classList.add('dragover')});uz.addEventListener('dragleave',function(){uz.classList.remove('dragover')});uz.addEventListener('drop',function(e){e.preventDefault();uz.classList.remove('dragover');sf=e.dataTransfer.files[0]||null;if(sf){fn.textContent=sf.name;rb.disabled=false}});
+ts.addEventListener('input',function(){tv.textContent=this.value;tline.style.left=(this.value/255*100)+'%'});
+function sbz(b){ld.style.display=b?'block':'none';eb.style.display='none';rb.disabled=b;sb.disabled=b}
+function drun(wf){sbz(true);var fd=new FormData();if(wf)fd.append('file',wf);fetch('/api/demo/threshold',{method:'POST',body:fd}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok)throw new Error(j.error||'HTTP '+r.status);return j})}).then(render).catch(function(e){sbz(false);eb.textContent=e.message;eb.style.display='block'});}
+rb.addEventListener('click',function(){drun(sf)});sb.addEventListener('click',function(){sf=null;fi.value='';fn.textContent='内置示例';fetch('../images/demo-street.jpg').then(function(r){return r.blob()}).then(function(b){drun(new File([b],'demo.jpg'))}).catch(function(){drun(null)});});
+function render(d){sbz(false);var m=d.metrics||{},t=m.otsu_threshold||'?';rh.textContent='Otsu最优阈值='+t+'。这就是让黑白两类的类间方差达到最大的那个"一刀切"位置。';tv.textContent=t;tline.style.left=(t/255*100)+'%';ts.value=t;ts.disabled=false;
+sg.innerHTML=(d.steps||[]).map(function(s,i){var titles={original:'原图',gray:'灰度化',histogram:'灰度直方图（峰值=最优阈值区间）',result:'二值化结果（阈值='+t+'）'};var img=s.image_base64?'<img src="data:image/png;base64,'+s.image_base64+'" alt="'+esc(s.name||'')+'" loading="lazy">':'<span style="color:#64748b">—</span>';return'<article class="step-card"><div class="step-img">'+img+'</div><div class="step-body"><strong>'+esc(titles[s.id]||s.name)+'</strong><p>'+esc(s.explanation||'')+'</p>'+(s.formula?'<code class="step-formula">'+esc(s.formula)+'</code>':'')+'</div></article>'}).join('')}
+function esc(s){return String(s).replace(/[&<>"\']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]})}})();
+</script></body></html>

@@ -3,16 +3,18 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>神经网络 - Cvtoolkits</title>
-<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/iframe-theme.css">
+<script src="../js/theme-sync.js"></script>
 <style>
-:root{--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--bg:#0f172a}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
-.page{max-width:1080px;margin:0 auto;padding:14px 16px 24px}
-.topbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.topbar a{color:var(--muted);text-decoration:none;font-size:0.82rem}
-.topbar h1{font-size:1.1rem;font-weight:700}
-.badge{padding:2px 10px;border-radius:999px;font-size:0.72rem;font-weight:600}
+body{font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif;background:transparent;color:var(--cv-text,#e2e8f0)}
+.page{width:100%;max-width:none;margin:0;padding:16px 20px 24px}
+
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--cv-border,rgba(148,163,184,.16))}
+.topbar a{color:var(--cv-muted,#94a3b8);text-decoration:none;font-size:0.82rem}
+.topbar h1{font-size:1.15rem;font-weight:800;color:var(--cv-text,#f8fafc)}
+
+.badge{padding:2px 10px;border-radius:999px;font-size:0.72rem;font-weight:700}
 .b1{background:rgba(59,130,246,.15);color:#60a5fa}
 .b2{background:rgba(34,197,94,.12);color:#4ade80}
 .b3{background:rgba(168,85,247,.15);color:#c4b5fd}
@@ -20,12 +22,16 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .b5{background:rgba(245,158,11,.12);color:#fcd34d}
 .b6{background:rgba(100,116,139,.15);color:#94a3b8}
 .b7{background:rgba(20,184,166,.12);color:#5eead4}
-.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:10px;margin-bottom:10px}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-.panel h3{font-size:0.9rem;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05)}
+
+.grid2{display:grid;grid-template-columns:1fr 320px;gap:12px;margin-bottom:12px}
+
+.panel{border:1px solid var(--cv-border,rgba(148,163,184,.16));background:var(--cv-panel,rgba(15,23,42,.72));box-shadow:var(--cv-shadow);border-radius:12px;padding:14px 16px}
+.panel h3{font-size:0.9rem;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--cv-text,#f8fafc)}
+
 .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
-.chip{padding:5px 10px;border-radius:999px;font-size:0.73rem;background:rgba(100,116,139,.08);border:1px solid var(--border);color:var(--muted)}
-.chip strong{color:var(--text);font-weight:600}
+.chip{padding:5px 10px;border-radius:999px;font-size:0.73rem;background:rgba(100,116,139,.08);border:1px solid var(--cv-border,rgba(148,163,184,.16));color:var(--cv-muted,#94a3b8)}
+.chip strong{color:var(--cv-text,#f8fafc);font-weight:600}
+
 .arch{overflow-x:auto;padding:6px 0}
 .arch-row{display:flex;align-items:center;gap:0;font-size:0.7rem;margin-bottom:5px;min-width:fit-content}
 .arch-block{display:grid;place-items:center;padding:6px 10px;border-radius:5px;text-align:center;line-height:1.3;font-weight:600;min-width:54px}
@@ -39,27 +45,35 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .ae{background:rgba(236,72,153,.12);color:#f9a8d4;border:1px solid rgba(236,72,153,.2)}
 .at{background:rgba(20,184,166,.12);color:#5eead4;border:1px solid rgba(20,184,166,.2)}
 .as{background:transparent;border:1.5px dashed rgba(59,130,246,.3);color:#60a5fa;padding:4px 12px;font-size:0.68rem}
-.arrow{color:var(--muted);font-size:0.6rem;padding:0 3px;flex-shrink:0}
-.down{color:var(--muted);font-size:0.55rem;text-align:center;padding:2px 0}
-.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s}
+.arrow{color:var(--cv-muted,#94a3b8);font-size:0.6rem;padding:0 3px;flex-shrink:0}
+.down{color:var(--cv-muted,#94a3b8);font-size:0.55rem;text-align:center;padding:2px 0}
+
+.upload-zone{border:2px dashed var(--cv-border,rgba(148,163,184,.32));border-radius:10px;padding:18px;text-align:center;cursor:pointer;margin-bottom:8px;transition:border-color .2s}
 .upload-zone:hover{border-color:#3b82f6}
 .upload-zone input{display:none}
-.upload-hint{color:var(--muted);font-size:0.84rem}
-.btn{display:block;width:100%;padding:10px;border-radius:8px;border:0;font-size:0.85rem;cursor:pointer;font-weight:600;text-align:center;margin-bottom:6px}
-.brun{background:#3b82f6;color:#fff}.brun:disabled{opacity:.5;cursor:not-allowed}
-.bdemo{background:rgba(100,116,139,.15);color:var(--muted)}
+.upload-hint{color:var(--cv-muted,#94a3b8);font-size:0.84rem}
+
+.btn{display:block;width:100%;padding:10px;border-radius:8px;border:0;font-size:0.85rem;cursor:pointer;font-weight:700;text-align:center;margin-bottom:6px;font-family:inherit}
+.brun{background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff}.brun:disabled{opacity:.45;cursor:not-allowed}
+.bdemo{background:rgba(100,116,139,.15);color:var(--cv-muted,#94a3b8)}
+
 .status{margin-top:6px;padding:5px 10px;border-radius:5px;font-size:0.76rem}
 .sok{background:rgba(34,197,94,.1);color:#4ade80}
 .serr{background:rgba(239,68,68,.1);color:#f87171}
 .sinfo{background:rgba(59,130,246,.08);color:#93c5fd}
-.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:8px}
-.rc{background:rgba(0,0,0,.2);border-radius:8px;overflow:hidden}
-.rc img{width:100%;display:block}
-.rc .c{padding:5px 8px;font-size:0.72rem;color:var(--muted)}
-.rc .e{padding:0 8px 8px;font-size:0.68rem;color:var(--muted);opacity:.7;line-height:1.4}
-.explain{background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.08);border-radius:8px;padding:11px 14px;font-size:0.8rem;color:var(--muted);line-height:1.65}
-.explain strong{color:var(--text)}
-.note{text-align:center;padding:20px;font-size:0.84rem;color:var(--muted)}
+
+/* Results: auto-fit grid, images shown at full width */
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px;margin-top:8px}
+.rc{background:rgba(2,6,23,.35);border:1px solid var(--cv-border,rgba(148,163,184,.13));border-radius:10px;overflow:hidden}
+.rc img{width:100%;display:block;object-fit:contain;background:rgba(2,6,23,.42)}
+.rc .c{padding:8px 10px 2px;font-size:0.8rem;font-weight:700;color:var(--cv-text,#f8fafc)}
+.rc .e{padding:2px 10px 10px;font-size:0.74rem;color:var(--cv-muted,#94a3b8);line-height:1.5}
+
+.explain{background:rgba(59,130,246,.04);border:1px solid var(--cv-border,rgba(148,163,184,.1));border-radius:8px;padding:11px 14px;font-size:0.82rem;color:var(--cv-muted,#94a3b8);line-height:1.7}
+.explain strong{color:var(--cv-text,#f8fafc)}
+.note{text-align:center;padding:20px;font-size:0.84rem;color:var(--cv-muted,#94a3b8)}
+
+@media(max-width:780px){.grid2{grid-template-columns:1fr}.results{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -100,7 +114,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 var p=new URLSearchParams(location.search);var id=p.get('id')||'resnet';
 var cfg=(window.AlgorithmContent&&window.AlgorithmContent[id])||{};
 var impl=cfg.implementation||{};
-var isExt=impl.category==='requires_external_weights';
+var localTeachingIds = {vit:true,detr:true,sam:true,clip:true,stable_diffusion:true,sd:true};
+var isExt=impl.category==='requires_external_weights' && !localTeachingIds[id];
 
 // Architecture renderer - builds proper visual blocks from structured data
 function renderArch(blocks,skipNote){
@@ -270,7 +285,7 @@ if(id==='detection'||id==='faster_rcnn'){var b2=document.getElementById('badge2'
 if(id==='semantic'||id==='fcn'){var b2=document.getElementById('badge2');b2.style.display='';b2.textContent='语义分割';b2.className='badge b2';}
 if(id==='instance'||id==='mask_rcnn'){var b2=document.getElementById('badge2');b2.style.display='';b2.textContent='实例分割';b2.className='badge b2';}
 
-var isExt=mod.ext||(impl.category==='requires_external_weights');
+var isExt=(mod.ext||(impl.category==='requires_external_weights')) && !localTeachingIds[id];
 var runBtn=document.getElementById('runBtn');
 if(isExt){
   document.getElementById('uploadZone').style.display='none';
@@ -297,13 +312,14 @@ runBtn.addEventListener('click',function(){
   var s=document.getElementById('status');
   s.innerHTML='<div class="status sok">运行中...</div>';runBtn.disabled=true;
   var fd=new FormData();if(file)fd.append('file',file);
-  fetch('/api/demo/'+id,{method:'POST',body:fd})
+  var endpoint=(cfg&&cfg.endpoint)||('/api/demo/'+id);
+  fetch(endpoint,{method:'POST',body:fd})
     .then(function(r){return r.json().catch(function(){return null}).then(function(j){if(r.ok)return j;throw new Error((j&&j.error)||'HTTP '+r.status)})})
     .then(function(d){
       var html='';var steps=d.steps||[];
       steps.forEach(function(s){
         var img=s.image_base64?'data:image/png;base64,'+s.image_base64:(s.image||'');
-        if(img)html+='<div class="rc"><img src="'+img+'"><div class="c">'+s.name+'</div><div class="e">'+(s.explanation||'')+'</div></div>';
+        if(img)html+='<div class="rc"><img src="'+img+'"><div class="c">'+s.name+'</div><div class="e">'+(s.explanation||'')+'</div>'+(s.formula?'<div class="e"><code>'+s.formula+'</code></div>':'')+'</div>';
       });
       document.getElementById('results').innerHTML=html||'<div class="note">完成</div>';
       var m=d.metrics||{};
@@ -615,7 +631,7 @@ runBtn.addEventListener('click',function(){
   var principles = Array.isArray(cfg.principles) ? cfg.principles : [];
   var pipeline = Array.isArray(cfg.pipeline) ? cfg.pipeline : [];
   var requiresUpload = !!(impl && impl.requires_upload);
-  var isUnavailable = !!(impl && (impl.category === 'requires_external_weights' || impl.category === 'not_implemented' || impl.category === 'model_not_available'));
+  var isUnavailable = !!(impl && ((impl.category === 'requires_external_weights' && !localTeachingIds[id]) || impl.category === 'not_implemented' || impl.category === 'model_not_available'));
   var selectedFile = null;
   var FAMILY_GUIDES = {
     classifier: {
@@ -1015,6 +1031,8 @@ runBtn.addEventListener('click',function(){
       '.nn-step-meta{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:.72rem;color:var(--cv-faint);text-transform:uppercase;letter-spacing:.06em}',
       '.nn-step-title{color:var(--cv-text);font-size:.9rem;font-weight:760}',
       '.nn-step-desc{margin-top:6px;color:var(--cv-muted);font-size:.79rem;line-height:1.58}',
+      '.nn-step-formula{margin-top:8px;padding:8px 10px;border-radius:6px;background:rgba(15,23,42,.65);color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.76rem;line-height:1.45;overflow-wrap:anywhere}',
+      '.nn-step-data{margin-top:8px;max-height:130px;overflow:auto;padding:8px 10px;border-radius:6px;background:rgba(2,6,23,.72);color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.7rem;line-height:1.4;white-space:pre-wrap}',
       '.nn-note{padding:18px;text-align:center;color:var(--cv-muted);font-size:.84rem}',
       '@media (max-width:980px){.nn-top,.nn-grid{grid-template-columns:1fr}.nn-meta-grid{grid-template-columns:1fr 1fr}}',
       '@media (max-width:720px){.nn-meta-grid,.nn-pipeline,.nn-story-grid,.nn-results-grid,.nn-metrics{grid-template-columns:1fr}.nn-section-head{flex-direction:column}.nn-bar-row,.nn-grad-row{grid-template-columns:1fr}.nn-grad-caption{grid-column:1}}'
@@ -1277,6 +1295,8 @@ runBtn.addEventListener('click',function(){
           '<div class="nn-step-meta"><span>Step ' + String(index + 1).padStart(2, '0') + '</span><span>' + (stage === 'input' ? 'Input' : stage === 'output' ? 'Output' : 'Process') + '</span></div>' +
           '<div class="nn-step-title">' + escapeHtml(step.name || ('步骤 ' + (index + 1))) + '</div>' +
           '<div class="nn-step-desc">' + escapeHtml(step.explanation || '') + '</div>' +
+          (step.formula ? '<div class="nn-step-formula">' + escapeHtml(step.formula) + '</div>' : '') +
+          (step.data ? '<pre class="nn-step-data">' + escapeHtml(JSON.stringify(step.data, null, 2).slice(0, 900)) + '</pre>' : '') +
         '</div>' +
       '</article>';
     }).join('');

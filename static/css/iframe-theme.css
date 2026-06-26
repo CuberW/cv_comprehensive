@@ -6,44 +6,76 @@
    ============================================================ */
 
 :root {
-  --cv-bg: #070a12;
-  --cv-bg-2: #0a1020;
-  --cv-panel: rgba(13, 18, 32, 0.78);
-  --cv-panel-2: rgba(18, 25, 43, 0.88);
-  --cv-panel-3: rgba(255, 255, 255, 0.055);
-  --cv-border: rgba(148, 163, 184, 0.16);
-  --cv-border-strong: rgba(226, 232, 240, 0.28);
-  --cv-text: #f8fafc;
-  --cv-muted: #aab6c8;
-  --cv-faint: #64748b;
-  --cv-accent: #66f2c2;
-  --cv-accent-2: #38bdf8;
-  --cv-accent-3: #8b5cf6;
-  --cv-danger: #fb7185;
+  --bg-deep:    #070a14;
+  --bg-surface: #0c1120;
+  --bg-card:    #131a2e;
+  --bg-hover:   #1c2540;
+  --border:     rgba(148,163,184,.14);
+  --border-glow:rgba(148,163,184,.24);
+  --text:       #eef2f8;
+  --text-dim:   #9aa4b8;
+  --text-muted: #5a6478;
+  --accent:     #66f2c2;
+  --accent2:    #818cf8;
+  --accent3:    #38bdf8;
+  --danger:     #fb7185;
+  --font:       "Noto Sans SC","Noto Sans","Segoe UI","Microsoft YaHei UI",sans-serif;
+
+  --cv-bg: var(--bg-deep);
+  --cv-bg-2: var(--bg-surface);
+  --cv-panel: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  --cv-panel-2: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  --cv-panel-3: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  --cv-border: var(--border);
+  --cv-border-strong: var(--border-glow);
+  --cv-text: var(--text);
+  --cv-muted: var(--text-dim);
+  --cv-faint: var(--text-muted);
+  --cv-accent: var(--accent);
+  --cv-accent-2: var(--accent3);
+  --cv-accent-3: var(--accent2);
+  --cv-danger: var(--danger);
   --cv-warning: #fbbf24;
-  --cv-success: #66f2c2;
+  --cv-success: var(--accent);
   --cv-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   --cv-radius: 8px;
   --cv-radius-sm: 6px;
   --app-gradient:
-    linear-gradient(180deg, rgba(102, 242, 194, 0.07), transparent 30%),
-    linear-gradient(135deg, #070a12 0%, #0a1020 48%, #05070d 100%) !important;
+    radial-gradient(ellipse at 30% 10%, rgba(59,130,246,.07) 0%, transparent 60%),
+    radial-gradient(ellipse at 75% 85%, rgba(139,92,246,.06) 0%, transparent 60%),
+    var(--bg-deep) !important;
   --panel: var(--cv-panel) !important;
-  --border: var(--cv-border) !important;
-  --text: var(--cv-text) !important;
   --muted: var(--cv-muted) !important;
-  --accent: var(--cv-accent) !important;
   --shadow: var(--cv-shadow) !important;
+}
+
+[data-theme="light"] {
+  --bg-deep:    #f3eee4;
+  --bg-surface: #e8e2d5;
+  --bg-card:    #faf7f0;
+  --bg-hover:   #f0e9d8;
+  --border:     rgba(139,115,85,.18);
+  --border-glow:rgba(139,115,85,.28);
+  --text:       #3d3226;
+  --text-dim:   #6b5d4f;
+  --text-muted: #8e7f6e;
+  --accent:     #0d9488;
+  --accent2:    #7c3aed;
+  --accent3:    #0284c7;
+  --danger:     #dc2626;
+  --cv-panel: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  --cv-panel-2: color-mix(in srgb, var(--bg-card) 94%, transparent);
+  --cv-panel-3: color-mix(in srgb, var(--bg-hover) 58%, transparent);
+  --cv-shadow: 0 12px 32px rgba(139,115,85,.12);
+  --app-gradient: var(--bg-deep) !important;
 }
 
 html,
 body {
   color: var(--cv-text) !important;
   background:
-    radial-gradient(circle at 16% 4%, rgba(56, 189, 248, 0.14), transparent 28%),
-    radial-gradient(circle at 88% 10%, rgba(139, 92, 246, 0.16), transparent 25%),
     var(--app-gradient) !important;
-  font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font) !important;
   letter-spacing: 0 !important;
 }
 
@@ -54,10 +86,14 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--text-muted) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 12%, transparent) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 82%);
+}
+
+[data-theme="light"] body::before {
+  mask-image: none;
 }
 
 .page,
@@ -298,12 +334,32 @@ input[type="range"] {
 
 .metric-item .metric-label,
 .step-desc,
+.step-formula,
 .profile-item span:first-child,
 .algo-label,
 .match-console label,
 .ratio-control small,
 .upload-info .hint {
   color: var(--cv-faint) !important;
+}
+
+.step-formula,
+.step-body .step-formula,
+.info .step-formula,
+.demo-step-card .step-formula,
+.result-card .step-formula {
+  display: block;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-surface) 68%, transparent);
+  color: var(--cv-text) !important;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .metrics-bar {

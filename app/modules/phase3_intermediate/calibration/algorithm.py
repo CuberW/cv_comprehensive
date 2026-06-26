@@ -13,6 +13,28 @@ import numpy as np
 from app.utils.image_utils import load_image_u8, ensure_gray
 
 
+def _inv3(m):
+    """Invert a 3x3 matrix with an adjugate formula."""
+    a00, a01, a02 = [float(v) for v in m[0]]
+    a10, a11, a12 = [float(v) for v in m[1]]
+    a20, a21, a22 = [float(v) for v in m[2]]
+    c00 = a11 * a22 - a12 * a21
+    c01 = -(a10 * a22 - a12 * a20)
+    c02 = a10 * a21 - a11 * a20
+    c10 = -(a01 * a22 - a02 * a21)
+    c11 = a00 * a22 - a02 * a20
+    c12 = -(a00 * a21 - a01 * a20)
+    c20 = a01 * a12 - a02 * a11
+    c21 = -(a00 * a12 - a02 * a10)
+    c22 = a00 * a11 - a01 * a10
+    det = a00 * c00 + a01 * c01 + a02 * c02
+    if abs(det) <= 1e-12 or not np.isfinite(det):
+        return None
+    cof = np.array([[c00, c01, c02], [c10, c11, c12], [c20, c21, c22]], dtype=np.float64)
+    inv = cof.T / det
+    return inv if np.isfinite(inv).all() else None
+
+
 def _synthesize_checkerboard(rows=7, cols=10, square_size=40):
     """Generate a synthetic checkerboard image."""
     h = rows * square_size
@@ -46,12 +68,17 @@ def _apply_view_transform(img, rx=0.1, ry=0.15, rz=0.0, tx=0, ty=0):
     H = K @ (R[:, :2] + np.outer(t, np.array([0, 0, 1])[:2]))
     H = K @ np.column_stack([R[:, 0], R[:, 1], t + np.array([0, 0, f])])
     # Simplification: use homography from pure rotation assumption
-    H_rot = K @ R @ np.linalg.inv(K)
+    K_inv = _inv3(K)
+    if K_inv is None:
+        return img.copy(), np.eye(3, dtype=np.float64)
+    H_rot = K @ R @ K_inv
     H_rot = H_rot / H_rot[2, 2]
 
     ys, xs = np.mgrid[0:h, 0:w]
     coords = np.stack([xs.ravel(), ys.ravel(), np.ones(h * w)], axis=0)
-    H_inv = np.linalg.inv(H_rot)
+    H_inv = _inv3(H_rot)
+    if H_inv is None:
+        return img.copy(), np.eye(3, dtype=np.float64)
     warped = H_inv @ coords
     warped = warped / np.maximum(warped[2], 1e-12)
     wx = warped[0].reshape(h, w)

@@ -8,131 +8,60 @@ const App = (() => {
   let $statTotal, $statReady;
 
   // ── BLUEPRINT ──
-  const BLUEPRINT = [
+    const BLUEPRINT = [
     { phase:'phase1', color:'#3B82F6', name:'阶段一 · 基础原语', en:'Fundamentals', sub:'像素级原子操作', diff:1, subs:null, algo:[
-      {id:'colorspace',  n:'色彩空间转换',   en:'Color Space Conv.', d:'RGB↔HSV↔Lab↔灰度'},
+      {id:'grayscale',   n:'灰度转换',       en:'Grayscale',         d:'RGB↔灰度亮度图，加权公式'},
       {id:'histogram',   n:'直方图与均衡化', en:'Histogram',         d:'像素统计+CLAHE对比度增强'},
       {id:'threshold',   n:'阈值化',         en:'Thresholding',      d:'全局/自适应/Otsu二值化'},
-      {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成'},
-      {id:'convolution', n:'卷积操作',       en:'Convolution',       d:'1D→2D滑窗,整个CV的数学核心'},
-      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口,尺度空间基石'},
-      {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数,梯度幅值与方向'},
-      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪,椒盐杀手'},
-      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑,空间+色彩双核'},
+      {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成与分析'},
+      {id:'convolution', n:'卷积操作',       en:'Convolution',       d:'1D→2D滑窗，CV的数学心脏'},
+      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口，尺度空间基石'},
+      {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数，梯度幅值与方向'},
+      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪，排序取中位'},
+      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑，空间+色彩双核'},
+      {id:'live',        n:'实时摄像头滤镜', en:'Live Camera',       d:'Webcam实时卷积效果演示'},
     ]},
     { phase:'phase2', color:'#10B981', name:'阶段二 · 经典特征检测', en:'Classical Features', sub:'从像素到结构', diff:2, subs:null, algo:[
-      {id:'canny',       n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线:高斯→Sobel→NMS→双阈值→滞后'},
-      {id:'harris',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R,特征值三分法'},
-      {id:'shitomasi',   n:'Shi-Tomasi角点', en:'Shi-Tomasi',        d:'R=min(λ₁,λ₂),光流追踪首选'},
-      {id:'sift',        n:'SIFT特征',       en:'SIFT',              d:'四阶段:DoG→极值→方向→128D描述子'},
-      {id:'tpl_match',   n:'模板匹配',       en:'Template Match',    d:'CCORR/NCC滑窗,多目标Quickselect'},
-      {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)/(x,y,r)参数空间投票'},
-      {id:'morphology',  n:'形态学操作',     en:'Morphology',        d:'腐蚀/膨胀/开/闭,SE结构元素'},
-      {id:'contour',     n:'轮廓查找',       en:'Contour Finding',   d:'层级树,面积/周长/凸包分析'},
+      {id:'edge',        n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线：高斯→Sobel→NMS→双阈值→滞后'},
+      {id:'corner',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R，特征值三分法'},
+      {id:'sift',        n:'SIFT特征检测',   en:'SIFT',              d:'四阶段：DoG→极值→方向→128D描述子'},
+      {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)参数空间投票找直线圆'},
+      {id:'morphology',  n:'形态学操作',     en:'Morphology',        d:'腐蚀/膨胀/开/闭，SE结构元素'},
+      {id:'contour',     n:'轮廓查找',       en:'Contour Finding',   d:'层级树，面积/周长/凸包分析'},
       {id:'nms',         n:'非极大值抑制',   en:'NMS',               d:'边缘→角点→检测框的通用后处理'},
     ]},
-    { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'', diff:3, subs:[
-      {key:'3A', label:'图像分割', color:'#F59E0B', algo:[
-        {id:'kmeans',    n:'K-Means分割',   en:'K-Means Seg',      d:'RGB像素聚类,无监督分割入口'},
-        {id:'ncuts',     n:'Normalized Cuts',en:'Normalized Cuts',  d:'谱聚类:拉普拉斯→Fiedler向量'},
-        {id:'watershed', n:'分水岭分割',     en:'Watershed',        d:'梯度图→地形浸没+标记控制'},
-        {id:'grabcut',   n:'GrabCut',        en:'GrabCut',          d:'GraphCut+迭代GMM交互式抠图'},
-        {id:'slic',      n:'SLIC超像素',     en:'SLIC Superpixel',  d:'Lab+xy五维K-means聚类'},
+    { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'几何验证与特征匹配', diff:3, subs:null, algo:[
+      {id:'match',       n:'特征匹配（SIFT+RANSAC）', en:'Feature Matching', d:'L2距离→ratio test→RANSAC单应性，3D重建/SLAM核心'},
+    ]},
+    { phase:'phase4', color:'#EF4444', name:'阶段四 · 深度学习时代', en:'Deep Learning Era', sub:'从CNN到生成模型', diff:4, subs:[
+      {key:'4A', label:'卷积全流程', color:'#F87171', algo:[
+        {id:'cnn_basics', n:'CNN基础',        en:'CNN Basics',        d:'Conv→ReLU→Pool→FC四步法'},
+        {id:'lenet',      n:'LeNet手写数字',   en:'LeNet',             d:'7层CNN，DL视觉入门第一课'},
+        {id:'conv_training',n:'训练过程观察',  en:'Training Watch',    d:'实时观察loss/梯度/激活值变化'},
       ]},
-      {key:'3B', label:'传统识别管线', color:'#FBBF24', algo:[
-        {id:'hog_svm',   n:'HOG+SVM',       en:'HOG+SVM',          d:'梯度直方图+LinearSVM行人检测'},
-        {id:'bovw_spm',  n:'BoVW+SPM',      en:'BoVW+SPM',         d:'SIFT→K-Means词汇→SPM→Chi2SVM'},
-        {id:'sift_ransac',n:'SIFT+RANSAC',  en:'SIFT+RANSAC',      d:'L2距离→ratio test→RANSAC单应性'},
+      {key:'4B', label:'检测与分割', color:'#FB923C', algo:[
+        {id:'detection',  n:'目标检测',       en:'Object Detection',  d:'Faster R-CNN两阶段+YOLO单阶段'},
+        {id:'semantic',   n:'语义分割',       en:'Semantic Seg.',     d:'FCN+U-Net+DeepLabV3逐像素分类'},
+        {id:'instance',   n:'实例分割',       en:'Instance Seg.',     d:'Mask R-CNN检测+掩码分支'},
       ]},
-      {key:'3C', label:'运动估计', color:'#FB923C', algo:[
-        {id:'optical_flow',n:'光流',        en:'Optical Flow',      d:'LK稀疏+Farneback稠密+金字塔'},
+      {key:'4C', label:'骨干网络', color:'#FBBF24', algo:[
+        {id:'resnet',     n:'ResNet+Grad-CAM',en:'ResNet+Grad-CAM',   d:'残差连接+梯度加权类激活图'},
       ]},
-      {key:'3D', label:'几何视觉', color:'#EF4444', algo:[
-        {id:'calibration',n:'相机标定',     en:'Camera Calibration',d:'针孔→K[R|t]→畸变→DLT→Cholesky'},
-        {id:'epipolar',  n:'对极几何',      en:'Epipolar Geometry', d:'F/E矩阵→8点法→SVD恢复R,t'},
-        {id:'stereo',    n:'立体匹配',       en:'Stereo Matching',   d:'SAD/SSD→视差图→深度Z=fB/d'},
-        {id:'sfm',       n:'三角测量与SfM', en:'SfM',               d:'P₀,P₁→SVD→稀疏点云'},
-        {id:'stitching', n:'图像拼接',       en:'Image Stitching',   d:'单应性+warpPerspective+融合'},
+      {key:'4D', label:'生成模型', color:'#C084FC', algo:[
+        {id:'gan',        n:'GAN生成对抗',    en:'GAN',               d:'生成器/判别器博弈'},
+        {id:'diffusion',  n:'扩散模型基础',   en:'Diffusion Basics',  d:'前向加噪→反向去噪'},
+        {id:'ddpm',       n:'DDPM',           en:'DDPM',              d:'扩散奠基作，逐步去噪证明'},
+        {id:'sd',         n:'Stable Diffusion',en:'Stable Diffusion', d:'潜空间扩散，VAE+UNet+CrossAttn'},
       ]},
     ]},
-    { phase:'phase4', color:'#EF4444', name:'阶段四 · 深度学习时代', en:'Deep Learning Era', sub:'', diff:4, subs:[
-      {key:'4A', label:'基础架构', color:'#F87171', algo:[
-        {id:'cnn_basics',n:'CNN基础',       en:'CNN Basics',        d:'Conv→ReLU→Pool→FC,滤波器可视化', planned:true},
-        {id:'resnet',    n:'ResNet+Grad-CAM',en:'ResNet+Grad-CAM',  d:'残差连接+Grad-CAM决策可视化', planned:true},
-      ]},
-      {key:'4B', label:'语义分割', color:'#FB923C', algo:[
-        {id:'fcn',       n:'FCN',           en:'FCN',               d:'全卷积+转置卷积+跳跃融合,开山之作', planned:true},
-        {id:'unet',      n:'U-Net',         en:'U-Net',             d:'对称编解码+长跳跃连接', planned:true},
-      ]},
-      {key:'4C', label:'目标检测', color:'#FBBF24', algo:[
-        {id:'faster_rcnn',n:'Faster R-CNN+FPN',en:'Faster R-CNN',  d:'两阶段:RPN+RoIPool+FPN', planned:true},
-        {id:'yolo',      n:'YOLO',          en:'YOLO',              d:'单阶段:网格→回归(x,y,w,h,class)', planned:true},
-      ]},
-      {key:'4D', label:'实例分割', color:'#A3E635', algo:[
-        {id:'mask_rcnn', n:'Mask R-CNN',    en:'Mask R-CNN',        d:'FasterRCNN+掩码分支+RoIAlign', planned:true},
-      ]},
-      {key:'4E', label:'生成模型', color:'#C084FC', algo:[
-        {id:'gan',       n:'GAN(基础)',     en:'GAN Basics',        d:'生成器/判别器博弈,模式坍塌'},
-        {id:'diffusion', n:'扩散模型基础',  en:'Diffusion Basics',  d:'前向加噪→反向去噪,与GAN对比'},
-      ]},
+    { phase:'phase5', color:'#8B5CF6', name:'阶段五 · 前沿基础模型', en:'Foundation Models', sub:'Transformer统一视觉', diff:5, subs:null, algo:[
+      {id:'vit',        n:'Vision Transformer',en:'ViT',            d:'Patch→Transformer，视觉新范式'},
+      {id:'detr',       n:'DETR',          en:'DETR',              d:'Transformer端到端，二分匹配替代NMS'},
+      {id:'clip',       n:'CLIP',          en:'CLIP',              d:'4亿图文对对比学习，多模态基石'},
+      {id:'sam',        n:'SAM',           en:'SAM',               d:'ViT+提示编码+Mask解码，分割基础模型'},
+      {id:'nerf',       n:'NeRF',          en:'NeRF',              d:'MLP隐式3D，体渲染开山之作'},
     ]},
-    { phase:'phase5', color:'#8B5CF6', name:'阶段五 · 基础模型与前沿感知', en:'Foundation Models & Perception', sub:'2020-2025', diff:5, subs:[
-      {key:'5.1', label:'视觉骨干网络 (4)', color:'#A78BFA', algo:[
-        {id:'vit',       n:'ViT',           en:'Vision Transformer',d:'Patch→Transformer,CNN替代范式'},
-        {id:'swin',      n:'Swin Transformer',en:'Swin Transformer',d:'窗口注意力+移位窗口,多尺度ViT', planned:true},
-        {id:'dino',      n:'DINO/DINOv2',   en:'DINO/DINOv2',       d:'自监督ViT,注意力自动涌现分割', planned:true},
-        {id:'mae',       n:'MAE',           en:'MAE',               d:'遮盖75%→重建,SAM的预训练方法', planned:true},
-      ]},
-      {key:'5.2', label:'现代检测范式 (3)', color:'#C084FC', algo:[
-        {id:'detr',      n:'DETR',          en:'DETR',              d:'Transformer端到端,Object Query+二分匹配'},
-        {id:'dino_det',  n:'DINO(检测)',    en:'DINO Detection',    d:'DETR+对比去噪+混合Query', planned:true},
-        {id:'grdino',    n:'Grounding DINO',en:'Grounding DINO',    d:'开放词汇检测,文本条件Query', planned:true},
-      ]},
-      {key:'5.3', label:'通用分割 (3)', color:'#E879F9', algo:[
-        {id:'mask2former',n:'Mask2Former',  en:'Mask2Former',       d:'掩码注意力统一语义/实例/全景', planned:true},
-        {id:'sam',       n:'SAM',           en:'SAM',               d:'ViT+提示编码+Mask解码,分割基础模型'},
-        {id:'sam2',      n:'SAM 2',         en:'SAM 2',             d:'扩展到视频,记忆注意力+时间传播', planned:true},
-      ]},
-      {key:'5.4', label:'多模态视觉-语言 (2)', color:'#F0ABFC', algo:[
-        {id:'clip',      n:'CLIP',          en:'CLIP',              d:'4亿图文对对比学习,双塔对齐'},
-        {id:'blip2',     n:'BLIP-2',        en:'BLIP-2',            d:'Q-Former桥接冻结ViT+LLM', planned:true},
-      ]},
-      {key:'5.5', label:'生成式模型 (6)', color:'#F9A8D4', algo:[
-        {id:'ddpm',      n:'DDPM',          en:'DDPM',              d:'扩散奠基作,加噪→去噪逐步生成', planned:true},
-        {id:'sd',        n:'Stable Diffusion',en:'Stable Diffusion',d:'潜空间扩散,VAE+UNet+Cross-Attn'},
-        {id:'controlnet',n:'ControlNet',    en:'ControlNet',        d:'零卷积+冻结SD,空间控制信号', planned:true},
-        {id:'dit',       n:'DiT',           en:'DiT',               d:'Transformer替代UNet做扩散', planned:true},
-        {id:'flux',      n:'Flux',          en:'Flux',              d:'DiT+Flow Matching,直线路径', planned:true},
-        {id:'stylegan',  n:'StyleGAN',      en:'StyleGAN',          d:'风格映射+AdaIN→解调→抗混叠', planned:true},
-      ]},
-      {key:'5.6', label:'自监督学习 (4)', color:'#FDA4AF', algo:[
-        {id:'simclr',    n:'SimCLR',        en:'SimCLR',            d:'大batch+强增强+MLP投影,NT-Xent', planned:true},
-        {id:'moco',      n:'MoCo',          en:'MoCo',              d:'动量编码器+动态队列,解耦batch', planned:true},
-        {id:'byol',      n:'BYOL',          en:'BYOL',              d:'无负样本,Online→Target(EMA)', planned:true},
-        {id:'ijepa',     n:'I-JEPA',        en:'I-JEPA',            d:'表征空间预测,非像素重建', planned:true},
-      ]},
-      {key:'5.7', label:'神经3D与空间感知 (7)', color:'#FDBA74', algo:[
-        {id:'nerf',      n:'NeRF',          en:'NeRF',              d:'MLP隐式3D,采样→编码→体渲染'},
-        {id:'3dgs',      n:'3D Gaussian Splat.',en:'3D Gaussian Splat.',d:'显式高斯椭球→可微光栅化,实时', planned:true},
-        {id:'dust3r',    n:'DUSt3R',        en:'DUSt3R',            d:'无需相机参数,Transformer→3D点云', planned:true},
-        {id:'pointnet',  n:'PointNet',      en:'PointNet',          d:'MaxPool对称函数+T-Net,点云DL入口', planned:true},
-        {id:'orbslam3',  n:'ORB-SLAM3',     en:'ORB-SLAM3',         d:'三线程:跟踪+建图+回环,空间计算基石', planned:true},
-        {id:'bev',       n:'BEV Perception',en:'BEV Perception',    d:'Lift-Splat,环视→鸟瞰图特征', planned:true},
-        {id:'occupy',    n:'Occupancy Net.', en:'Occupancy Networks',d:'体素占据预测,比3D框更精细', planned:true},
-      ]},
-      {key:'5.8', label:'时序理解 (3)', color:'#FCD34D', algo:[
-        {id:'c3d',       n:'C3D',           en:'C3D',               d:'3D卷积(时空核),动作识别入门', planned:true},
-        {id:'bytetrack', n:'ByteTrack',     en:'ByteTrack',         d:'低分检测框+两阶段关联MOT', planned:true},
-        {id:'botsort',   n:'BoT-SORT',      en:'BoT-SORT',          d:'ByteTrack+CMC+ReID', planned:true},
-      ]},
-      {key:'5.9', label:'人体姿态 (4)', color:'#FDE68A', algo:[
-        {id:'deeppose',  n:'DeepPose',      en:'DeepPose',          d:'CNN直接回归(x,y),DL姿态起点', planned:true},
-        {id:'openpose',  n:'OpenPose',      en:'OpenPose',          d:'PAF+热力图→二分图匹配,自底向上', planned:true},
-        {id:'mediapipe', n:'MediaPipe Pose',en:'MediaPipe Pose',    d:'MobileNetV3,33关键点,30+FPS', planned:true},
-        {id:'vitpose',   n:'ViTPose',       en:'ViTPose',           d:'纯ViT→直接输出关键点热力图', planned:true},
-      ]},
-    ]},
-  ];
+  ];;
 
   function _allAlgos(){ const a=[]; BLUEPRINT.forEach(p=>{if(p.subs)p.subs.forEach(g=>g.algo.forEach(x=>a.push(x)));else p.algo.forEach(x=>a.push(x));}); return a; }
   function _phaseAlgos(ph){ if(ph.subs){ const a=[]; ph.subs.forEach(g=>a.push(...g.algo)); return a; } return ph.algo; }
@@ -143,20 +72,18 @@ const App = (() => {
   // Only count modules with actual algorithm.py (not just skeleton __init__.py)
   // Maps blueprint IDs → actual registered module IDs
   const IDMAP={
-    colorspace:'grayscale',canny:'edge',harris:'corner',sift_ransac:'match',
-    stitching:'match',convolution:'convolution',sift:'sift',hough:'hough',
-    morphology:'morphology',contour:'contour',grabcut:'grabcut',slic:'slic',
-    watershed:'watershed',hog_svm:'hog_svm',optical_flow:'optical_flow',
-    stereo:'stereo',histogram:'histogram',threshold:'threshold',
-    gan:'gan',diffusion:'diffusion',lenet:'lenet',
-    fcn:'semantic',faster_rcnn:'detection',mask_rcnn:'instance',
-    detection:'detection',semantic:'semantic',instance:'instance',
-    frequency:'frequency',
+    live:'live',conv_training:'conv_training',lenet:'lenet',
+    convolution:'convolution',canny:'edge',harris:'corner',edge:'edge',corner:'corner',sift:'sift',
+    hough:'hough',morphology:'morphology',contour:'contour',
+    grayscale:'grayscale',histogram:'histogram',threshold:'threshold',
     noise:'noise',gaussian:'gaussian',sobel:'sobel',median:'median',
-    bilateral:'bilateral',nms:'nms',tpl_match:'template_match',
-    kmeans:'kmeans',live:'live',conv_training:'conv_training',
+    bilateral:'bilateral',nms:'nms',template_match:'template_match',tpl_match:'template_match',
+    match:'match',sift_ransac:'match',
+    detection:'detection',semantic:'semantic',instance:'instance',
+    faster_rcnn:'detection',fcn:'semantic',mask_rcnn:'instance',
+    gan:'gan',diffusion:'diffusion',resnet:'resnet',
     vit:'vit',detr:'detr',sam:'sam',clip:'clip',nerf:'nerf',
-    sd:'stable_diffusion',
+    sd:'stable_diffusion',ddpm:'ddpm',cnn_basics:'cnn_basics',
   };
   // Auto-detect: IDMAP first, then direct lookup, then fuzzy match
   function _resolveId(id){
@@ -170,24 +97,15 @@ const App = (() => {
   }
   // Modules with verified working backends (tested 28/28)
   const VERIFIED=new Set([
-    'noise','gaussian','sobel','median','bilateral','grayscale','histogram','threshold',
-    'convolution','edge','corner','sift','hough','morphology','contour','nms','template_match',
-    'kmeans','watershed','grabcut','slic','hog_svm','optical_flow','stereo','match','frequency',
-    'lenet','gan','detection','semantic','instance','diffusion',
-    'live','conv_training','vit','detr','sam','clip','nerf','stable_diffusion',
-    'shitomasi','ncuts','bovw_spm','calibration','epipolar','sfm','cnn_basics','resnet',
-    'fcn','unet','faster_rcnn','yolo','mask_rcnn','ddpm','simclr','moco','byol','ijepa',
-    '3dgs','pointnet','bev','occupy','c3d','bytetrack','botsort','deeppose','openpose',
+    'grayscale','histogram','threshold','noise','convolution','gaussian','sobel','median','bilateral','live',
+    'edge','corner','sift','hough','morphology','contour','nms','template_match',
+    'match',
+    'cnn_basics','lenet','conv_training','resnet','detection','semantic','instance',
+    'gan','diffusion','ddpm','sd',
+    'vit','detr','clip','sam','nerf',
   ]);
-  const SPECIAL_PAGE_IDS=new Set(['convolution','edge','corner','sift','match','cnn_basics',
-    'resnet','gan','unet','yolo','fcn','faster_rcnn','mask_rcnn',
-    'detection','semantic','instance',
-    'swin','dino','mae','dino_det','grdino','mask2former','sam2','blip2',
-    'ddpm','controlnet','dit','flux','stylegan',
-    'simclr','moco','byol','ijepa',
-    '3dgs','dust3r','pointnet','bev','occupy',
-    'c3d','bytetrack','botsort',
-    'deeppose','openpose','nerf']);
+  const SPECIAL_PAGE_IDS=new Set(['edge','corner','sift','match','cnn_basics',
+    'hough','morphology','median','sobel','histogram','threshold','gaussian']);
   function _implInfo(id){
     const m=_apiMap[id];
     if(m && m.implementation) return m.implementation;
@@ -223,21 +141,19 @@ const App = (() => {
     const rid=_resolveId(id);
     const state=_moduleState(id);
     const impl=state.impl;
-    if(window.AlgorithmContent && window.AlgorithmContent[id] && !SPECIAL_PAGE_IDS.has(id)){
-      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
-      return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
+    const m=_apiMap[rid];
+    const a=_allAlgos().find(x=>x.id===id)||_allAlgos().find(x=>x.id===rid)||{id,n:id,en:''};
+    if(m&&m.page&&(!impl||_implRunnable(impl))){
+      return Object.assign({}, m, {id:id, name:a.n||m.name||id, name_en:a.en||m.name_en||''});
     }
     if(impl && !_implRunnable(impl) && window.AlgorithmContent && window.AlgorithmContent[id]){
-      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
       return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
     }
     if(impl && !_implRunnable(impl)) return null;
     if(!_isReady(id) && !(window.AlgorithmContent && window.AlgorithmContent[id] && !impl)) return null;
     if(window.AlgorithmContent && window.AlgorithmContent[id] && !SPECIAL_PAGE_IDS.has(id)&&!SPECIAL_PAGE_IDS.has(rid)){
-      const a=_allAlgos().find(x=>x.id===id)||{id,n:id,en:''};
       return {id, name:a.n||id, name_en:a.en||'', page:'teaching.html?id='+encodeURIComponent(id)};
     }
-    const m=_apiMap[rid];
     if(m&&m.page) return m;
     return null;
   }
@@ -297,74 +213,131 @@ const App = (() => {
     const all=_allAlgos();
     if($statTotal) $statTotal.textContent=all.length;
     if($statReady) $statReady.textContent=all.filter(a=>_isReady(a.id)).length;
-    Array.from(document.querySelectorAll('.phase-line')).forEach((line,idx)=>{
-      const phase=BLUEPRINT[idx];
-      if(!phase) return;
-      const algos=_phaseAlgos(phase);
-      const phaseNode=line.querySelector('.phase-count');
-      if(phaseNode) phaseNode.textContent=algos.filter(a=>_isReady(a.id)).length+'/'+algos.length+' 已实现';
-      if(phase.subs){
-        Array.from(line.querySelectorAll('.sub-group')).forEach((group,gidx)=>{
-          const grp=phase.subs[gidx];
-          const node=group.querySelector('.sub-group-count');
-          if(node&&grp) node.textContent=grp.algo.filter(a=>_isReady(a.id)).length+'/'+grp.algo.length;
-        });
-      }
-    });
+  }
+
+  // ── Topic Cards ──
+    const TOPIC_CARDS = [
+    // ── Phase 1 ──
+    { id:'color-and-contrast', phase:0,
+      kicker:'像素启蒙', title:'色彩与对比：让计算机"看见"光线',
+      narrative:'计算机看到的是数字矩阵。色彩空间转换赋予颜色以意义，直方图揭示像素分布的统计秘密，阈值化做出第一个"是/否"的二元判断。噪声是 CV 的第一道坎——了解它，才能对抗它。',
+      colorFrom:'#3B82F6', colorTo:'#60a5fa',
+      cover:'<div class="cv-cover cv-colors"><div class="cv-color-bar"><span style="height:60%;background:#ef4444"></span><span style="height:85%;background:#22c55e"></span><span style="height:45%;background:#3b82f6"></span><span style="height:70%;background:#f59e0b"></span><span style="height:55%;background:#8b5cf6"></span></div><div class="cv-thresh-split"><span></span><span></span></div></div>',
+      algos:[{id:'colorspace',role:'空间转换',label:'色彩空间'},{id:'histogram',role:'像素统计',label:'直方图均衡化'},{id:'threshold',role:'二元决策',label:'阈值化'},{id:'noise',role:'了解敌人',label:'噪声模型'}]},
+    { id:'filter-and-convolution', phase:0,
+      kicker:'数学核心', title:'滤波与卷积：像素的数学魔法',
+      narrative:'卷积是 CV 的数学心脏——一个权重窗口在像素矩阵上滑动。高斯用它温柔降噪，Sobel 用它发现梯度方向，中值滤波铁腕去除椒盐噪声，双边滤波聪明地在降噪的同时保留边缘——空间近且颜色近才加权。',
+      colorFrom:'#3B82F6', colorTo:'#93c5fd',
+      cover:'<div class="cv-cover cv-conv"><div class="cv-kernel-3x3"><i></i><i></i><i></i><i></i><i class="active"></i><i></i><i></i><i></i><i></i></div><div class="cv-scan-lines"><span></span><span></span><span></span></div></div>',
+      algos:[{id:'convolution',role:'数学基础',label:'卷积操作'},{id:'gaussian',role:'温柔降噪',label:'高斯模糊'},{id:'sobel',role:'发现梯度',label:'Sobel梯度'},{id:'median',role:'去椒盐',label:'中值滤波'},{id:'bilateral',role:'保边平滑',label:'双边滤波'}]},
+
+    // ── Phase 2 ──
+    { id:'edges-to-corners', phase:1,
+      kicker:'结构发现', title:'从边缘到角点：几何结构的诞生',
+      narrative:'Canny 用五步流水线把梯度精炼成连续边缘。Harris 在边缘的拐弯处计算结构张量，找到那些"无论往哪移变化都很大"的角点。Shi-Tomasi 改进了判据让跟踪更稳定。NMS 负责去重——只留最好的。',
+      colorFrom:'#10B981', colorTo:'#34d399',
+      cover:'<div class="cv-cover cv-edge-corner"><div class="cv-edge-line-glow"></div><div class="cv-corner-spark"></div><div class="cv-edge-dots"><i></i><i></i><i></i><i></i></div></div>',
+      algos:[{id:'canny',role:'精确边缘',label:'Canny边缘'},{id:'harris',role:'发现角点',label:'Harris角点'},{id:'nms',role:'去重筛选',label:'NMS'}]},
+    { id:'descriptors-and-shapes', phase:1,
+      kicker:'物体记忆', title:'描述与形状：让计算机"记住"物体',
+      narrative:'SIFT 用 DoG 找关键点，128 维描述子不惧旋转缩放。Hough 变换在参数空间投票——把零散的边缘点聚成直线和圆。形态学操作像一把精细手术刀——腐蚀去噪、膨胀填洞。轮廓查找提取物体边界的拓扑层级树。模板匹配做最朴素的"找相似"。',
+      colorFrom:'#10B981', colorTo:'#6ee7b7',
+      cover:'<div class="cv-cover cv-descriptors"><div class="cv-desc-patch"></div><div class="cv-hough-circle"></div><div class="cv-contour-blob"></div></div>',
+      algos:[{id:'sift',role:'特征描述',label:'SIFT'},{id:'tpl_match',role:'模板查找',label:'模板匹配'},{id:'hough',role:'形状检测',label:'Hough变换'},{id:'morphology',role:'形状精修',label:'形态学操作'},{id:'contour',role:'边界提取',label:'轮廓查找'}]},
+
+    // ── Phase 3 ──
+    { id:'feature-matching', phase:2,
+      kicker:'几何验证', title:'特征匹配：SIFT + RANSAC',
+      narrative:'SIFT 找到图像中的关键点并给每个点赋予 128 维描述子。两张图的描述子用 L2 距离做最近邻匹配——但直接匹配会有大量错误。RANSAC 的核心思想很朴素：随机抽最小样本拟合模型（如单应矩阵），然后数有多少其他点也符合这个模型。反复多次，选"内点"最多的那一次。这就是在噪声中找共识。',
+      colorFrom:'#F59E0B', colorTo:'#fbbf24',
+      cover:'<div class="cv-cover cv-match-cover"><div class="cv-match-pair"><span class="mp-dot mp-a1"></span><span class="mp-dot mp-a2"></span><span class="mp-line mp-l1"></span><span class="mp-line mp-l2"></span><span class="mp-dot mp-b1"></span><span class="mp-dot mp-b2"></span></div></div>',
+      algos:[{id:'match',role:'特征匹配与几何验证',label:'SIFT + RANSAC'}]},
+
+    // ── Bridge: AI 之眼 ──
+    { id:'ai-eye-bridge', phase:2, isBridge:true,
+      kicker:'承上启下 · The AI Eye', title:'AI 之眼：同一张图的三种视角',
+      narrative:'Phase 3 的 Watershed、GrabCut、SLIC 教会我们"分割"的直觉。进入 Phase 4，DeepLabV3、Faster R-CNN、Mask R-CNN 将这种直觉推向语义与实例级别。用同一张街景图，看三种算法视角如何层层递进。',
+      colorFrom:'#06b6d4', colorTo:'#22d3ee',
+      cover:'<div class="cv-cover cv-ai-eye-cover"><div class="cv-eye-stage"><div class="cv-eye-thumb box-mode"><span class="box-a"></span><span class="box-b"></span></div><span class="cv-eye-arr">→</span><div class="cv-eye-thumb wash-mode"><span class="wash-a"></span><span class="wash-b"></span></div><span class="cv-eye-arr">→</span><div class="cv-eye-thumb inst-mode"><span class="inst-a"></span><span class="inst-b"></span></div></div></div>',
+      algos:[{id:'watershed',role:'经典分割',label:'分水岭'},{id:'grabcut',role:'图割抠图',label:'GrabCut'},{id:'detection',role:'找→画框',label:'目标检测'},{id:'semantic',role:'像素→类',label:'语义分割'},{id:'instance',role:'同→分开',label:'实例分割'}],
+      bridgeBtns:[{label:'目标检测',icon:'🎯',cls:'detection-btn',mid:'detection'},{label:'语义分割',icon:'🎨',cls:'semantic-btn',mid:'semantic'},{label:'实例分割',icon:'✂️',cls:'instance-btn',mid:'instance'}]},
+
+    // ── Phase 4 ──
+    { id:'ai-eye-detection-seg', phase:3,
+      kicker:'检测与分割', title:'深度学习时代的检测与分割',
+      narrative:'Faster R-CNN 用 RPN 生成候选区域——两阶段精准定位。YOLO 把图划分成网格一次性回归——单阶段快如闪电。FCN 开创全卷积像素分类，U-Net 用对称编解码+跳跃连接精细还原边界。Mask R-CNN 加掩码分支把同类物体一个一个分开。',
+      colorFrom:'#EF4444', colorTo:'#f87171',
+      cover:'<div class="cv-cover cv-dl-detect"><div class="cv-grid-overlay"><span></span><span></span><span></span></div><div class="cv-mask-shape"></div></div>',
+      algos:[{id:'faster_rcnn',role:'两阶段',label:'Faster R-CNN'},{id:'yolo',role:'单阶段',label:'YOLO'},{id:'fcn',role:'全卷积',label:'FCN'},{id:'unet',role:'编解码',label:'U-Net'},{id:'mask_rcnn',role:'实例',label:'Mask R-CNN'}]},
+    { id:'cnn-foundations', phase:3,
+      kicker:'深度基石', title:'CNN 基石：深度学习的视觉根基',
+      narrative:'Conv→ReLU→Pool→FC——CNN 的四步法，从 LeNet 时代就确立了。ResNet 用残差连接（跳跃相加）让 152 层网络成为可能，解决了"越深越差"的退化问题。Grad-CAM 用梯度加权类激活图可视化"网络在看哪里"。',
+      colorFrom:'#EF4444', colorTo:'#fb7185',
+      cover:'<div class="cv-cover cv-cnn-stack"><div class="cv-layer-stack"><span class="l1">Conv</span><span class="l2">ReLU</span><span class="l3">Pool</span><span class="l4">FC</span></div><div class="cv-skip-conn"></div></div>',
+      algos:[{id:'cnn_basics',role:'CNN四步',label:'CNN基础'},{id:'resnet',role:'残差连接',label:'ResNet'}]},
+    { id:'generative-models', phase:3,
+      kicker:'生成模型', title:'AI 的想象力：从博弈到扩散',
+      narrative:'GAN 让两个网络互相博弈——生成器造假，判别器打假，在对抗中学会"画"出逼真图像。扩散模型反其道而行：先学会把图像一步步加噪成一团混沌，再学会一步步去噪还原——结果比 GAN 更稳定、更多样。',
+      colorFrom:'#EF4444', colorTo:'#c084fc',
+      cover:'<div class="cv-cover cv-gen-duel"><div class="cv-gan-side"><span class="g">G</span><span class="d">D</span></div><div class="cv-diff-steps"><i></i><i></i><i></i><i></i><i></i></div></div>',
+      algos:[{id:'gan',role:'对抗博弈',label:'GAN'},{id:'diffusion',role:'去噪生成',label:'扩散模型'}]},
+
+    // ── Phase 5 ──
+    { id:'transformer-vision', phase:4,
+      kicker:'新范式', title:'Transformer 统一视觉：从分类到检测',
+      narrative:'ViT 做了一个大胆的实验——把图像切成 Patch，像单词一样丢进 Transformer，不需要卷积也能赢。DETR 更进一步，把目标检测重新定义为集合预测问题——100 个 Object Query 经过 Transformer 直接输出 (类别, 框)，匈牙利算法做二分匹配替代 NMS。分类和检测都被 Transformer 统一了。',
+      colorFrom:'#8B5CF6', colorTo:'#a78bfa',
+      cover:'<div class="cv-cover cv-vit-patches"><div class="cv-patch-grid"><i></i><i></i><i></i><i class="active"></i><i></i><i></i><i></i><i></i><i class="active"></i></div><div class="cv-tf-block"><span></span><span></span></div></div>',
+      algos:[{id:'vit',role:'Patch→TF',label:'ViT'},{id:'detr',role:'检测TF',label:'DETR'}]},
+    { id:'foundation-models', phase:4,
+      kicker:'基础模型', title:'分割与多模态：基础模型时代',
+      narrative:'CLIP 用 4 亿图文对做对比学习，把图像和文本映射到同一向量空间——学会了零样本"看图说话"。SAM 把分割变成了"指点江山"——点一下、画个框，哪里都能分割，同一个模型可分割任意物体。NeRF 用一个 MLP 隐式记住整个 3D 场景——给一个视角，还你一张逼真渲染图。',
+      colorFrom:'#8B5CF6', colorTo:'#f9a8d4',
+      cover:'<div class="cv-cover cv-sam-clip"><div class="cv-sam-point"></div><div class="cv-sam-mask"></div><div class="cv-nerf-sphere" style="width:24px;height:24px;margin:0 0 0 20px"><span class="ray"></span><span class="ray"></span></div></div>',
+      algos:[{id:'clip',role:'图文对齐',label:'CLIP'},{id:'sam',role:'提示分割',label:'SAM'},{id:'nerf',role:'隐式3D',label:'NeRF'}]},
+  ];
+
+
+  function _renderTopicCard(container, meta){
+    const card=document.createElement('div');
+    card.className='topic-card'+(meta.isBridge?' bridge-highlight':'');
+    card.id='topic-'+meta.id;
+
+    var visualHTML = meta.cover || ('<div class="vis-gradient-bar" style="background:linear-gradient(90deg,'+meta.colorFrom+','+meta.colorTo+')"></div>');
+
+    let actionsHTML='';
+    if(meta.bridgeBtns){
+      actionsHTML='<div class="bridge-actions">'+meta.bridgeBtns.map(function(b){return '<button class="bridge-open '+b.cls+'" data-course-open="'+b.mid+'"><span>'+b.icon+'</span> '+b.label+'</button>';}).join('')+'</div>';
+    }else{
+      actionsHTML='<div class="bridge-algo-tags">'+meta.algos.map(function(a){return '<button class="bridge-algo-tag" data-mid="'+a.id+'"><span class="bat-role">'+a.role+'</span><span class="bat-name">'+a.label+'</span></button>';}).join('')+'</div>';
+    }
+
+    card.innerHTML='<div class="bridge-body topic-'+meta.id+'"><div class="topic-visual-wrap">'+visualHTML+'</div><div class="bridge-copy"><span class="topic-card-kicker" style="color:'+meta.colorFrom+'">'+meta.kicker+'</span><h3>'+meta.title+'</h3><p>'+meta.narrative+'</p>'+actionsHTML+'</div></div>';
+    card.querySelectorAll('.bridge-algo-tag').forEach(function(btn){btn.addEventListener('click',function(){Router.go('/module/'+btn.dataset.mid);});});
+    card.querySelectorAll('.bridge-open').forEach(function(btn){btn.addEventListener('click',function(){Router.go('/module/'+btn.dataset.courseOpen);});});
+    container.appendChild(card);
   }
 
   // ── Metro ──
   function _renderMetro(){
     $metro.innerHTML='';
-    BLUEPRINT.forEach(phase=>{
-      const line=document.createElement('div'); line.className='phase-line';
-      const algos=_phaseAlgos(phase);
-      const ready=algos.filter(a=>_isReady(a.id)).length;
-      let h=`<div class="phase-line-header">
-        <span class="station-dot" style="background:${phase.color};box-shadow:0 0 10px ${phase.color}"></span>
-        <span class="phase-label">${phase.name} · ${phase.en}</span>
-        <span class="phase-sub">${phase.sub}</span>
-        <span class="phase-count">${ready}/${algos.length} 已实现</span></div>`;
-      if(phase.subs){
-        phase.subs.forEach(grp=>{
-          const gr=grp.algo.filter(a=>_isReady(a.id)).length;
-          h+=`<div class="sub-group"><div class="sub-group-header">
-            <span class="sub-group-badge" style="background:${grp.color}">${grp.key}</span>
-            <span class="sub-group-label">${grp.label}</span>
-            <span class="sub-group-count">${gr}/${grp.algo.length}</span></div>
-            <div class="phase-cards">${grp.algo.map(a=>_card(a)).join('')}</div></div>`;
-        });
-      }else{
-        h+=`<div class="phase-cards">${phase.algo.map(a=>_card(a)).join('')}</div>`;
-      }
-      line.innerHTML=h;
-      line.querySelectorAll('.algo-card').forEach(c=>c.addEventListener('click',()=>Router.go('/module/'+c.dataset.mid)));
+    BLUEPRINT.forEach(function(phase, idx){
+      var line=document.createElement('div');
+      line.className='phase-line topic-rail';
+      var algos=_phaseAlgos(phase);
+      var ready=algos.filter(function(a){return _isReady(a.id);}).length;
+      line.innerHTML='<div class="phase-line-header"><span class="station-dot" style="background:'+phase.color+';box-shadow:0 0 10px '+phase.color+'"></span><span class="phase-label">'+phase.name+' / '+phase.en+'</span><span class="phase-sub">'+phase.sub+'</span><span class="phase-count">'+ready+'/'+algos.length+' ready</span></div><div class="topic-row"></div>';
       $metro.appendChild(line);
+      var row=line.querySelector('.topic-row');
+      TOPIC_CARDS.filter(function(c){return c.phase===idx;}).forEach(function(c){_renderTopicCard(row,c);});
     });
-  }
-  function _card(a){
-    const state=_moduleState(a.id);
-    const impl=state.impl||{};
-    const ready=state.ready;
-    const isNew=a.planned;
-    const cls=['algo-card',ready?'realized':(isNew?'planned':'pending')].filter(Boolean).join(' ');
-    var tag;
-    if (impl.category === 'numpy_algorithm') tag = 'NumPy 真实运算';
-    else if (impl.category === 'pretrained_model' || impl.category === 'numpy_model') tag = '真实模型';
-    else if (impl.category === 'teaching_simulation') tag = '离线教学';
-    else if (impl.category === 'requires_external_weights') tag = '需要权重';
-    else if (impl.category === 'not_implemented') tag = '未接入';
-    else tag = ready ? '可体验' : (isNew ? '规划中' : '待实现');
-    // Difficulty stars: find which phase this algo belongs to
-    let diff=1; BLUEPRINT.forEach(p=>{if(_phaseAlgos(p).some(x=>x.id===a.id))diff=p.diff;});
-    return `<div class="${cls}" data-mid="${a.id}" title="${a.d}"><div class="card-name">${a.n}</div><div class="card-en">${a.en}</div><div class="card-desc">${a.d}</div><div class="card-meta"><span class="card-tag">${tag}</span></div></div>`;
   }
 
   // ── Detail ──
   function openModule(id){
     const m=_openIfReady(id); if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
     _current=m; $dname.textContent=m.name; $den.textContent=m.name_en||'';
-    $ifr.src=m.page?'/static/pages/'+m.page:''; $overlay.classList.add('active');
+    $ifr.src=m.page?'/static/pages/'+m.page+'?v='+Date.now():''; $overlay.classList.add('active');
   }
   function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;}
   function openNetwork(){
@@ -377,18 +350,18 @@ const App = (() => {
   function _onSearch(e){
     const q=(e.target.value||'').toLowerCase().trim();
     if(q){$searchClear.classList.remove('hidden');}else{$searchClear.classList.add('hidden');_clearSearch();return;}
-    const all=_allAlgos();
-    const hits=all.filter(a=>a.n.toLowerCase().includes(q)||a.en.toLowerCase().includes(q)||a.d.toLowerCase().includes(q));
-    document.querySelectorAll('.algo-card').forEach(c=>{
-      c.classList.toggle('hidden',!hits.some(h=>h.id===c.dataset.mid));
+    const hits=_allAlgos().filter(a=>a.n.toLowerCase().includes(q)||a.en.toLowerCase().includes(q)||a.d.toLowerCase().includes(q));
+    document.querySelectorAll('.topic-card').forEach(card=>{
+      const ids=Array.from(card.querySelectorAll('[data-mid],[data-course-open]')).map(btn=>btn.dataset.mid||btn.dataset.courseOpen);
+      card.classList.toggle('hidden',!ids.some(id=>hits.some(h=>h.id===id||_resolveId(h.id)===_resolveId(id))));
     });
-    document.querySelectorAll('.sub-group').forEach(g=>{
-      g.classList.toggle('hidden',!g.querySelector('.algo-card:not(.hidden)'));
+    document.querySelectorAll('.topic-rail').forEach(rail=>{
+      rail.classList.toggle('hidden',!rail.querySelector('.topic-card:not(.hidden)'));
     });
     if(hits.length===1) Router.go('/module/'+hits[0].id);
   }
   function _clearSearch(){
-    document.querySelectorAll('.algo-card.hidden,.sub-group.hidden').forEach(c=>c.classList.remove('hidden'));
+    document.querySelectorAll('.topic-card.hidden,.topic-rail.hidden').forEach(c=>c.classList.remove('hidden'));
   }
 
   // ── Iframe messages ──

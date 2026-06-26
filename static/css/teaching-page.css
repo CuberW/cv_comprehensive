@@ -583,15 +583,44 @@ body {
 
 .visual-sample-window {
   position: absolute;
-  width: 40%;
-  height: 40%;
-  left: 31%;
-  top: 31%;
-  border-radius: 10px;
-  border: 2px solid rgba(251, 113, 133, 0.92);
-  background: rgba(251, 113, 133, 0.10);
-  box-shadow: 0 0 24px rgba(251, 113, 133, 0.35);
-  animation: sampleWindowMove 4s ease-in-out infinite;
+  inset: 0;
+  pointer-events: none;
+}
+/* Raster scan: each step is a positioned highlight square */
+.visual-raster-window .rw-step {
+  position: absolute;
+  width: calc(100% / 8);
+  height: calc(100% / 8);
+  left: calc(var(--rw-col, 0) * 100% / 8);
+  top: calc(var(--rw-row, 0) * 100% / 8);
+  border-radius: 4px;
+  border: 2px solid rgba(251, 113, 133, 0.85);
+  background: rgba(251, 113, 133, 0.12);
+  box-shadow: 0 0 18px rgba(251, 113, 133, 0.3);
+  opacity: 0;
+  animation-name: rwStepFlash;
+  animation-duration: 4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes rwStepFlash {
+  0%, 1.5%  { opacity: 1; }
+  11%, 100% { opacity: 0; }
+}
+/* Fallback: whole window moves for browsers without per-step support */
+@supports not (left: calc(var(--rw-col) * 100% / 8)) {
+  .visual-raster-window .rw-step { display: none; }
+  .visual-sample-window:not(.visual-raster-window) {
+    width: calc(3 * 100% / 8);
+    height: calc(3 * 100% / 8);
+    left: calc(3 * 100% / 8);
+    top: calc(3 * 100% / 8);
+    border-radius: 10px;
+    border: 2px solid rgba(251, 113, 133, 0.85);
+    background: rgba(251, 113, 133, 0.1);
+    box-shadow: 0 0 24px rgba(251, 113, 133, 0.35);
+    animation: sampleWindowMove 6s ease-in-out infinite;
+  }
 }
 
 .visual-image-grid i.is-noise {
@@ -644,8 +673,38 @@ body {
 
 .visual-window {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   justify-items: center;
+}
+/* Unsorted → Sorted transition: both share the same grid area via subgrid wrapper */
+.visual-window-stage {
+  display: grid;
+  grid-template-areas: 'stack';
+  min-height: 80px;
+  place-items: center;
+}
+.visual-window-unsorted,
+.visual-window-sorted {
+  grid-area: stack;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+.visual-window-unsorted {
+  animation: medianSortReveal 5s ease-in-out infinite;
+}
+.visual-window-sorted {
+  animation: medianSortedReveal 5s ease-in-out infinite;
+}
+.vw-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.vw-label strong {
+  color: #fb7185;
+  font-weight: 800;
+  animation: medianGlow 5s ease-in-out infinite;
 }
 
 .visual-window-grid .is-median,
@@ -653,6 +712,7 @@ body {
   outline: 2px solid #fb7185;
   background: rgba(251, 113, 133, 0.35) !important;
   color: var(--text);
+  animation: medianGlow 5s ease-in-out infinite;
 }
 
 .visual-sort {
@@ -671,6 +731,7 @@ body {
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 0.75rem;
   text-align: center;
+  transition: background 0.3s, color 0.3s, transform 0.3s;
 }
 
 .visual-bilateral {
@@ -1302,9 +1363,31 @@ body {
   50% { transform: translate(34px, 18px); }
 }
 
+/* Median filter: raster scan window — 9 positions, 3x3 grid over image */
 @keyframes sampleWindowMove {
-  0%, 100% { transform: translate(-18px, -10px); }
-  50% { transform: translate(18px, 10px); }
+  0%, 100%   { transform: translate(0, 0); }
+  11%        { transform: translate(calc(100% + 4px), 0); }
+  22%        { transform: translate(calc((100% + 4px) * 2), 0); }
+  33%        { transform: translate(0, calc(100% + 4px)); }
+  44%        { transform: translate(calc(100% + 4px), calc(100% + 4px)); }
+  55%        { transform: translate(calc((100% + 4px) * 2), calc(100% + 4px)); }
+  66%        { transform: translate(0, calc((100% + 4px) * 2)); }
+  77%        { transform: translate(calc(100% + 4px), calc((100% + 4px) * 2)); }
+  88%        { transform: translate(calc((100% + 4px) * 2), calc((100% + 4px) * 2)); }
+}
+/* Sort animation: unsorted grid fades out, sorted row fades in */
+@keyframes medianSortReveal {
+  0%, 42%  { opacity: 1; }
+  48%, 100% { opacity: 0; }
+}
+@keyframes medianSortedReveal {
+  0%, 44%  { opacity: 0; }
+  52%, 100% { opacity: 1; }
+}
+/* Median value pulse */
+@keyframes medianGlow {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(102,242,194,.6); }
+  50% { transform: scale(1.12); box-shadow: 0 0 24px rgba(102,242,194,.9); }
 }
 
 @keyframes arrowFlow {

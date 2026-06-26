@@ -585,18 +585,47 @@
     var values = card.values || [8, 10, 12, 13, 240, 14, 15, 16, 18];
     var sorted = values.slice().sort(function(a, b) { return a - b; });
     var median = sorted[Math.floor(sorted.length / 2)];
+    // 3x3 grid positions for the scanning window
+    var positions = [
+      {col:3,row:3},{col:4,row:3},{col:5,row:3},
+      {col:3,row:4},{col:4,row:4},{col:5,row:4},
+      {col:3,row:5},{col:4,row:5},{col:5,row:5}
+    ];
     return '<div class="visual-window">' +
-      '<div class="visual-window-scene"><div class="visual-pixels visual-image-grid visual-patch-grid" style="--rows:8;--cols:8">' +
-      imageCells(8, 8, ['#111827', '#1e293b', '#475569', '#64748b', '#cbd5e1', '#f8fafc']).map(function(color, idx) {
-        var hot = idx === 18 || idx === 27 || idx === 36;
-        return '<i class="' + (hot ? 'is-noise' : '') + '" style="background:' + esc(hot ? '#f8fafc' : color) + '" title="' + idx + '"></i>';
-      }).join('') + '</div><div class="visual-sample-window"></div></div>' +
-      '<div class="visual-kernel visual-window-grid">' + values.map(function(v) {
-        return '<i class="' + (v === median ? 'is-median' : '') + '">' + esc(v) + '</i>';
-      }).join('') + '</div>' +
-      '<div class="visual-sort">' + sorted.map(function(v) {
-        return '<span class="' + (v === median ? 'is-median' : '') + '">' + esc(v) + '</span>';
-      }).join('') + '</div></div>';
+      // Scene: 8x8 image with raster-scanning window
+      '<div class="visual-window-scene">' +
+        '<div class="visual-pixels visual-image-grid visual-patch-grid" style="--rows:8;--cols:8">' +
+          imageCells(8, 8, ['#111827', '#1e293b', '#475569', '#64748b', '#cbd5e1', '#f8fafc']).map(function(color, idx) {
+            var col = idx % 8, row = Math.floor(idx / 8);
+            var isNoise = idx === 26 || idx === 36 || idx === 44;
+            return '<i class="' + (isNoise ? 'is-noise' : '') + '" style="background:' + esc(isNoise ? '#f8fafc' : color) + '" title="' + idx + '"></i>';
+          }).join('') +
+        '</div>' +
+        // Raster scan window — steps through 9 positions
+        '<div class="visual-sample-window visual-raster-window">' +
+          positions.map(function(p, i) {
+            return '<span class="rw-step" style="--rw-col:' + p.col + ';--rw-row:' + p.row + ';animation-delay:' + (i * 0.44).toFixed(2) + 's"></span>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+      // Unsorted→Sorted transition stage
+      '<div class="visual-window-stage">' +
+        // Unsorted grid (visible first, fades out)
+        '<div class="visual-window-unsorted">' +
+          '<div class="visual-kernel visual-window-grid">' + values.map(function(v) {
+            return '<i class="' + (v === median ? 'is-median' : '') + '">' + esc(v) + '</i>';
+          }).join('') + '</div>' +
+          '<span class="vw-label">滑动窗口取值</span>' +
+        '</div>' +
+        // Sorted row (fades in)
+        '<div class="visual-window-sorted">' +
+          '<div class="visual-sort">' + sorted.map(function(v) {
+            return '<span class="' + (v === median ? 'is-median' : '') + '">' + esc(v) + '</span>';
+          }).join('') + '</div>' +
+          '<span class="vw-label">排序后取中值 = <strong>' + esc(median) + '</strong></span>' +
+        '</div>' +
+      '</div>' +
+      '</div>';
   }
 
   function bilateralArt(card) {

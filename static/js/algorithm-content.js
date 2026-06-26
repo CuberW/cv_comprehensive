@@ -24,16 +24,38 @@
     sfm: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy SfM' }
   };
 
-  const externalWeightIds = new Set([
-    'vit','detr','sam','clip','stable_diffusion','sd',
+  const localTeachingWeightIds = new Set([
+    'vit','detr','sam','clip','stable_diffusion','sd'
+  ]);
+
+  const localFrontierAlgorithmIds = new Set([
     'swin','dino','mae','dino_det','grdino','mask2former','sam2','blip2',
     'controlnet','dit','flux','stylegan','dust3r','orbslam3','mediapipe','vitpose'
   ]);
+
+  const externalWeightIds = new Set([]);
 
   const offlineTeachingIds = new Set([]);  // 已废弃——所有模块均有真实实现
 
   function attachImplementation(id, cfg) {
     let meta = implementationMeta[id] || cfg.implementation;
+    if (localTeachingWeightIds.has(id) || localFrontierAlgorithmIds.has(id)) {
+      meta = {
+        status: '本地确定性教学可视化',
+        category: 'numpy_algorithm',
+        localInference: true,
+        realModel: false,
+        requiresUpload: false,
+        model: 'NumPy/PIL local teaching pipeline',
+        note: '展示算法机制和中间结果，不代表下载后的预训练权重推理。'
+      };
+      cfg.endpoint = cfg.endpoint || ('/api/demo/' + (id === 'sd' ? 'stable_diffusion' : id));
+      if (localFrontierAlgorithmIds.has(id)) {
+        meta.status = 'local small algorithm implementation';
+        meta.model = 'NumPy/PIL local mechanism pipeline';
+        meta.note = 'Local small algorithm implementation; not pretrained-weight inference.';
+      }
+    } else
     if (externalWeightIds.has(id)) {
       meta = {
         status: '需要外部权重',
@@ -626,19 +648,21 @@
     var endpoint = spec.endpoint;
     // 没有手动指定 endpoint 时，只要不是需要外部权重的模块，就自动指向 /api/demo/<id>
     // 离线教学模块至少可以跑教学演示，外部权重模块则无法在离线环境运行
-    if (!endpoint && !externalWeightIds.has(spec.id)) {
-      endpoint = '/api/demo/' + spec.id;
+    if (!endpoint && (!externalWeightIds.has(spec.id) || localTeachingWeightIds.has(spec.id) || localFrontierAlgorithmIds.has(spec.id))) {
+      endpoint = '/api/demo/' + (spec.id === 'sd' ? 'stable_diffusion' : spec.id);
     }
 
     var isExtWeight = externalWeightIds.has(spec.id);
+    var isLocalTeachingWeight = localTeachingWeightIds.has(spec.id);
+    var isLocalFrontierAlgorithm = localFrontierAlgorithmIds.has(spec.id);
     var isOffline = !isExtWeight && offlineTeachingIds.has(spec.id);
     var impl = {
       status: spec.status || (isExtWeight ? '需要外部权重' : '真实 NumPy 算法'),
       category: isExtWeight ? 'requires_external_weights' : 'numpy_algorithm',
       localInference: !isExtWeight,
-      realModel: !isExtWeight,
-      requiresUpload: !isExtWeight,
-      model: spec.id || ''
+      realModel: !isExtWeight && !isLocalTeachingWeight && !isLocalFrontierAlgorithm,
+      requiresUpload: !isExtWeight && !isLocalTeachingWeight && !isLocalFrontierAlgorithm,
+      model: isLocalFrontierAlgorithm ? 'NumPy/PIL local mechanism pipeline' : (spec.id || '')
     };
 
     return {
@@ -667,6 +691,7 @@
       endpoint: endpoint,
       implementation: impl,
       conceptSteps: spec.conceptSteps || spec.pipeline,
+      visualStory: spec.visualStory,
       references: spec.references || [],
       metrics: spec.metrics || {
         '展示类型': impl.status,
@@ -1114,21 +1139,8 @@
       ]
     },
     sobel: {
-      intro: 'Sobel 关心“变化”：哪里亮度突然变了，哪里就可能有边缘。',
-      cards: [
-        {
-          type: 'kernel',
-          title: '差分核寻找方向变化',
-          text: '一组核看左右变化得到 Gx，另一组看上下变化得到 Gy。',
-          values: [-1, 0, 1, -2, 0, 2, -1, 0, 1]
-        },
-        {
-          type: 'arrows',
-          title: '两个方向合成边缘强度',
-          text: 'Gx 和 Gy 像两个分力，合成后的幅值表示边缘强弱，角度表示变化方向。',
-          labels: ['Gx', 'Gy', '|∇I|']
-        }
-      ]
+      intro: 'Sobel 关心”变化”：哪里亮度突然变了，哪里就可能有边缘。',
+      cards: []
     },
     median: {
       intro: '中值滤波不平均，而是排序后取中间值，所以特别擅长处理极端坏点。',
@@ -1972,6 +1984,392 @@
   Object.keys(window.AlgorithmContent).forEach(function(id) {
     if (id !== 'common') attachImplementation(id, window.AlgorithmContent[id]);
   });
+
+  (function normalizeHomepageContracts() {
+    function ensureContent(id, cfg) {
+      if (!window.AlgorithmContent[id]) {
+        window.AlgorithmContent[id] = cfg;
+      }
+    }
+
+    function applyStory(ids, story) {
+      ids.forEach(function(id) {
+        var cfg = window.AlgorithmContent[id];
+        if (!cfg) return;
+        if (!cfg.visualStory || !cfg.visualStory.cards || !cfg.visualStory.cards.length) {
+          cfg.visualStory = story;
+        }
+      });
+    }
+
+    var localTeaching = ['vit', 'detr', 'clip', 'sam', 'stable_diffusion', 'sd'];
+    localTeaching.forEach(function(id) {
+      var cfg = window.AlgorithmContent[id];
+      if (!cfg) return;
+      cfg.endpoint = cfg.endpoint || ('/api/demo/' + (id === 'sd' ? 'stable_diffusion' : id));
+      cfg.status = '本地确定性教学可视化';
+      cfg.implementation = {
+        status: '本地确定性教学可视化',
+        category: 'numpy_algorithm',
+        localInference: true,
+        realModel: false,
+        requiresUpload: false,
+        model: 'NumPy/PIL local teaching pipeline',
+        note: '展示算法机制和中间结果，不代表下载后的预训练权重推理。'
+      };
+    });
+
+    var localFrontierPatches = {
+      swin: {
+        pipeline: [['Patch partition', 'Split the image into patch tokens.'], ['Window attention', 'Compute self-attention inside local windows.'], ['Shifted windows', 'Shift the grid so adjacent windows exchange context.'], ['Patch merge', 'Merge 2x2 tokens to build a hierarchy.']],
+        principles: ['Swin keeps Transformer attention local to reduce quadratic cost.', 'Shifted windows make information cross window boundaries while preserving a hierarchical feature pyramid.'],
+        visualStory: { intro: 'Swin is a hierarchical Transformer: local windows keep computation small, shifted windows move context across boundaries.', cards: [
+          { type: 'arrows', title: 'Window attention pipeline', text: 'Patch tokens first attend inside a small window, then the next block shifts the window grid.', labels: ['patches', 'W-MSA', 'SW-MSA'] },
+          { type: 'bars', title: 'Why patch merge matters', text: 'Resolution goes down while semantic channel capacity goes up, like a CNN feature pyramid.', items: [{ label: 'tokens', value: 45, caption: 'fewer', color: '#38bdf8' }, { label: 'context', value: 85, caption: 'larger', color: '#22c55e' }] }
+        ] }
+      },
+      dino: {
+        pipeline: [['Multi-view crops', 'Create two augmented views of the same image.'], ['Student teacher encoders', 'Encode views with online and EMA networks.'], ['Centering softmax', 'Sharpen teacher probabilities after centering.'], ['Attention emergence', 'Inspect patch attention as objectness.']],
+        principles: ['DINO learns invariance by matching a student view to a teacher view.', 'Centering and temperature prevent collapse and make attention maps interpretable.'],
+        visualStory: { intro: 'DINO is self-supervised: it learns from agreement between augmented views, not from class labels.', cards: [
+          { type: 'arrows', title: 'Student teacher agreement', text: 'The student predicts the teacher distribution from a different crop or color view.', labels: ['view A', 'student', 'teacher target'] },
+          { type: 'bars', title: 'Collapse prevention', text: 'Centering and temperature keep the representation sharp without becoming a constant vector.', items: [{ label: 'center', value: 68, caption: 'balance', color: '#38bdf8' }, { label: 'temp', value: 82, caption: 'sharpen', color: '#f97316' }] }
+        ] }
+      },
+      mae: {
+        pipeline: [['Patchify', 'Turn the image into a patch sequence.'], ['Random mask', 'Hide most patches.'], ['Encode visible tokens', 'Run the encoder only on visible patches.'], ['Decode reconstruction', 'Predict masked patch pixels.']],
+        principles: ['MAE forces global understanding by reconstructing missing patches from sparse evidence.', 'The encoder is efficient because masked tokens are skipped until the lightweight decoder.'],
+        visualStory: { intro: 'MAE learns by removing most of the image and reconstructing the missing patch content.', cards: [
+          { type: 'arrows', title: 'Sparse encoder', text: 'Only visible patches enter the encoder; mask tokens appear later in the decoder.', labels: ['patchify', 'mask', 'reconstruct'] },
+          { type: 'bars', title: 'High mask ratio', text: 'A high mask ratio makes the task semantic rather than simple local copying.', items: [{ label: 'visible', value: 25, caption: 'tokens', color: '#38bdf8' }, { label: 'masked', value: 75, caption: 'tokens', color: '#ef4444' }] }
+        ] }
+      },
+      dino_det: {
+        pipeline: [['Object queries', 'Use learned slots to represent candidate objects.'], ['Denoising queries', 'Train with perturbed boxes and labels.'], ['Box refinement', 'Update boxes layer by layer.'], ['Set matching', 'Match predictions to targets once.']],
+        principles: ['DINO detection keeps DETR set prediction but makes training easier with denoising queries.', 'Iterative box refinement turns coarse query slots into accurate boxes.'],
+        visualStory: { intro: 'DINO detection improves DETR by teaching queries how to recover from noisy boxes.', cards: [
+          { type: 'arrows', title: 'Query correction', text: 'Noisy query boxes are decoded back toward target boxes during training.', labels: ['noisy box', 'decoder', 'refined box'] },
+          { type: 'bars', title: 'Matching plus denoising', text: 'The loss combines Hungarian matching with a denoising objective for faster convergence.', items: [{ label: 'match', value: 72, caption: 'set loss', color: '#38bdf8' }, { label: 'denoise', value: 80, caption: 'stability', color: '#22c55e' }] }
+        ] }
+      },
+      grdino: {
+        pipeline: [['Text tokens', 'Encode phrases such as object names.'], ['Image regions', 'Encode dense visual regions.'], ['Similarity map', 'Compare text and visual tokens.'], ['Grounded boxes', 'Convert high-score regions into boxes.']],
+        principles: ['Grounding DINO aligns open-vocabulary text phrases with image regions.', 'Detection becomes phrase-conditioned instead of fixed-class only.'],
+        visualStory: { intro: 'Grounding DINO asks which image regions best match this phrase.', cards: [
+          { type: 'arrows', title: 'Phrase to region', text: 'Text embeddings score dense image regions, then high-score areas become boxes.', labels: ['phrase', 'similarity', 'box'] },
+          { type: 'bars', title: 'Open vocabulary', text: 'Changing the phrase changes the score map without changing a closed classifier head.', items: [{ label: 'fixed cls', value: 42, caption: 'closed', color: '#64748b' }, { label: 'text cond', value: 88, caption: 'open', color: '#22c55e' }] }
+        ] }
+      },
+      mask2former: {
+        pipeline: [['Pixel embeddings', 'Build dense image features.'], ['Mask queries', 'Predict one mask per query.'], ['Masked attention', 'Restrict attention to the current mask.'], ['Class plus mask', 'Pair each mask with a class prediction.']],
+        principles: ['Mask2Former represents segmentation as mask classification.', 'Masked attention lets each query focus on the region it is already explaining.'],
+        visualStory: { intro: 'Mask2Former unifies semantic, instance and panoptic segmentation with mask queries.', cards: [
+          { type: 'arrows', title: 'Mask classification', text: 'Each query predicts a mask and a class, instead of classifying every pixel independently.', labels: ['query', 'mask', 'class'] },
+          { type: 'bars', title: 'Unified segmentation', text: 'The same query-mask idea can serve semantic, instance and panoptic outputs.', items: [{ label: 'semantic', value: 75, caption: 'stuff', color: '#38bdf8' }, { label: 'instance', value: 82, caption: 'things', color: '#f97316' }, { label: 'panoptic', value: 88, caption: 'both', color: '#22c55e' }] }
+        ] }
+      },
+      sam2: {
+        pipeline: [['Frame memory', 'Store previous-frame mask evidence.'], ['Prompt encoding', 'Encode points or boxes.'], ['Memory propagation', 'Move mask memory to the next frame.'], ['Mask refinement', 'Fuse current image evidence with memory.']],
+        principles: ['SAM2 extends promptable segmentation from images to video by adding memory.', 'The mask is propagated through time and corrected with current-frame features.'],
+        visualStory: { intro: 'SAM2 keeps track of a prompted object across frames with a memory bank.', cards: [
+          { type: 'arrows', title: 'Video memory loop', text: 'The mask from frame t becomes memory for frame t+1, then gets refined.', labels: ['mask t', 'memory', 'mask t+1'] },
+          { type: 'bars', title: 'Prompt plus memory', text: 'Prompt tells what to segment; memory tells where it went over time.', items: [{ label: 'prompt', value: 62, caption: 'intent', color: '#38bdf8' }, { label: 'memory', value: 86, caption: 'temporal', color: '#22c55e' }] }
+        ] }
+      },
+      blip2: {
+        pipeline: [['Image tokens', 'Extract frozen vision tokens.'], ['Q-Former', 'Use query tokens to attend to image tokens.'], ['Text alignment', 'Map visual queries to language space.'], ['Caption or QA', 'Rank or generate text from aligned features.']],
+        principles: ['BLIP-2 bridges a frozen image encoder and a language model with a lightweight Q-Former.', 'Cross-attention compresses many visual tokens into a few language-ready query tokens.'],
+        visualStory: { intro: 'BLIP-2 is a bridge: Q-Former turns visual tokens into something a language model can use.', cards: [
+          { type: 'arrows', title: 'Q-Former bridge', text: 'Learned queries look into image tokens, then align with text embeddings.', labels: ['image tokens', 'Q-Former', 'text'] },
+          { type: 'bars', title: 'Frozen plus trainable', text: 'Most large components can stay frozen while the bridge learns alignment.', items: [{ label: 'vision', value: 70, caption: 'frozen', color: '#64748b' }, { label: 'Q-former', value: 88, caption: 'trainable', color: '#22c55e' }] }
+        ] }
+      },
+      controlnet: {
+        pipeline: [['Condition map', 'Compute edges, depth or pose.'], ['Condition branch', 'Encode condition features.'], ['Zero-conv residual', 'Inject control without disrupting the base model at start.'], ['Guided denoise', 'Denoise under both text and condition.']],
+        principles: ['ControlNet adds a parallel conditioning path to a diffusion model.', 'Zero-conv residuals make the control branch start harmless, then learn precise guidance.'],
+        visualStory: { intro: 'ControlNet makes generation follow a spatial condition such as edges or pose.', cards: [
+          { type: 'arrows', title: 'Condition injection', text: 'A condition map becomes residual features injected into the denoising backbone.', labels: ['edge map', 'zero conv', 'denoise'] },
+          { type: 'bars', title: 'Structure control', text: 'The generated sample keeps more layout information when the condition branch is active.', items: [{ label: 'free', value: 45, caption: 'loose', color: '#64748b' }, { label: 'control', value: 90, caption: 'structured', color: '#22c55e' }] }
+        ] }
+      },
+      dit: {
+        pipeline: [['Latent patches', 'Patchify noisy latent features.'], ['Time embedding', 'Add diffusion timestep information.'], ['Transformer denoise', 'Mix tokens with self-attention.'], ['Latent update', 'Predict noise or velocity and update latent.']],
+        principles: ['DiT replaces UNet denoisers with Transformer blocks over latent patches.', 'Timestep embeddings tell the network how much noise remains.'],
+        visualStory: { intro: 'DiT treats denoising as sequence modeling over latent patch tokens.', cards: [
+          { type: 'arrows', title: 'Patch denoising', text: 'Noisy latent patches become tokens, pass through Transformer blocks, then update the latent.', labels: ['latent', 'tokens', 'denoise'] },
+          { type: 'bars', title: 'Global token mixing', text: 'Self-attention lets distant patches coordinate global structure during denoising.', items: [{ label: 'local', value: 50, caption: 'conv', color: '#64748b' }, { label: 'global', value: 88, caption: 'attention', color: '#38bdf8' }] }
+        ] }
+      },
+      flux: {
+        pipeline: [['Dual streams', 'Process text and image tokens together.'], ['Velocity field', 'Predict a flow direction from noise to data.'], ['Euler updates', 'Integrate the flow through time.'], ['Latent endpoint', 'Decode the final latent sample.']],
+        principles: ['Flow matching learns a continuous vector field instead of only a discrete denoise target.', 'Dual-stream Transformers keep text and image information coupled during sampling.'],
+        visualStory: { intro: 'Flux-style flow matching moves a noisy latent along a learned path toward data.', cards: [
+          { type: 'arrows', title: 'Flow path', text: 'The model predicts velocity, and sampling integrates that velocity step by step.', labels: ['noise', 'velocity', 'sample'] },
+          { type: 'bars', title: 'Text-image coupling', text: 'Dual streams keep text conditions active while image tokens move through the flow.', items: [{ label: 'text', value: 78, caption: 'condition', color: '#38bdf8' }, { label: 'image', value: 84, caption: 'latent', color: '#22c55e' }] }
+        ] }
+      },
+      stylegan: {
+        pipeline: [['Mapping network', 'Map z into style vector w.'], ['Style modulation', 'Scale and bias feature channels.'], ['Progressive synthesis', 'Upsample and modulate feature maps.'], ['ToRGB', 'Convert final features to an image.']],
+        principles: ['StyleGAN separates latent sampling from style control through the w space.', 'AdaIN or modulated convolution controls channels at each synthesis layer.'],
+        visualStory: { intro: 'StyleGAN generates by controlling feature statistics layer by layer.', cards: [
+          { type: 'arrows', title: 'z to w to image', text: 'A mapping network creates style vectors that modulate synthesis features.', labels: ['z', 'w', 'image'] },
+          { type: 'bars', title: 'Layer style control', text: 'Early layers affect coarse layout; later layers affect texture and color.', items: [{ label: 'coarse', value: 78, caption: 'shape', color: '#38bdf8' }, { label: 'fine', value: 68, caption: 'texture', color: '#f97316' }] }
+        ] }
+      },
+      dust3r: {
+        pipeline: [['Dense features', 'Encode both images into dense descriptors.'], ['Pairwise matching', 'Find correspondences for many pixels.'], ['Depth confidence', 'Predict depth-like points and confidence.'], ['Point cloud', 'Lift confident pixels into 3D.']],
+        principles: ['DUSt3R estimates dense 3D structure directly from image pairs.', 'Confidence is as important as depth because weak matches should not dominate the point cloud.'],
+        visualStory: { intro: 'DUSt3R turns pairwise image matching into dense 3D point prediction.', cards: [
+          { type: 'arrows', title: 'Match to 3D', text: 'Dense correspondence gives disparity-like evidence, then pixels are lifted into 3D.', labels: ['features', 'matches', 'points'] },
+          { type: 'bars', title: 'Depth with confidence', text: 'A good 3D preview needs both a depth estimate and a confidence estimate.', items: [{ label: 'depth', value: 82, caption: 'geometry', color: '#38bdf8' }, { label: 'conf', value: 74, caption: 'trust', color: '#22c55e' }] }
+        ] }
+      },
+      orbslam3: {
+        pipeline: [['ORB keypoints', 'Detect repeatable corners.'], ['Binary descriptors', 'Build BRIEF-like descriptors.'], ['Feature matching', 'Match keypoints between frames.'], ['Pose graph', 'Estimate motion and optimize keyframes.']],
+        principles: ['ORB-SLAM relies on repeatable sparse features, matching and geometric optimization.', 'The map is maintained through keyframes and bundle adjustment rather than single-frame prediction.'],
+        visualStory: { intro: 'ORB-SLAM3 builds camera motion from tracked ORB features and a pose graph.', cards: [
+          { type: 'arrows', title: 'Tracking to mapping', text: 'Corners are described, matched, converted into motion, then inserted into a keyframe graph.', labels: ['ORB', 'match', 'pose graph'] },
+          { type: 'bars', title: 'Why keyframes', text: 'Keyframes reduce redundant frames while preserving enough geometry for optimization.', items: [{ label: 'all frames', value: 45, caption: 'redundant', color: '#64748b' }, { label: 'keyframes', value: 86, caption: 'stable', color: '#22c55e' }] }
+        ] }
+      },
+      mediapipe: {
+        pipeline: [['ROI crop', 'Find or define the body region.'], ['Landmark heatmaps', 'Predict one heatmap per landmark.'], ['Soft-argmax', 'Decode coordinates from heatmaps.'], ['Skeleton graph', 'Connect landmarks into a pose graph.']],
+        principles: ['MediaPipe-style pipelines are optimized for real-time landmark estimation.', 'Heatmaps encode spatial uncertainty before coordinates are decoded.'],
+        visualStory: { intro: 'MediaPipe pose estimation turns landmark heatmaps into a connected skeleton.', cards: [
+          { type: 'arrows', title: 'Heatmap to skeleton', text: 'Each landmark heatmap is decoded to a point, then fixed graph edges connect the points.', labels: ['heatmap', 'point', 'graph'] },
+          { type: 'bars', title: 'Real-time design', text: 'A lightweight landmark head keeps the pipeline suitable for interactive use.', items: [{ label: 'speed', value: 88, caption: 'real-time', color: '#22c55e' }, { label: 'detail', value: 72, caption: 'landmarks', color: '#38bdf8' }] }
+        ] }
+      },
+      vitpose: {
+        pipeline: [['Patch features', 'Encode the image with ViT patches.'], ['Global attention', 'Mix body context across patches.'], ['Heatmap head', 'Predict keypoint heatmaps.'], ['Pose decode', 'Decode and connect keypoints.']],
+        principles: ['ViTPose uses Transformer patch features for pose heatmap prediction.', 'Global attention helps long-range body-part relationships such as left-right limbs.'],
+        visualStory: { intro: 'ViTPose uses ViT tokens as the backbone for keypoint heatmaps.', cards: [
+          { type: 'arrows', title: 'Token to keypoint', text: 'Patch tokens are globally mixed, reshaped, and decoded into keypoint heatmaps.', labels: ['patch', 'attention', 'heatmap'] },
+          { type: 'bars', title: 'Global context', text: 'Attention lets distant joints influence each other before heatmap decoding.', items: [{ label: 'local cues', value: 64, caption: 'edges', color: '#38bdf8' }, { label: 'global pose', value: 86, caption: 'layout', color: '#22c55e' }] }
+        ] }
+      }
+    };
+
+    Object.keys(localFrontierPatches).forEach(function(id) {
+      var cfg = window.AlgorithmContent[id];
+      if (!cfg) return;
+      var patch = localFrontierPatches[id];
+      cfg.endpoint = '/api/demo/' + id;
+      cfg.status = 'local small algorithm implementation';
+      cfg.pipeline = patch.pipeline;
+      cfg.principles = patch.principles;
+      cfg.visualStory = patch.visualStory;
+      cfg.implementation = {
+        status: 'local small algorithm implementation',
+        category: 'numpy_algorithm',
+        localInference: true,
+        realModel: false,
+        requiresUpload: false,
+        model: 'NumPy/PIL local mechanism pipeline',
+        note: 'Local small algorithm implementation; not pretrained-weight inference.'
+      };
+    });
+
+    if (window.AlgorithmContent.frequency) {
+      window.AlgorithmContent.frequency.visualStory = {
+        intro: 'Frequency analysis shows which structures are smooth low-frequency content and which are high-frequency edges or texture.',
+        cards: [
+          { type: 'arrows', title: 'Spatial to spectrum', text: 'FFT converts pixel positions into frequency coefficients, then fftshift moves low frequency to the center.', labels: ['image', 'FFT', 'spectrum'] },
+          { type: 'bars', title: 'Low-pass and high-pass', text: 'Low-pass keeps smooth structure; high-pass keeps edges, texture and noise.', items: [{ label: 'low', value: 72, caption: 'smooth', color: '#38bdf8' }, { label: 'high', value: 58, caption: 'edge', color: '#f97316' }] }
+        ]
+      };
+    }
+
+    var cannyTeaching = {
+      phase: '阶段二 / 经典特征检测',
+      title: 'Canny 边缘检测',
+      english: 'Canny Edge Detector',
+      tagline: '从降噪、梯度、非极大值抑制到双阈值连接，把厚而乱的亮度变化整理成连续细边缘。',
+      status: '真实 NumPy 算法',
+      difficulty: '进阶',
+      endpoint: '/api/demo/canny',
+      formula: '|G|=\\sqrt{G_x^2+G_y^2},\\quad \\theta=\\arctan(G_y/G_x)',
+      implementation: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, requiresUpload: true, model: 'NumPy Canny pipeline' },
+      principles: [
+        '边缘来自亮度的快速变化，先用高斯模糊压住噪声，再用梯度估计变化强度和方向。',
+        '非极大值抑制只保留梯度方向上的局部峰值；双阈值滞后连接用强边缘带出相邻弱边缘。'
+      ],
+      core: [['输入', '灰度或彩色图像'], ['核心问题', '怎样从噪声和纹理中留下稳定、细且连续的边缘'], ['输出', '边缘响应、细化边缘和最终二值边缘图']],
+      pipeline: [['高斯平滑', '降低随机噪声，避免梯度被毛刺放大。'], ['Sobel 梯度', '计算 Gx、Gy、幅值和方向。'], ['非极大值抑制', '沿梯度方向比较邻居，只保留局部最大响应。'], ['双阈值连接', '强边缘直接保留，弱边缘只有连接到强边缘才保留。']],
+      visualStory: { intro: 'Canny 的动画可以理解为一条五步流水线：先让图像安静下来，再找变化，压细边缘，最后用连接关系判断真假。', cards: [
+        { type: 'semanticAnim', anim: 'canny', title: '五步流水线', text: '每一步都产生可观察的中间结果：平滑图、梯度幅值、方向、NMS 细边缘、双阈值连接图。', caption: 'blur -> gradient -> nms -> hysteresis' },
+        { type: 'nms', title: '沿梯度方向只留峰值', text: '如果一个像素不是边缘法线方向上的最大响应，它会被压暗；这样厚边缘会被压成单像素附近的细线。' },
+        { type: 'threshold', title: '双阈值滞后连接', text: '高阈值负责可靠性，低阈值负责连续性；弱边缘必须和强边缘连通，才会被认为是真边缘。', position: 62 }
+      ] }
+    };
+
+    var harrisTeaching = {
+      phase: '阶段二 / 经典特征检测',
+      title: 'Harris 角点检测',
+      english: 'Harris Corner Detector',
+      tagline: '用局部结构张量观察窗口向不同方向移动时的亮度变化，找到两个方向都变化明显的位置。',
+      status: '真实 NumPy 算法',
+      difficulty: '进阶',
+      endpoint: '/api/demo/harris',
+      formula: 'R=\\det(M)-k\\,\\mathrm{trace}(M)^2',
+      implementation: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, requiresUpload: true, model: 'NumPy Harris corner response' },
+      principles: [
+        '平坦区域两个方向变化都小；边缘只有一个方向变化大；角点在两个主方向上变化都大。',
+        '结构张量 M 汇总窗口内 Ix、Iy 的二阶统计，Harris 响应 R 用行列式和迹区分角点、边缘和平坦区域。'
+      ],
+      core: [['输入', '图像梯度 Ix、Iy'], ['核心问题', '怎样判断一个局部窗口是否在任意方向移动都会明显变化'], ['输出', '角点响应热力图、NMS 后角点坐标']],
+      pipeline: [['梯度计算', '计算 Ix、Iy。'], ['结构张量', '在局部窗口内累计 Ix²、Iy²、IxIy。'], ['角点响应', '用 det(M)-k trace(M)^2 得到 R。'], ['阈值与 NMS', '只保留响应强且局部最突出的点。']],
+      visualStory: { intro: 'Harris 的直觉很通俗：拿一个小窗口在图像上轻轻推，如果往哪个方向推都变得很多，这里就是角点。', cards: [
+        { type: 'semanticAnim', anim: 'corner', title: '窗口移动实验', text: '平坦处怎么移动都差不多；边缘处沿边移动差不多、垂直边移动变化大；角点处两个方向都会变化大。', caption: 'flat / edge / corner' },
+        { type: 'bars', title: '两个特征值决定局部类型', text: 'lambda1 和 lambda2 都大才是角点；只有一个大通常是边缘；两个都小就是平坦区域。', items: [
+          { label: 'flat', value: 18, caption: 'small/small', color: '#64748b' },
+          { label: 'edge', value: 55, caption: 'large/small', color: '#f97316' },
+          { label: 'corner', value: 88, caption: 'large/large', color: '#22c55e' }
+        ] }
+      ] }
+    };
+
+    ensureContent('canny', cannyTeaching);
+    ensureContent('edge', Object.assign({}, cannyTeaching, { endpoint: '/api/demo/edge' }));
+    ensureContent('harris', harrisTeaching);
+    ensureContent('corner', Object.assign({}, harrisTeaching, { endpoint: '/api/demo/corner' }));
+
+    var aliases = {
+      canny: 'edge',
+      harris: 'corner',
+      detection: 'faster_rcnn',
+      semantic: 'fcn',
+      instance: 'mask_rcnn',
+      tpl_match: 'template_match'
+    };
+    Object.keys(aliases).forEach(function(id) {
+      var source = aliases[id];
+      if (!window.AlgorithmContent[id] && window.AlgorithmContent[source]) {
+        window.AlgorithmContent[id] = Object.assign({}, window.AlgorithmContent[source]);
+        window.AlgorithmContent[id].endpoint = '/api/demo/' + id;
+      }
+    });
+
+    applyStory(['detection', 'faster_rcnn'], { intro: '目标检测回答“哪里有什么”：先生成或枚举候选框，再给每个框分类并回归位置。', cards: [
+      { type: 'semanticAnim', anim: 'detection', title: '候选框到精修框', text: 'Faster R-CNN 先由 RPN 给出可能含物体的区域，再用检测头判断类别并修正边界框。', caption: 'RPN -> RoI -> class/box' },
+      { type: 'bars', title: '分类损失 + 边框回归损失', text: '检测不只要说出类别，还要把框画准；因此训练目标通常同时包含分类项和坐标回归项。', items: [
+        { label: 'cls', value: 72, caption: '类别', color: '#38bdf8' },
+        { label: 'box', value: 66, caption: '位置', color: '#f97316' },
+        { label: 'rpn', value: 58, caption: '候选', color: '#22c55e' }
+      ] }
+    ] });
+
+    applyStory(['semantic', 'fcn'], { intro: '语义分割回答“每个像素属于哪一类”：同类物体会合在一起，不区分第几个实例。', cards: [
+      { type: 'semanticAnim', anim: 'segmentation', title: '从特征图回到像素图', text: 'FCN 用全卷积网络得到低分辨率语义特征，再上采样回原图尺寸，给每个像素一个类别。', caption: 'feature map -> logits -> mask' },
+      { type: 'gradientSet', title: '像素级 logits', text: '每个像素都有一组类别分数，softmax 后选择最大概率的类别，组成整张语义图。', rows: [
+        { label: 'road', caption: 'class score', gradient: 'linear-gradient(90deg,#020617,#38bdf8)' },
+        { label: 'person', caption: 'class score', gradient: 'linear-gradient(90deg,#020617,#f97316)' },
+        { label: 'sky', caption: 'class score', gradient: 'linear-gradient(90deg,#020617,#22c55e)' }
+      ] }
+    ] });
+
+    applyStory(['instance', 'mask_rcnn'], { intro: '实例分割同时回答“是什么、在哪里、是哪一个”：同一类别的不同物体要被分开。', cards: [
+      { type: 'semanticAnim', anim: 'instance', title: '检测框加掩码分支', text: 'Mask R-CNN 先找到每个实例的 RoI，再为每个 RoI 单独预测一个二值 mask。', caption: 'box + mask' },
+      { type: 'bars', title: '多任务输出', text: '实例分割把分类、边框和掩码放在同一个框架中，框解决定位，mask 解决像素级轮廓。', items: [
+        { label: 'class', value: 70, caption: '类别', color: '#38bdf8' },
+        { label: 'box', value: 64, caption: '位置', color: '#f97316' },
+        { label: 'mask', value: 86, caption: '轮廓', color: '#22c55e' }
+      ] }
+    ] });
+
+    applyStory(['yolo'], { intro: 'YOLO 把检测看成一次前向回归：整张图只看一次，每个网格位置直接预测框、置信度和类别。', cards: [
+      { type: 'semanticAnim', anim: 'detection', title: '网格位置直接预测', text: '单阶段检测省去显式候选区域，把速度优先放在设计中心，适合实时场景。', caption: 'one-stage detection' },
+      { type: 'bars', title: '速度与精度的权衡', text: 'YOLO 通常推理快；通过多尺度特征、anchor-free 设计和更强后处理继续提升精度。', items: [
+        { label: 'speed', value: 92, caption: '快', color: '#22c55e' },
+        { label: 'recall', value: 70, caption: '召回', color: '#38bdf8' },
+        { label: 'nms', value: 52, caption: '后处理', color: '#f97316' }
+      ] }
+    ] });
+
+    applyStory(['unet'], { intro: 'U-Net 用编码器获得语义上下文，用解码器恢复分辨率，再用跳跃连接把浅层细节接回去。', cards: [
+      { type: 'arrows', title: '编码器到解码器', text: '下采样扩大感受野，上采样恢复尺寸；同尺度跳跃连接让边界和小目标不被深层压缩过程抹掉。', labels: ['encode', 'bottleneck', 'decode'] },
+      { type: 'bars', title: '语义和细节同时保留', text: '深层特征懂“是什么”，浅层特征保留“边界在哪里”，拼接后更适合精细分割。', items: [
+        { label: 'context', value: 82, caption: '语义', color: '#8b5cf6' },
+        { label: 'detail', value: 76, caption: '边界', color: '#22c55e' },
+        { label: 'mask', value: 88, caption: '输出', color: '#f97316' }
+      ] }
+    ] });
+
+    if (window.AlgorithmContent.template_match && window.AlgorithmContent.tpl_match) {
+      window.AlgorithmContent.tpl_match.visualStory = window.AlgorithmContent.template_match.visualStory;
+    }
+
+    var teachingPages = {
+      convolution: {
+        phase: '阶段一 · 基础原语',
+        title: '卷积操作',
+        english: 'Convolution',
+        tagline: '卷积核在图像上滑动，每个位置做局部加权求和，是滤波、边缘和 CNN 的共同基础。',
+        status: '真实 NumPy 算法',
+        difficulty: '入门',
+        endpoint: '/api/demo/convolution',
+        formula: 'Y(i,j)=\\sum_{u,v}K(u,v)X(i+u,j+v)',
+        principles: ['卷积把一个固定小窗口应用到整张图，窗口权重决定滤波语义。', '同一组权重在所有位置复用，所以它既能表达局部结构，又能保持平移一致性。'],
+        core: [['输入', '图像和卷积核'], ['核心问题', '如何用局部邻域重算中心像素'], ['输出', '滤波图、梯度图或特征图']],
+        pipeline: [['选核', '确定平滑、锐化或边缘检测核。'], ['滑窗', '按像素移动局部窗口。'], ['乘加', '窗口像素和核权重逐项相乘求和。'], ['写回', '把结果写入输出图像对应位置。']],
+        visualStory: { intro: '卷积的动画本质就是滑动窗口：看一个小核如何逐格扫完整张图。', cards: [
+          { type: 'cardAnim', anim: 'gaussian', title: '滑窗加权求和', text: '窗口覆盖局部像素，中心权重大或方向权重不同，会产生平滑、锐化或边缘响应。', caption: 'kernel scan' },
+          { type: 'bars', title: '不同核对应不同语义', text: '均值核平滑噪声，Sobel 核寻找变化，锐化核增强中心和周围的差。', items: [
+            { label: 'Blur', value: 45, caption: '平滑', color: '#38bdf8' },
+            { label: 'Sobel', value: 75, caption: '梯度', color: '#f97316' },
+            { label: 'Sharp', value: 65, caption: '增强', color: '#22c55e' }
+          ] }
+        ] }
+      },
+      sift: {
+        phase: '阶段二 · 经典特征检测',
+        title: 'SIFT 特征',
+        english: 'Scale-Invariant Feature Transform',
+        tagline: 'SIFT 在尺度空间找稳定关键点，再用局部梯度方向直方图形成 128 维描述子。',
+        status: '真实 NumPy 算法',
+        difficulty: '进阶',
+        endpoint: '/api/demo/sift',
+        formula: 'DoG(x,y,\\sigma)=L(x,y,k\\sigma)-L(x,y,\\sigma)',
+        principles: ['尺度空间让同一物体在远近变化时仍能被找到。', '描述子统计局部梯度方向，使匹配对旋转和亮度变化更稳。'],
+        core: [['输入', '灰度图像'], ['核心问题', '哪些点在尺度和方向变化下仍稳定'], ['输出', '关键点和局部描述子']],
+        pipeline: [['高斯金字塔', '构造多尺度模糊图。'], ['DoG 极值', '在空间和尺度邻域找候选点。'], ['方向赋值', '用主梯度方向获得旋转不变性。'], ['描述子', '统计 4x4 cell 的方向直方图形成 128 维向量。']],
+        visualStory: { intro: 'SIFT 的关键是先找稳定位置，再给每个位置一张局部梯度身份证。', cards: [
+          { type: 'semanticAnim', anim: 'corner', title: '尺度空间中的候选点', text: '同一位置要在相邻尺度和空间邻域都突出，才可能成为关键点。', caption: 'scale-space extrema' },
+          { type: 'bars', title: '128 维描述子的来源', text: '4x4 个 cell，每个 cell 统计 8 个方向桶，最终得到 128 维描述子。', items: [
+            { label: 'cells', value: 16, caption: '4x4', color: '#38bdf8' },
+            { label: 'bins', value: 8, caption: '方向', color: '#f97316' },
+            { label: 'dims', value: 128, caption: '描述子', color: '#22c55e' }
+          ] }
+        ] }
+      },
+      match: {
+        phase: '阶段三 · 中级视觉',
+        title: 'SIFT + RANSAC 特征匹配',
+        english: 'Feature Matching',
+        tagline: '先用描述子距离建立候选匹配，再用 RANSAC 保留符合几何模型的内点。',
+        status: '真实 NumPy 算法',
+        difficulty: '进阶',
+        endpoint: '/api/demo/match',
+        formula: 'd_1/d_2<\\tau,\\quad x_2\\sim Hx_1',
+        principles: ['最近邻匹配会产生误配，所以要用 ratio test 初筛。', 'RANSAC 通过反复抽样和计数内点，在噪声中找到可信几何关系。'],
+        core: [['输入', '两幅图或同图模拟匹配'], ['核心问题', '哪些局部描述子既相似又满足几何一致性'], ['输出', '匹配连线、内点和几何模型']],
+        pipeline: [['提特征', '检测关键点并计算描述子。'], ['最近邻', '按 L2 距离找候选匹配。'], ['Ratio Test', '过滤含糊匹配。'], ['RANSAC', '估计单应性或基础矩阵并保留内点。']],
+        visualStory: { intro: '匹配不是只看谁最像，还要看所有匹配能否讲出同一个几何故事。', cards: [
+          { type: 'arrows', title: '描述子匹配到几何验证', text: '局部相似先给候选，RANSAC 再要求它们服从同一个变换模型。', labels: ['descriptor', 'ratio', 'RANSAC'] },
+          { type: 'bars', title: 'RANSAC 保留内点', text: '错误匹配看似相似，但无法支持同一个几何模型，会在投票中被淘汰。', items: [
+            { label: 'raw', value: 90, caption: '候选多', color: '#64748b' },
+            { label: 'inlier', value: 55, caption: '可信', color: '#22c55e' }
+          ] }
+        ] }
+      }
+    };
+    Object.keys(teachingPages).forEach(function(id) {
+      if (!window.AlgorithmContent[id]) {
+        window.AlgorithmContent[id] = teachingPages[id];
+      }
+      attachImplementation(id, window.AlgorithmContent[id]);
+    });
+  })();
 
   window.AlgorithmContent.common = common;
 })();

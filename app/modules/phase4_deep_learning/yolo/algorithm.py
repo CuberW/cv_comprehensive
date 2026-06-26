@@ -29,7 +29,7 @@ def build_pipeline(image_path=None, grid_size=7, **kwargs):
                 cx = (x0+x1)/2; cy = (y0+y1)/2
                 bw = (x1-x0)*0.8; bh = (y1-y0)*0.8
                 detections.append({'x':cx,'y':cy,'w':bw,'h':bh,'score':round(obj_score,3)})
-                grid_vis[max(0,int(cy-bh/2)):min(h,int(cy+bh/2)), max(0,int(cx-bw/2)):min(w,int(cx+bw/2))+1] = [34,197,94,64]
+                grid_vis[max(0,int(cy-bh/2)):min(h,int(cy+bh/2)), max(0,int(cx-bw/2)):min(w,int(cx+bw/2))+1] = [34,197,94]
                 grid_vis[max(0,int(cy-bh/2)):min(h,int(cy+bh/2)), max(0,int(cx-bw/2)):max(0,int(cx-bw/2))+2] = [34,197,94]
 
     detections.sort(key=lambda d: d['score'], reverse=True)

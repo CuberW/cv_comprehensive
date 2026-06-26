@@ -222,6 +222,7 @@
           shtml += '</div>';
           shtml += '<div class="info"><div class="step-title">'+s.name+'</div>';
           if (s.explanation) shtml += '<div class="step-desc">'+s.explanation+'</div>';
+          if (s.formula) shtml += '<code class="step-formula">'+s.formula+'</code>';
           shtml += '</div></div>';
         });
         stepsGrid.innerHTML = shtml;

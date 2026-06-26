@@ -663,7 +663,7 @@
       var img = step.image_base64 ? '<img src="data:image/png;base64,' + step.image_base64 + '" alt="' + escapeHtml(step.name || '') + '" loading="lazy">' : '<span>无图像</span>';
       return '<article class="step"><div class="step-img">' + img + '</div><div class="step-body"><strong>' +
         escapeHtml((index + 1) + '. ' + (step.name || step.id || 'Step')) + '</strong><p>' +
-        escapeHtml(step.explanation || '') + '</p></div></article>';
+        escapeHtml(step.explanation || '') + '</p>' + (step.formula ? '<code class="step-formula">' + escapeHtml(step.formula) + '</code>' : '') + '</div></article>';
     }).join('');
   }
 

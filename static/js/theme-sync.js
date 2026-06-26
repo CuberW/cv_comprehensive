@@ -1,16 +1,42 @@
-// Sync theme with parent page (main site)
+// Sync algorithm subpages with the main shell theme.
 (function(){
-  function sync(){
-    try{
-      var p=window.parent.document.documentElement;
-      var t=p.getAttribute('data-theme')||'dark';
-      document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}
+  function normaliseTheme(theme){
+    return theme === 'light' ? 'light' : 'dark';
   }
-  sync();
+
+  function standaloneTheme(){
+    try{
+      return normaliseTheme(localStorage.getItem('theme') || 'dark');
+    }catch(e){
+      return 'dark';
+    }
+  }
+
+  function parentTheme(){
+    try{
+      if(window.parent && window.parent !== window){
+        var root = window.parent.document.documentElement;
+        return normaliseTheme(root.getAttribute('data-theme') || standaloneTheme());
+      }
+    }catch(e){}
+    return standaloneTheme();
+  }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', normaliseTheme(theme));
+  }
+
+  applyTheme(parentTheme());
+
   window.addEventListener('message',function(e){
-    if(e.data&&e.data.type==='theme'){
-      document.documentElement.setAttribute('data-theme',e.data.theme||'dark');
+    if(e.data && e.data.type==='theme'){
+      applyTheme(e.data.theme || standaloneTheme());
+    }
+  });
+
+  window.addEventListener('storage',function(e){
+    if(e.key === 'theme'){
+      applyTheme(e.newValue || 'dark');
     }
   });
 })();

@@ -13,6 +13,8 @@ from app.modules.implementation import get_implementation_meta
 from app.modules.offline_teaching import (
     BLUEPRINT_MODULES,
     EXTERNAL_WEIGHT_MODULES,
+    LOCAL_FRONTIER_ALGORITHM_MODULES,
+    LOCAL_TEACHING_MODEL_MODULES,
     OFFLINE_TEACHING_MODULES,
 )
 from app.utils.image_utils import to_base64, load_image_u8
@@ -22,10 +24,69 @@ main_bp = Blueprint('main', __name__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEACHING_PAGE_IDS = {
-    'grayscale', 'histogram', 'threshold', 'noise', 'gaussian', 'sobel', 'median', 'bilateral',
-    'hough', 'morphology', 'contour', 'nms', 'template_match',
+    'grayscale', 'noise', 'bilateral', 'convolution',
+    'contour', 'nms', 'template_match',
     'kmeans', 'watershed', 'grabcut', 'slic', 'hog_svm', 'optical_flow', 'stereo',
+    'detection', 'semantic', 'instance', 'unet', 'yolo',
+    'resnet', 'gan', 'diffusion', 'vit', 'detr', 'clip', 'sam', 'stable_diffusion', 'nerf',
 }
+
+# New dedicated pages (override teaching.html fallback)
+DEDICATED_PAGES = {
+    'median': 'median_new.html',
+    'sobel': 'sobel_new.html',
+    'histogram': 'histogram_new.html',
+    'threshold': 'threshold_new.html',
+    'gaussian': 'gaussian_new.html',
+}
+
+PREFERRED_STATIC_PAGES = {
+    'detection': 'detection.html',
+    'semantic': 'semantic.html',
+    'instance': 'instance.html',
+    'resnet': 'nn_resnet.html',
+    'gan': 'nn_gan.html',
+    'diffusion': 'diffusion.html',
+    'vit': 'vit.html',
+    'detr': 'detr.html',
+    'clip': 'clip.html',
+    'sam': 'sam.html',
+    'nerf': 'nerf.html',
+    'stable_diffusion': 'stable_diffusion.html',
+}
+
+MODULE_ALIASES = {
+    'canny': 'edge',
+    'harris': 'corner',
+    'faster_rcnn': 'detection',
+    'fcn': 'semantic',
+    'mask_rcnn': 'instance',
+    'tpl_match': 'template_match',
+    'sd': 'stable_diffusion',
+}
+
+
+def _canonical_module_id(module_id):
+    return MODULE_ALIASES.get(module_id, module_id)
+
+
+def _static_page_exists(page):
+    page_name = (page or '').split('?', 1)[0]
+    return bool(page_name) and os.path.exists(os.path.join(PROJECT_ROOT, 'static', 'pages', page_name))
+
+
+def _module_page(module_id, cls):
+    if module_id in DEDICATED_PAGES:
+        return DEDICATED_PAGES[module_id]
+    preferred = PREFERRED_STATIC_PAGES.get(module_id)
+    if preferred and _static_page_exists(preferred):
+        return preferred
+    page = cls.get_page() if cls and hasattr(cls, 'get_page') else None
+    if page:
+        return page
+    if module_id in TEACHING_PAGE_IDS:
+        return f'teaching.html?id={module_id}'
+    return None
 
 
 # ================================================================
@@ -45,11 +106,9 @@ def api_modules():
     for phase in phases:
         for mod in phase['modules']:
             cls = MODULE_REGISTRY.get(mod['id'])
-            if cls and hasattr(cls, 'get_page'):
-                if mod['id'] in TEACHING_PAGE_IDS:
-                    mod['page'] = f'teaching.html?id={mod["id"]}'
-                else:
-                    mod['page'] = cls.get_page()
+            page = _module_page(mod['id'], cls)
+            if page:
+                mod['page'] = page
             mod['implementation'] = get_implementation_meta(mod['id'])
 
     return jsonify({'phases': phases, 'total': len(MODULE_REGISTRY)})
@@ -77,9 +136,149 @@ def _to_data_url(image):
     return f'data:image/png;base64,{to_base64(image)}'
 
 
-def _step_to_dict(step):
+STEP_FORMULA_FALLBACKS = {
+    'original': 'I(x,y)',
+    'input': 'I(x,y)',
+    'left': 'I_l(x,y)',
+    'right': 'I_r(x,y)',
+    'frame1': 'I_t(x,y)',
+    'frame2': 'I_{t+1}(x,y)',
+    'gray': 'Y=0.299R+0.587G+0.114B',
+    'grayscale': 'Y=0.299R+0.587G+0.114B',
+    'histogram': 'h(k)=sum_{x,y} [I(x,y)=k]',
+    'cdf': 'CDF(k)=sum_{i<=k} h(i)',
+    'threshold': 'B(x,y)=1[I(x,y)>=T]',
+    'result': 'Y=f(I)',
+    'output': 'Y=f(I)',
+    'features': 'phi(I)',
+    'feature': 'phi(I)',
+    'gradient': '|grad I|=sqrt(G_x^2+G_y^2)',
+    'magnitude': '|grad I|=sqrt(G_x^2+G_y^2)',
+    'angle': 'theta=atan2(G_y,G_x)',
+    'kernel': 'Y=K*I',
+    'kernels': 'K_{t+1}=K_t-eta grad_K L',
+    'loss': 'L=mean((K*X-Y)^2)',
+    'mask': 'M(x,y)=1[p(x,y)>tau]',
+    'boxes': 'b=(x,y,w,h), score=p(class|b)',
+    'attention': 'Attention(Q,K,V)=softmax(QK^T/sqrt(d))V',
+    'tokens': 'z_0=[x_1E;...;x_NE]+p',
+    'embedding': 'z=phi(x)/||phi(x)||',
+}
+
+MODULE_FORMULA_FALLBACKS = {
+    'bilateral': "I'_p=(1/W_p) sum_q G_s(||p-q||)G_r(|I_p-I_q|)I_q",
+    'convolution': 'Y(i,j)=sum_{u,v} K(u,v) I(i+u,j+v)',
+    'gaussian': 'G(x,y)=1/(2*pi*sigma^2) exp(-(x^2+y^2)/(2*sigma^2))',
+    'median': "I'(x,y)=median{I(u,v)|(u,v) in Omega}",
+    'noise': 'I_noisy=I+n',
+    'sobel': '|grad I|=sqrt((K_x*I)^2+(K_y*I)^2)',
+    'edge': 'Canny=NMS(|grad(G_sigma*I)|)+hysteresis',
+    'corner': 'R=det(M)-k trace(M)^2',
+    'shitomasi': 'R=min(lambda_1,lambda_2)',
+    'sift': 'D(x,y,sigma)=L(x,y,k sigma)-L(x,y,sigma)',
+    'hough': 'rho=x cos(theta)+y sin(theta)',
+    'morphology': 'A oplus B, A ominus B',
+    'contour': 'C={(x,y)|B(x,y)=1 and neighbor(B)=0}',
+    'nms': 'keep(p) iff R(p)=max_{q in N(p)} R(q)',
+    'template_match': 'NCC=sum((I-mu_I)(T-mu_T))/(sigma_I sigma_T)',
+    'kmeans': 'min sum_i ||x_i-mu_{c_i}||^2',
+    'watershed': 'label=watershed(grad I, markers)',
+    'grabcut': 'E(alpha,k,theta,z)=U(alpha,k,theta,z)+V(alpha,z)',
+    'slic': 'D=sqrt(d_c^2+(m/S)^2 d_s^2)',
+    'hog_svm': 'score=w^T HOG(x)+b',
+    'optical_flow': 'I_x u+I_y v+I_t=0',
+    'stereo': 'd*=argmin_d sum |I_l(x,y)-I_r(x-d,y)|',
+    'frequency': 'F(u,v)=sum I(x,y)e^{-j2pi(ux/M+vy/N)}',
+    'match': 'm*=argmin_j ||d_i-d_j||',
+    'ncuts': 'min Ncut(A,B)=cut(A,B)/assoc(A,V)+cut(A,B)/assoc(B,V)',
+    'bovw_spm': 'h_k=sum_i [q(d_i)=k]',
+    'calibration': 's[u,v,1]^T=K[R|t][X,Y,Z,1]^T',
+    'epipolar': "x'^T F x=0",
+    'sfm': 'x=P X, x_prime=P_prime X',
+    'detection': 'box=head(FPN(I)), score=softmax(cls)',
+    'semantic': 'p_{cxy}=softmax(f_theta(I)_{cxy})',
+    'instance': 'mask_i=sigmoid(f_theta(RoI_i))',
+    'resnet': 'y=F(x)+x',
+    'unet': 'D_l=concat(up(D_{l+1}),E_l)',
+    'yolo': 'b,cls,obj=head(grid(I))',
+    'gan': 'min_G max_D E log D(x)+E log(1-D(G(z)))',
+    'diffusion': 'z_{t-1}=scheduler(z_t, epsilon_theta(z_t,t,c))',
+    'ddpm': 'q(x_t|x_0)=N(sqrt(alpha_bar_t)x_0,(1-alpha_bar_t)I)',
+    'lenet': 'y=softmax(W flatten(pool(conv(X)))+b)',
+    'cnn_basics': 'Y=pool(ReLU(K*I+b))',
+    'conv_training': 'K_{t+1}=K_t-eta grad_K L',
+    'vit': 'Attention(Q,K,V)=softmax(QK^T/sqrt(d))V',
+    'detr': 'boxes=Decoder(object_queries, Encoder(I))',
+    'clip': 'sim(I,T)=<phi_I(I),phi_T(T)>/(||phi_I||||phi_T||)',
+    'sam': 'M=MaskDecoder(ImageEncoder(I),PromptEncoder(p))',
+    'stable_diffusion': 'z_{t-1}=scheduler.step(epsilon_theta(z_t,t,c),z_t)',
+    'nerf': 'C(r)=sum_i T_i(1-exp(-sigma_i delta_i))c_i',
+}
+
+
+def _strip_data_url(value):
+    if isinstance(value, str) and value.startswith('data:image') and ',' in value:
+        return value.split(',', 1)[1]
+    return value
+
+
+def _fallback_formula(module_id, step):
+    sid = str(step.get('id') or step.get('step') or '').lower()
+    name = str(step.get('name') or step.get('title') or '').lower()
+    for key, formula in STEP_FORMULA_FALLBACKS.items():
+        if sid == key or key in sid or key in name:
+            return formula
+    return MODULE_FORMULA_FALLBACKS.get(module_id, f'Y=f_{{{module_id}}}(X)')
+
+
+def _fallback_explanation(module_id, normalized):
+    name = normalized.get('name') or normalized.get('id') or 'step'
+    return f'该步骤展示 {name}，是 {module_id} 算法流水线中的中间结果；后续步骤会基于它继续计算或汇总。'
+
+
+def _data_summary(data):
+    if not isinstance(data, dict) or not data:
+        return ''
+    parts = []
+    for key, value in list(data.items())[:4]:
+        if isinstance(value, (list, tuple)):
+            parts.append(f'{key}: len={len(value)}')
+        elif isinstance(value, dict):
+            parts.append(f'{key}: {len(value)} fields')
+        else:
+            parts.append(f'{key}: {value}')
+    return ' | '.join(parts)
+
+
+def _step_visual_card(module_id, normalized):
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    width, height = 420, 260
+    img = Image.new('RGB', (width, height), (248, 250, 252))
+    draw = ImageDraw.Draw(img)
+    colors = [(13, 148, 136), (59, 130, 246), (124, 58, 237), (245, 158, 11)]
+    accent = colors[abs(hash((module_id, normalized.get('id')))) % len(colors)]
+    draw.rectangle((0, 0, width, 48), fill=accent)
+    draw.text((18, 16), f'{module_id} / {normalized.get("id", "step")}', fill=(255, 255, 255))
+    draw.text((18, 70), str(normalized.get('name', 'Process step'))[:44], fill=(15, 23, 42))
+    formula = str(normalized.get('formula', 'Y=f(X)'))
+    for i in range(0, min(len(formula), 108), 54):
+        draw.text((18, 102 + (i // 54) * 22), formula[i:i + 54], fill=(51, 65, 85))
+    summary = _data_summary(normalized.get('data'))
+    if summary:
+        draw.text((18, 176), summary[:58], fill=(71, 85, 105))
+    y0 = 218
+    for idx, h in enumerate([24, 54, 36, 72, 44]):
+        x0 = 34 + idx * 70
+        draw.rectangle((x0, y0 - h, x0 + 34, y0), fill=colors[idx % len(colors)])
+    return np.array(img)
+
+
+def _step_to_dict(step, module_id=None):
     if not isinstance(step, dict):
         return None
+    module_id = module_id or 'module'
     out = {
         'id': step.get('id', step.get('step', '')),
         'name': step.get('name', step.get('title', '')),
@@ -95,8 +294,10 @@ def _step_to_dict(step):
             out['image_base64'] = to_base64(img)
         except Exception:
             pass
+    elif isinstance(img, str):
+        out['image_base64'] = _strip_data_url(img)
     elif isinstance(img_b64, str):
-        out['image_base64'] = img_b64
+        out['image_base64'] = _strip_data_url(img_b64)
     if step.get('explanation') or step.get('description'):
         out['explanation'] = step.get('explanation') or step.get('description', '')
     if step.get('formula'):
@@ -108,10 +309,16 @@ def _step_to_dict(step):
             k: (v.tolist() if hasattr(v, 'tolist') else v)
             for k, v in step['data'].items()
         }
+    if not out.get('formula'):
+        out['formula'] = _fallback_formula(module_id, step)
+    if not out.get('explanation'):
+        out['explanation'] = _fallback_explanation(module_id, out)
+    if not out.get('image_base64'):
+        out['image_base64'] = to_base64(_step_visual_card(module_id, out))
     return out
 
 
-def _normalize_pipeline_result(result):
+def _normalize_pipeline_result(result, module_id=None):
     metrics = {}
     raw_steps = []
     if isinstance(result, dict):
@@ -145,7 +352,7 @@ def _normalize_pipeline_result(result):
 
     steps = []
     for step in raw_steps:
-        normalized = _step_to_dict(step)
+        normalized = _step_to_dict(step, module_id=module_id)
         if normalized is not None:
             steps.append(normalized)
     return steps, metrics
@@ -457,6 +664,207 @@ def legacy_conv_train():
     return jsonify(result)
 
 
+def _to_grayscale_float(img):
+    import numpy as np
+    arr = np.asarray(img).astype(np.float32)
+    if arr.max(initial=0) > 1.0:
+        arr /= 255.0
+
+    if arr.ndim == 2:
+        return np.clip(arr, 0.0, 1.0)
+
+    if arr.ndim == 3:
+        rgb = arr[:, :, :3]
+        if arr.shape[2] >= 4:
+            alpha = arr[:, :, 3:4]
+            rgb = rgb * alpha + (1.0 - alpha)
+        gray = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+        return np.clip(gray, 0.0, 1.0)
+
+    raise ValueError('unsupported image shape')
+
+
+def _resize_bilinear(img, out_h, out_w):
+    import numpy as np
+    in_h, in_w = img.shape
+    if in_h == out_h and in_w == out_w:
+        return img.astype(np.float32).copy()
+
+    ys = np.linspace(0, in_h - 1, out_h, dtype=np.float32) if out_h > 1 else np.array([(in_h - 1) / 2], dtype=np.float32)
+    xs = np.linspace(0, in_w - 1, out_w, dtype=np.float32) if out_w > 1 else np.array([(in_w - 1) / 2], dtype=np.float32)
+    y0 = np.floor(ys).astype(np.int32)
+    x0 = np.floor(xs).astype(np.int32)
+    y1 = np.minimum(y0 + 1, in_h - 1)
+    x1 = np.minimum(x0 + 1, in_w - 1)
+    wy = (ys - y0).reshape(out_h, 1)
+    wx = (xs - x0).reshape(1, out_w)
+
+    top = img[y0[:, None], x0[None, :]] * (1 - wx) + img[y0[:, None], x1[None, :]] * wx
+    bottom = img[y1[:, None], x0[None, :]] * (1 - wx) + img[y1[:, None], x1[None, :]] * wx
+    return (top * (1 - wy) + bottom * wy).astype(np.float32)
+
+
+def _preprocess_digit_image(img):
+    import numpy as np
+    img = _to_grayscale_float(img)
+
+    border = np.concatenate([img[0, :], img[-1, :], img[:, 0], img[:, -1]])
+    if float(np.median(border)) > 0.5:
+        img = 1.0 - img
+
+    img = np.clip(img, 0.0, 1.0)
+    max_val = float(np.max(img))
+    if max_val <= 1e-6:
+        return np.zeros((28, 28), dtype=np.float32)
+
+    threshold = max(0.08, min(0.35, max_val * 0.25))
+    rows, cols = np.where(img > threshold)
+    if rows.size == 0 or cols.size == 0:
+        return _resize_bilinear(img, 28, 28)
+
+    pad = 2
+    y0 = max(int(rows.min()) - pad, 0)
+    y1 = min(int(rows.max()) + pad + 1, img.shape[0])
+    x0 = max(int(cols.min()) - pad, 0)
+    x1 = min(int(cols.max()) + pad + 1, img.shape[1])
+    crop = img[y0:y1, x0:x1]
+
+    scale = 20.0 / max(crop.shape)
+    new_h = max(1, int(round(crop.shape[0] * scale)))
+    new_w = max(1, int(round(crop.shape[1] * scale)))
+    digit = _resize_bilinear(crop, new_h, new_w)
+    digit_max = float(np.max(digit))
+    if digit_max > 1e-6:
+        digit = digit / digit_max
+
+    canvas = np.zeros((28, 28), dtype=np.float32)
+    mass = float(np.sum(digit))
+    if mass > 1e-6:
+        yy, xx = np.indices(digit.shape, dtype=np.float32)
+        top = int(round(14.0 - float(np.sum(yy * digit) / mass)))
+        left = int(round(14.0 - float(np.sum(xx * digit) / mass)))
+    else:
+        top = (28 - new_h) // 2
+        left = (28 - new_w) // 2
+
+    top = max(0, min(28 - new_h, top))
+    left = max(0, min(28 - new_w, left))
+    canvas[top:top + new_h, left:left + new_w] = digit
+    return np.clip(canvas, 0.0, 1.0)
+
+
+@main_bp.route('/conv/api/compute', methods=['POST'])
+def legacy_conv_compute():
+    data = request.get_json(force=True)
+    mode = data.get('mode', 'basic')
+    inp = data.get('input')
+    stride = data.get('stride', 1)
+    padding = data.get('padding', 0)
+    dilation = data.get('dilation', 1)
+    kernel = data.get('kernel')
+
+    from app.modules.phase1_fundamentals.convolution.processor import (
+        conv2d_multi_channel,
+        conv2d_multi_kernel,
+        conv2d_with_trace,
+    )
+
+    try:
+        if mode == 'basic':
+            return jsonify(conv2d_with_trace(inp, kernel, stride=stride, padding=padding, dilation=dilation))
+        if mode == 'multi_kernel':
+            kernels = data.get('kernels', [kernel])
+            outputs = conv2d_multi_kernel(inp, kernels, stride=stride, padding=padding)
+            return jsonify({'outputs': outputs, 'num_kernels': len(kernels)})
+        if mode == 'multi_channel':
+            kernel_3d = data.get('kernel_3d', [kernel])
+            return jsonify(conv2d_multi_channel(inp, kernel_3d, stride=stride, padding=padding))
+        if mode in {'conv1x1', 'dilated'}:
+            return jsonify(conv2d_with_trace(inp, kernel, stride=stride, padding=padding, dilation=dilation))
+        return jsonify({'error': 'Unknown mode'}), 400
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+
+
+@main_bp.route('/conv/api/generate', methods=['POST'])
+def legacy_conv_generate():
+    data = request.get_json(force=True)
+    from app.modules.phase1_fundamentals.convolution.processor import generate_matrix
+    return jsonify({'matrix': generate_matrix(data.get('h', 7), data.get('w', 7), seed=data.get('seed'))})
+
+
+@main_bp.route('/conv/api/kernel', methods=['POST'])
+def legacy_conv_kernel():
+    data = request.get_json(force=True)
+    from app.modules.phase1_fundamentals.convolution.processor import generate_kernel
+    return jsonify({'kernel': generate_kernel(data.get('size', 3), preset=data.get('preset', 'random'), seed=data.get('seed'))})
+
+
+@main_bp.route('/conv/api/predict', methods=['POST'])
+def legacy_conv_predict():
+    import base64
+    import io
+    from imageio.v3 import imread
+
+    if request.is_json:
+        data = request.get_json(force=True)
+        img_b64 = data.get('image', '')
+        img_bytes = base64.b64decode(img_b64.split(',', 1)[-1] if ',' in img_b64 else img_b64)
+    else:
+        f = request.files.get('image')
+        if not f:
+            return jsonify({'error': 'no image provided'}), 400
+        img_bytes = f.read()
+
+    img = _preprocess_digit_image(imread(io.BytesIO(img_bytes)))
+    from app.modules.phase1_fundamentals.convolution.lenet import predict
+
+    result = predict(img)
+    if result is None:
+        return jsonify({
+            'prediction': 0,
+            'probabilities': [0.1] * 10,
+            'warning': 'No trained weights found.',
+        })
+    return jsonify(result)
+
+
+@main_bp.route('/conv/backprop')
+def legacy_conv_backprop_page():
+    return render_template('pages/lenet_backprop.html', static_version=lambda: 'cv_comprehensive')
+
+
+@main_bp.route('/conv/api/backprop_trace', methods=['POST'])
+def legacy_conv_backprop_trace():
+    data = request.get_json(silent=True) or {}
+    try:
+        from app.modules.phase1_fundamentals.convolution.backprop import compute_backprop_trace
+        return jsonify(compute_backprop_trace(sample_digit=data.get('digit'), reset=bool(data.get('reset', False))))
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
+@main_bp.route('/conv/api/forward_trace', methods=['POST'])
+def legacy_conv_forward_trace():
+    import base64
+    import io
+    from imageio.v3 import imread
+
+    data = request.get_json(force=True)
+    img_b64 = data.get('image', '')
+    if not img_b64:
+        return jsonify({'error': 'no image provided'}), 400
+
+    img_bytes = base64.b64decode(img_b64.split(',', 1)[-1] if ',' in img_b64 else img_b64)
+    img = _preprocess_digit_image(imread(io.BytesIO(img_bytes)))
+
+    try:
+        from app.modules.phase1_fundamentals.convolution.backprop import compute_forward_trace
+        return jsonify(compute_forward_trace(img))
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 # ---- Race benchmark data (for race.html) ----
 @main_bp.route('/static/data/edge_race_benchmark.json')
 def legacy_race_data():
@@ -477,7 +885,20 @@ def legacy_race_data():
 # Module dispatcher: maps module_id -> (processor_func, param_defaults)
 def _get_demo_processor(module_id):
     """Return (build_pipeline_func, default_params) for a given module_id."""
+    module_id = _canonical_module_id(module_id)
     params = {}
+
+    if module_id in LOCAL_TEACHING_MODEL_MODULES:
+        from app.modules.offline_teaching import build_pipeline as _local_teaching_pipeline
+        def local_teaching_wrapper(**kwargs):
+            return _local_teaching_pipeline(module_id, **kwargs)
+        return local_teaching_wrapper, params
+
+    if module_id in LOCAL_FRONTIER_ALGORITHM_MODULES:
+        from app.modules.phase5_frontier.local_algorithms import build_pipeline as _local_frontier_pipeline
+        def local_frontier_wrapper(**kwargs):
+            return _local_frontier_pipeline(module_id, **kwargs)
+        return local_frontier_wrapper, params
 
     if module_id in EXTERNAL_WEIGHT_MODULES:
         from app.modules.offline_teaching import external_weight_error as _external_error
@@ -546,7 +967,7 @@ def _get_demo_processor(module_id):
         from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
         return fn, params
 
-    if module_id == 'noise':
+    elif module_id == 'noise':
         from app.modules.phase1_fundamentals.noise.algorithm import build_pipeline as fn
     elif module_id == 'gaussian':
         from app.modules.phase1_fundamentals.gaussian.algorithm import build_pipeline as fn
@@ -577,9 +998,25 @@ def _get_demo_processor(module_id):
     elif module_id == 'edge':
         from app.modules.phase2_classical.edge.processor import build_canny_pipeline as fn
     elif module_id == 'corner':
-        from app.modules.phase2_classical.corner.processor import build_pipeline as fn
+        from app.modules.phase2_classical.corner.processor import build_pipeline as _corner_fn
+        _corner_valid = {'image_path','k','threshold_ratio','nms','window_size','sigma','nms_radius'}
+        def fn(**kwargs):
+            filtered = {k:v for k,v in kwargs.items() if k in _corner_valid}
+            result = _corner_fn(**filtered)
+            # Returns (steps, points, metrics, vis) tuple — normalize to dict
+            if isinstance(result, tuple):
+                return {'steps': result[0], 'metrics': result[2]}
+            return result
     elif module_id == 'sift':
-        from app.modules.phase2_classical.sift.processor import build_pipeline as fn
+        from app.modules.phase2_classical.sift.processor import build_pipeline as _sift_fn
+        _sift_valid = {'image_path','sigma','num_layers','k_stride','threshold','border','gamma','octaves'}
+        def fn(**kwargs):
+            filtered = {k:v for k,v in kwargs.items() if k in _sift_valid}
+            result = _sift_fn(**filtered)
+            # Returns (steps, kp, cand, metrics, vis) tuple — normalize to dict
+            if isinstance(result, tuple):
+                return {'steps': result[0], 'metrics': result[3]}
+            return result
     elif module_id == 'hough':
         from app.modules.phase2_classical.hough.processor import build_pipeline as fn
     elif module_id == 'morphology':
@@ -643,7 +1080,7 @@ def _get_demo_processor(module_id):
     elif module_id == 'lenet':
         from app.modules.phase4_deep_learning.lenet.processor import build_inference_trace as fn
     elif module_id == 'live':
-        from app.modules.phase1_fundamentals.live.algorithm import apply_filter as fn
+        from app.modules.phase1_fundamentals.live.algorithm import build_pipeline as fn
     elif module_id == 'vit':
         from app.modules.offline_teaching import external_weight_error as _external_error
         def fn(**kwargs):
@@ -741,6 +1178,8 @@ def demo_endpoint(module_id):
     Accepts: multipart file upload + optional form params
     Returns: { steps: [...], metrics: {...}, original_image: url }
     """
+    requested_module_id = module_id
+    module_id = _canonical_module_id(module_id)
     fn, defaults = _get_demo_processor(module_id)
     if fn is None:
         implementation = get_implementation_meta(module_id)
@@ -832,8 +1271,11 @@ def demo_endpoint(module_id):
         status_code = 503 if result_status in {'model_not_available', 'requires_external_weights'} else 400
         return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}))
 
-    steps_out, metrics = _normalize_pipeline_result(result)
+    steps_out, metrics = _normalize_pipeline_result(result, module_id=module_id)
     resp = {'steps': steps_out, 'metrics': metrics}
+    if requested_module_id != module_id:
+        resp['module_id'] = module_id
+        resp['requested_module_id'] = requested_module_id
     if original_url:
         resp['original_image'] = original_url
     resp['implementation'] = implementation

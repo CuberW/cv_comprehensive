@@ -203,6 +203,42 @@ def compute_second_derivative(cube):
     return np.array([[dxx, dxy, dxs], [dxy, dyy, dys], [dxs, dys, dss]], dtype=np.float32)
 
 
+def _det2(m):
+    return float(m[0, 0] * m[1, 1] - m[0, 1] * m[1, 0])
+
+
+def _solve3(m, b):
+    """Solve a 3x3 system with Cramer's rule to avoid fragile LAPACK calls."""
+    a00, a01, a02 = [float(v) for v in m[0]]
+    a10, a11, a12 = [float(v) for v in m[1]]
+    a20, a21, a22 = [float(v) for v in m[2]]
+    b0, b1, b2 = [float(v) for v in b]
+    det = (
+        a00 * (a11 * a22 - a12 * a21)
+        - a01 * (a10 * a22 - a12 * a20)
+        + a02 * (a10 * a21 - a11 * a20)
+    )
+    if abs(det) <= 1e-12 or not np.isfinite(det):
+        return None
+    dx = (
+        b0 * (a11 * a22 - a12 * a21)
+        - a01 * (b1 * a22 - a12 * b2)
+        + a02 * (b1 * a21 - a11 * b2)
+    ) / det
+    dy = (
+        a00 * (b1 * a22 - a12 * b2)
+        - b0 * (a10 * a22 - a12 * a20)
+        + a02 * (a10 * b2 - b1 * a20)
+    ) / det
+    ds = (
+        a00 * (a11 * b2 - b1 * a21)
+        - a01 * (a10 * b2 - b1 * a20)
+        + b0 * (a10 * a21 - a11 * a20)
+    ) / det
+    out = np.array([dx, dy, ds], dtype=np.float32)
+    return out if np.isfinite(out).all() else None
+
+
 def compute_gradient_layer(g_image):
     """Compute gradient magnitude and orientation for one Gaussian layer."""
     arr = np.asarray(g_image, dtype=np.float32)
@@ -286,10 +322,12 @@ def refine_keypoint(x, y, layer, dog_images, sigma, threshold, border,
         ], dtype=np.float32)
         grad = compute_first_derivative(cube)
         hessian = compute_second_derivative(cube)
-        try:
-            update = -np.linalg.lstsq(hessian, grad, rcond=None)[0]
-        except np.linalg.LinAlgError:
+        if not (np.isfinite(grad).all() and np.isfinite(hessian).all()):
             return []
+        solved = _solve3(hessian, grad)
+        if solved is None:
+            return []
+        update = -solved
         if np.all(np.abs(update) < 0.5):
             break
         y += int(round(float(update[0])))
@@ -309,7 +347,7 @@ def refine_keypoint(x, y, layer, dog_images, sigma, threshold, border,
     # Edge response suppression: 2x2 Hessian trace^2/det ratio
     xy_hessian = hessian[:2, :2]
     trace = float(np.trace(xy_hessian))
-    det = float(np.linalg.det(xy_hessian))
+    det = _det2(xy_hessian)
     if det <= 1e-12 or (trace * trace) / det >= ((gamma + 1.0) ** 2) / gamma:
         return []
 
@@ -441,13 +479,13 @@ def compute_descriptor(gaussian_octaves, keypoint, gradient_cache=None):
             trilinear_interpolation(ci, cj, weight * mag, o_idx, result_cube)
 
     raw = result_cube[1:-1, 1:-1, :].flatten()
-    norm = float(np.linalg.norm(raw))
+    norm = float(np.sqrt(np.sum(raw * raw)))
     if norm <= 1e-12:
         return np.zeros(128, dtype=np.float32)
 
     before_clip = raw / norm
     clipped = np.minimum(before_clip, 0.2)
-    norm2 = float(np.linalg.norm(clipped))
+    norm2 = float(np.sqrt(np.sum(clipped * clipped)))
     final = clipped / norm2 if norm2 > 1e-12 else clipped
     return final.astype(np.float32)
 

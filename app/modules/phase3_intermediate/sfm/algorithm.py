@@ -309,10 +309,10 @@ def build_pipeline(image_path=None, image=None, upload_path=None,
         d_range = d_max - d_min if d_max > d_min else 1.0
         for i, p in enumerate(good):
             u, v, d = _project_point(P0, np.append(p, 1.0))
-            t = (d - d_min) / d_range
-            r = int(239 * (1 - t) + 59 * t)
-            g = int(68 * (1 - t) + 130 * t)
-            b = int(68 * (1 - t) + 246 * t)
+            frac = (d - d_min) / d_range
+            r = int(239 * (1 - frac) + 59 * frac)
+            g = int(68 * (1 - frac) + 130 * frac)
+            b = int(68 * (1 - frac) + 246 * frac)
             if 0 <= u < w and 0 <= v < h:
                 draw.ellipse((u - 1, v - 1, u + 1, v + 1), fill=(r, g, b))
     depth_map = np.array(depth_map)

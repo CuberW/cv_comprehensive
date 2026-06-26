@@ -13,8 +13,11 @@ import numpy as np
 from app.utils.image_utils import ensure_gray, load_image_u8
 
 
-EXTERNAL_WEIGHT_MODULES = {
+LOCAL_TEACHING_MODEL_MODULES = {
     'vit', 'detr', 'sam', 'clip', 'stable_diffusion',
+}
+
+LOCAL_FRONTIER_ALGORITHM_MODULES = {
     'swin', 'dino', 'mae', 'dino_det', 'grdino', 'mask2former', 'sam2',
     'blip2', 'controlnet', 'dit', 'flux', 'stylegan', 'dust3r',
     'orbslam3', 'mediapipe', 'vitpose',
@@ -22,9 +25,16 @@ EXTERNAL_WEIGHT_MODULES = {
 
 OFFLINE_TEACHING_MODULES = set()  # 已废弃——所有模块必须有真实实现
 
-BLUEPRINT_MODULES = OFFLINE_TEACHING_MODULES | EXTERNAL_WEIGHT_MODULES
+EXTERNAL_WEIGHT_MODULES = set()
+
+BLUEPRINT_MODULES = OFFLINE_TEACHING_MODULES | LOCAL_TEACHING_MODEL_MODULES | LOCAL_FRONTIER_ALGORITHM_MODULES | EXTERNAL_WEIGHT_MODULES
 
 MODULE_TITLES = {
+    'vit': ('Vision Transformer', 'Image patches are embedded as tokens and mixed by self-attention.'),
+    'detr': ('DETR', 'Object queries decode a set of boxes without anchors or NMS.'),
+    'sam': ('Segment Anything', 'Image embeddings and prompts are decoded into candidate masks.'),
+    'clip': ('CLIP', 'Image and text towers are aligned in a shared embedding space.'),
+    'stable_diffusion': ('Stable Diffusion', 'Latent noise is iteratively denoised under text conditioning.'),
     'shitomasi': ('Shi-Tomasi corners', 'Corner response keeps locations where both local gradient eigenvalues are large.'),
     'ncuts': ('Normalized Cuts', 'A graph affinity map is split by a smooth spectral partition.'),
     'bovw_spm': ('BoVW + SPM', 'Local descriptors are quantized into visual words and pooled over spatial cells.'),
@@ -69,20 +79,25 @@ def build_pipeline(module_id, image_path=None, image=None, **kwargs):
 
     steps = [
         {'id': 'input', 'name': 'Input / fixture', 'image': rgb,
-         'explanation': 'Input image used for the local teaching pipeline.'},
+         'explanation': 'Input image used for the local teaching pipeline.',
+         'formula': _formula_for(module_id, 'input')},
         {'id': 'representation', 'name': 'Intermediate representation', 'image': feature,
-         'explanation': summary},
+         'explanation': summary,
+         'formula': _formula_for(module_id, 'representation')},
         {'id': 'process', 'name': 'Algorithm process', 'image': diagram,
-         'explanation': 'A deterministic local visualization of the main computation stages.'},
+         'explanation': 'A deterministic local visualization of the main computation stages.',
+         'formula': _formula_for(module_id, 'process')},
         {'id': 'result', 'name': f'{title} teaching result', 'image': output,
-         'explanation': 'Offline teaching output. This is not a downloaded pretrained-model prediction.'},
+         'explanation': 'Offline teaching output. This is not a downloaded pretrained-model prediction.',
+         'formula': _formula_for(module_id, 'result')},
     ]
     return {
         'steps': steps,
         'metrics': {
-            'status': 'offline_teaching',
+            'status': 'local_teaching_visualization',
             'module_id': module_id,
-            'backend': 'NumPy/PIL offline teaching demo',
+            'backend': 'NumPy/PIL deterministic teaching visualization',
+            'real_model': False,
             'external_weights': False,
             'image_shape': f'{rgb.shape[1]}x{rgb.shape[0]}',
         },
@@ -119,6 +134,12 @@ def _load_or_fixture(image_path=None, image=None):
 
 
 def _feature_image(module_id, rgb, gray):
+    if module_id in {'vit', 'clip'}:
+        return _patch_grid(rgb)
+    if module_id in {'detr', 'sam'}:
+        return _detection_overlay(rgb) if module_id == 'detr' else _segmentation_overlay(rgb, gray)
+    if module_id == 'stable_diffusion':
+        return _noise_grid()
     if module_id in {'shitomasi', 'sfm', 'epipolar', 'calibration'}:
         return _corner_overlay(rgb, gray)
     if module_id in {'ncuts', 'fcn', 'unet', 'mask_rcnn', 'sam2', 'occupy'}:
@@ -137,6 +158,16 @@ def _feature_image(module_id, rgb, gray):
 
 
 def _output_image(module_id, rgb, gray):
+    if module_id == 'vit':
+        return _attention_matrix()
+    if module_id == 'clip':
+        return _embedding_chart(gray)
+    if module_id == 'detr':
+        return _detection_overlay(rgb)
+    if module_id == 'sam':
+        return _segmentation_overlay(rgb, gray)
+    if module_id == 'stable_diffusion':
+        return _generated_pattern()
     if module_id in {'faster_rcnn', 'yolo', 'bytetrack', 'botsort'}:
         return _detection_overlay(rgb)
     if module_id in {'deeppose', 'openpose'}:
@@ -222,6 +253,32 @@ def _embedding_chart(gray, size=220):
     return img
 
 
+def _patch_grid(rgb, patch=28):
+    out = rgb.copy()
+    h, w = out.shape[:2]
+    for y in range(0, h, patch):
+        out[y:min(h, y + 2), :] = [15, 23, 42]
+    for x in range(0, w, patch):
+        out[:, x:min(w, x + 2)] = [15, 23, 42]
+    out[:patch, :patch] = np.clip(out[:patch, :patch].astype(np.float64) * 0.45 + np.array([250, 204, 21]) * 0.55, 0, 255)
+    return out.astype(np.uint8)
+
+
+def _attention_matrix(size=220, tokens=10):
+    img = np.ones((size, size, 3), dtype=np.uint8) * 248
+    cell = size // tokens
+    for r in range(tokens):
+        for c in range(tokens):
+            dist = abs(r - c)
+            val = int(max(30, 230 - dist * 24))
+            img[r * cell:(r + 1) * cell, c * cell:(c + 1) * cell] = [val, 180, 255 - val // 3]
+    for i in range(tokens + 1):
+        p = min(size - 1, i * cell)
+        img[p:p + 1, :] = [15, 23, 42]
+        img[:, p:p + 1] = [15, 23, 42]
+    return img
+
+
 def _noise_grid(size=180):
     y, x = np.mgrid[0:size, 0:size]
     z = (np.sin(x / 9) + np.cos(y / 13) + np.sin((x + y) / 17)) / 3
@@ -272,6 +329,37 @@ def _diagram_image(module_id, width=520, height=180):
             draw.line((x + 90, 86, x + 116, 86), fill=(51, 65, 85), width=3)
     draw.text((24, 18), title, fill=(15, 23, 42))
     return np.array(img)
+
+
+def _formula_for(module_id, step_id):
+    formulas = {
+        'vit': {
+            'representation': 'z_0=[x_cls; x_p^1E; ...; x_p^NE]+E_pos',
+            'process': 'Attention(Q,K,V)=softmax(QK^T/sqrt(d))V',
+            'result': 'y=MLP(LN(z_cls))',
+        },
+        'detr': {
+            'representation': 'F=CNN(I)+pos',
+            'process': 'Y=Decoder(Q, Encoder(F))',
+            'result': 'min_sigma sum_i L(y_i, y_hat_sigma(i))',
+        },
+        'sam': {
+            'representation': 'E_img=ImageEncoder(I)',
+            'process': 'E_prompt=PromptEncoder(points, boxes, masks)',
+            'result': 'M=MaskDecoder(E_img, E_prompt)',
+        },
+        'clip': {
+            'representation': 'v_img=f_img(I), v_txt=f_txt(T)',
+            'process': 's=cos(v_img, v_txt)/tau',
+            'result': 'L=InfoNCE(image, text)',
+        },
+        'stable_diffusion': {
+            'representation': 'z=VAE.encode(I)',
+            'process': 'eps_hat=UNet(z_t,t,c)',
+            'result': 'z_{t-1}=Denoise(z_t, eps_hat)',
+        },
+    }
+    return formulas.get(module_id, {}).get(step_id, '')
 
 
 def _draw_line(img, p0, p1, color):

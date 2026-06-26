@@ -30,6 +30,32 @@ def _dog_to_uint8(arr):
     return np.round((arr / max_abs * 0.5 + 0.5) * 255.0).clip(0, 255).astype(np.uint8)
 
 
+def _solve_small_system(a, b):
+    """Solve a tiny dense linear system without LAPACK."""
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64).reshape(-1, 1)
+    n = a.shape[0]
+    aug = np.hstack([a, b])
+    for col in range(n):
+        pivot = col + int(np.argmax(np.abs(aug[col:, col])))
+        if abs(float(aug[pivot, col])) < 1e-12:
+            return None
+        if pivot != col:
+            aug[[col, pivot]] = aug[[pivot, col]]
+        aug[col] = aug[col] / aug[col, col]
+        for row in range(n):
+            if row == col:
+                continue
+            aug[row] -= aug[row, col] * aug[col]
+    out = aug[:, -1]
+    return out if np.isfinite(out).all() else None
+
+
+def _det2(a):
+    a = np.asarray(a, dtype=np.float64)
+    return float(a[0, 0] * a[1, 1] - a[0, 1] * a[1, 0])
+
+
 def sample_matrix(arr, max_w=96, max_h=72, signed=False):
     """Downsample matrix for frontend JSON transmission."""
     arr = np.asarray(arr, dtype=np.float32)
@@ -145,16 +171,18 @@ def build_visualization(data, gamma=10):
             ], dtype=np.float32)
             grad = compute_first_derivative(cube)
             hessian3 = compute_second_derivative(cube)
-            try:
-                offset = -np.linalg.lstsq(hessian3, grad, rcond=None)[0]
-            except np.linalg.LinAlgError:
+            solved = _solve_small_system(hessian3, grad)
+            if solved is None:
                 offset = np.zeros(3, dtype=np.float32)
+            else:
+                offset = -solved.astype(np.float32)
             xy_hess = hessian3[:2, :2]
-            tr, dt = float(np.trace(xy_hess)), float(np.linalg.det(xy_hess))
+            tr = float(xy_hess[0, 0] + xy_hess[1, 1])
+            dt = _det2(xy_hess)
             ratio = float((tr*tr)/dt) if dt > 1e-12 else 0.0
             vis['cube'] = np.round(cube, 5).tolist()
             vis['taylor'] = {'offset': np.round(offset, 4).tolist(),
-                             'contrast': round(float(cube[1,1,1] + 0.5*np.dot(grad, offset)), 6)}
+                             'contrast': round(float(cube[1,1,1] + 0.5*np.sum(grad * offset)), 6)}
             vis['hessian'] = {'matrix': np.round(xy_hess, 5).tolist(), 'ratio': round(ratio, 4),
                               'limit': round(float(((gamma+1.0)**2)/gamma), 4),
                               'keep': bool(dt > 1e-12 and ratio < ((gamma+1.0)**2)/gamma)}
@@ -182,7 +210,7 @@ def build_visualization(data, gamma=10):
 def build_pipeline(image_path, sigma=1.6, num_layers=4, k_stride=1,
                    threshold=0.02, border=5, gamma=10, octaves=3):
     """Build SIFT pipeline data for frontend rendering."""
-    img = load_image_u8(image_path, mode='rgb', max_side=1024)
+    img = load_image_u8(image_path, mode='rgb', max_side=360)
     data = sift_pipeline(img, sigma=sigma, num_layers=num_layers, k_stride=k_stride,
                          threshold=threshold, border=border, gamma=gamma, octaves=octaves)
 

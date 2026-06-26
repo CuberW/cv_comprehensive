@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sobel梯度 — Cvtoolkits</title>
+<link rel="stylesheet" href="../css/iframe-theme.css"><script src="../js/theme-sync.js"></script>
+<style>
+.page{max-width:1180px;margin:0 auto;padding:20px 22px 42px}
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-bottom:14px}
+.hero-main,.panel{border:1px solid var(--cv-border);background:var(--cv-panel);;border-radius:18px;backdrop-filter:blur(12px)}
+.hero-main{padding:18px 20px}.eyebrow{color:#38bdf8;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
+h1{margin:6px 0 8px;font-size:clamp(1.55rem,3vw,2.35rem)}.subtitle{margin:0;color:#a5b4fc;font-size:.94rem;line-height:1.65}
+.analogy{margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.16);color:#bae6fd;font-size:.84rem;line-height:1.6}.analogy strong{color:#38bdf8}
+.workspace{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:14px;align-items:start}
+.panel{padding:16px}.panel h3{margin:0 0 10px;font-size:1rem}
+.upload-zone{border:1.5px dashed rgba(148,163,184,.32);border-radius:16px;padding:14px;background:rgba(2,6,23,.3);transition:border-color .18s}.upload-zone.dragover{border-color:#38bdf8;background:rgba(56,189,248,.08)}
+.upload-row{display:flex;gap:10px;align-items:center}
+button{font:inherit;border:0;border-radius:12px;cursor:pointer}
+.upload-btn,.run-btn{padding:10px 14px;color:#06121f;font-weight:900;background:linear-gradient(135deg,#38bdf8,#818cf8)}button:disabled{opacity:.48;cursor:not-allowed}
+.file-meta{color:#94a3b8;font-size:.82rem}.file-meta strong{color:#e2e8f0}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.ghost-btn{padding:10px 13px;color:#cbd5e1;border:1px solid rgba(148,163,184,.2);background:rgba(148,163,184,.11)}
+.kernel-viz{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}
+.kv-item{text-align:center}.kv-item .kv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;width:60px;height:60px;margin:0 auto 4px}
+.kv-item .kv-grid i{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border-radius:3px}
+.kv-item .kv-label{font-size:.7rem;color:#94a3b8}
+.loading{display:none;text-align:center;padding:40px;border-radius:14px;color:#94a3b8;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.12)}
+.error{display:none;padding:14px;border-radius:14px;color:#fecaca;background:rgba(127,29,29,.24);border:1px solid rgba(248,113,113,.32)}
+.spinner{width:30px;height:30px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(148,163,184,.22);border-top-color:#38bdf8;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.results-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.results-head p{margin:0;color:#94a3b8;font-size:.84rem}
+.steps-grid{display:grid;display:flex;flex-wrap:wrap;gap:12px}
+.step-card{flex:1 1 220px;min-width:200px;max-width:320px;overflow:hidden;border-radius:13px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.13);transition:transform .18s}.step-card:hover{transform:translateY(-3px);box-shadow:0 0 24px rgba(56,189,248,.12)}
+.step-img{min-height:120px;display:grid;place-items:center;background:rgba(2,6,23,.42)}.step-img img{width:100%;display:block}
+.step-body{padding:10px 12px}.step-body strong{display:block;font-size:.82rem;color:#f8fafc}.step-body p{margin:4px 0 0;color:#94a3b8;font-size:.74rem;line-height:1.5}
+@media(max-width:860px){.hero,.workspace{grid-template-columns:1fr}.kernel-viz{grid-template-columns:repeat(3,1fr)}}
+</style></head><body>
+<main class="page"><section class="hero"><div class="hero-main">
+<div class="eyebrow">Sobel Operator</div><h1>Sobel梯度：发现"哪里在变化"</h1>
+<p class="subtitle">用两个3×3卷积核分别扫过图像——一个找左右变化（Gx），一个找上下变化（Gy）。两路信号合成边缘强度：G = √(Gx² + Gy²)。</p>
+<div class="analogy"><strong>🎯 直觉：</strong>把手放在一张照片上慢慢滑过去。当手指从暗处滑到亮处，你能感觉到明显的"落差"——这就是梯度。Sobel 核就是两个"落差探测器"：<strong>Gx</strong> 摸左右方向的落差（检测竖边），<strong>Gy</strong> 摸上下方向的落差（检测横边）。两者合成，就是<strong>完整的边缘强度图</strong>。</div>
+<div class="kernel-viz">
+<div class="kv-item"><div class="kv-grid" id="kvGx"></div><div class="kv-label">Gx 核（竖边）</div></div>
+<div class="kv-item" style="padding-top:18px"><span style="font-size:24px;color:#38bdf8">×</span><div class="kv-label" style="margin-top:16px"> </div></div>
+<div class="kv-item"><div class="kv-grid" id="kvImg"></div><div class="kv-label">图像</div></div>
+<div class="kv-item" style="padding-top:18px"><span style="font-size:24px;color:#38bdf8">=</span><div class="kv-label" style="margin-top:16px"> </div></div>
+<div class="kv-item"><div class="kv-grid" id="kvGy"></div><div class="kv-label">Gy 核（横边）</div></div>
+</div>
+</div><aside class="panel"><h3>📥 上传图片</h3>
+<div class="upload-zone" id="uploadZone"><input type="file" id="fileInput" accept="image/*" hidden><div class="upload-row"><button class="upload-btn" id="uploadBtn">选择图片</button><div class="file-meta"><strong id="fileName">未选择</strong><br>计算Gx/Gy/幅值/方向四通道</div></div></div>
+<div class="actions"><button class="run-btn" id="runBtn" disabled>▶ 开始处理</button><button class="ghost-btn" id="sampleBtn">内置示例</button></div></aside></section>
+<section class="workspace"><aside class="panel" style="display:none"></aside><section class="panel">
+<div class="results-head"><h3>处理结果</h3><p id="resultHint">Sobel五步输出：原图→Gx→Gy→幅值→方向角</p></div>
+<div class="loading" id="loading"><div class="spinner"></div>卷积计算中…</div><div class="error" id="errorBox"></div><div class="steps-grid" id="stepsGrid"></div></section></section></main>
+<script>
+(function(){var sf=null,fi=document.getElementById('fileInput'),uz=document.getElementById('uploadZone'),fn=document.getElementById('fileName'),ub=document.getElementById('uploadBtn'),rb=document.getElementById('runBtn'),sb=document.getElementById('sampleBtn'),ld=document.getElementById('loading'),eb=document.getElementById('errorBox'),sg=document.getElementById('stepsGrid'),rh=document.getElementById('resultHint');
+ub.addEventListener('click',function(){fi.click()});fi.addEventListener('change',function(e){sf=e.target.files[0]||null;if(sf){fn.textContent=sf.name;rb.disabled=false}});uz.addEventListener('dragover',function(e){e.preventDefault();uz.classList.add('dragover')});uz.addEventListener('dragleave',function(){uz.classList.remove('dragover')});uz.addEventListener('drop',function(e){e.preventDefault();uz.classList.remove('dragover');sf=e.dataTransfer.files[0]||null;if(sf){fn.textContent=sf.name;rb.disabled=false}});
+function sbz(b){ld.style.display=b?'block':'none';eb.style.display='none';rb.disabled=b;sb.disabled=b}
+function drun(wf){sbz(true);var fd=new FormData();if(wf)fd.append('file',wf);fetch('/api/demo/sobel',{method:'POST',body:fd}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok)throw new Error(j.error||'HTTP '+r.status);return j})}).then(render).catch(function(e){sbz(false);eb.textContent=e.message;eb.style.display='block'});}
+rb.addEventListener('click',function(){drun(sf)});sb.addEventListener('click',function(){sf=null;fi.value='';fn.textContent='内置示例';fetch('../images/demo-street.jpg').then(function(r){return r.blob()}).then(function(b){drun(new File([b],'demo.jpg'))}).catch(function(){drun(null)});});
+function renderKernel(el,vals,colors){el.innerHTML=vals.map(function(v,i){return'<i style="background:'+(colors[i]||'rgba(56,189,248,.15)')+';color:'+(v>0?'#bae6fd':'#fca5a5')+'">'+(v>0?'+'+v:v)+'</i>'}).join('')}
+renderKernel(document.getElementById('kvGx'),[-1,0,1,-2,0,2,-1,0,1],['rgba(56,189,248,.25)','rgba(56,189,248,.05)','rgba(56,189,248,.25)','rgba(56,189,248,.4)','rgba(56,189,248,.05)','rgba(56,189,248,.4)','rgba(56,189,248,.25)','rgba(56,189,248,.05)','rgba(56,189,248,.25)']);
+renderKernel(document.getElementById('kvGy'),[-1,-2,-1,0,0,0,1,2,1],['rgba(56,189,248,.25)','rgba(56,189,248,.4)','rgba(56,189,248,.25)','rgba(56,189,248,.05)','rgba(56,189,248,.05)','rgba(56,189,248,.05)','rgba(56,189,248,.25)','rgba(56,189,248,.4)','rgba(56,189,248,.25)']);
+renderKernel(document.getElementById('kvImg'),[38,42,51,35,58,65,44,52,49],['rgba(148,163,184,.12)','rgba(148,163,184,.15)','rgba(148,163,184,.18)','rgba(148,163,184,.10)','rgba(148,163,184,.2)','rgba(148,163,184,.22)','rgba(148,163,184,.14)','rgba(148,163,184,.18)','rgba(148,163,184,.16)']);
+function render(d){sbz(false);rh.textContent='Gx=水平梯度(竖边) | Gy=垂直梯度(横边) | 幅值=√(Gx²+Gy²) | 方向=atan2(Gy,Gx)';
+sg.innerHTML=(d.steps||[]).map(function(s,i){var titles={original:'原图',gx:'Gx：水平梯度（检测竖边）',gy:'Gy：垂直梯度（检测横边）',magnitude:'梯度幅值 = √(Gx²+Gy²)',angle:'梯度方向角（灰度编码）'};var img=s.image_base64?'<img src="data:image/png;base64,'+s.image_base64+'" alt="'+esc(s.name||'')+'" loading="lazy">':'<span style="color:#64748b">—</span>';return'<article class="step-card"><div class="step-img">'+img+'</div><div class="step-body"><strong>'+esc(titles[s.id]||s.name)+'</strong><p>'+esc(s.explanation||'')+'</p>'+(s.formula?'<code class="step-formula">'+esc(s.formula)+'</code>':'')+'</div></article>'}).join('')}
+function esc(s){return String(s).replace(/[&<>"\']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]})}})();
+</script></body></html>

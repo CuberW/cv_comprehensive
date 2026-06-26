@@ -29,7 +29,7 @@ def normalize_descriptor(vec):
     """L2 normalize a descriptor vector."""
     arr = np.asarray(vec, dtype=np.float32).ravel()
     arr = arr - float(arr.mean())
-    norm = float(np.linalg.norm(arr))
+    norm = float(np.sqrt(np.sum(arr * arr)))
     return arr / norm if norm > 1e-12 else arr * 0.0
 
 
@@ -76,13 +76,20 @@ def extract_features(img, method='sift', max_points=260):
 
 def pairwise_distances(a, b):
     """Euclidean distance matrix: dist[i,j] = ||a[i] - b[j]||.
-    Vectorized: ||a-b||^2 = a^2 + b^2 - 2ab^T"""
+    Uses chunked broadcasting instead of BLAS matmul so the demo route cannot
+    crash the Python process when native linear algebra is unstable."""
     if a.size == 0 or b.size == 0:
         return np.zeros((a.shape[0], b.shape[0]), dtype=np.float32)
-    aa = np.sum(a * a, axis=1)[:, None]
-    bb = np.sum(b * b, axis=1)[None, :]
-    d2 = np.maximum(aa + bb - 2.0 * a @ b.T, 0.0)
-    return np.sqrt(d2).astype(np.float32)
+    a = np.asarray(a, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
+    out = np.empty((a.shape[0], b.shape[0]), dtype=np.float32)
+    chunk = max(1, min(64, a.shape[0]))
+    for start in range(0, a.shape[0], chunk):
+        stop = min(a.shape[0], start + chunk)
+        diff = a[start:stop, None, :] - b[None, :, :]
+        d2 = np.sum(diff * diff, axis=2)
+        out[start:stop] = np.sqrt(np.maximum(d2, 0.0)).astype(np.float32)
+    return out
 
 
 def match_descriptors(desc1, desc2, ratio=0.8, max_matches=180):
@@ -114,33 +121,89 @@ def homography_from_points(src, dst):
     """
     Estimate homography H (3x3) from >=4 point pairs using DLT.
     Constraint: dst = H @ src (homogeneous coords).
-    Solve Ah = 0 via SVD (last column of V).
+    Solve an 8-parameter least-squares system with Gauss-Jordan elimination.
     """
     if len(src) < 4:
         return None
-    A = []
+    a_rows, b_vals = [], []
     for (x, y), (u, v) in zip(src, dst):
-        A.append([-x, -y, -1, 0, 0, 0, u*x, u*y, u])
-        A.append([0, 0, 0, -x, -y, -1, v*x, v*y, v])
-    A = np.asarray(A, dtype=np.float64)
-    try:
-        _, _, vt = np.linalg.svd(A)
-    except np.linalg.LinAlgError:
+        x, y, u, v = float(x), float(y), float(u), float(v)
+        a_rows.append([x, y, 1.0, 0.0, 0.0, 0.0, -u * x, -u * y])
+        b_vals.append(u)
+        a_rows.append([0.0, 0.0, 0.0, x, y, 1.0, -v * x, -v * y])
+        b_vals.append(v)
+    ata = np.zeros((8, 8), dtype=np.float64)
+    atb = np.zeros(8, dtype=np.float64)
+    for row, target in zip(a_rows, b_vals):
+        for i in range(8):
+            atb[i] += row[i] * target
+            for j in range(8):
+                ata[i, j] += row[i] * row[j]
+    h = _solve_linear_system(ata, atb)
+    if h is None:
         return None
-    H = vt[-1].reshape(3, 3)
-    if abs(H[2, 2]) < 1e-12:
-        return None
-    return H / H[2, 2]
+    H = np.array([
+        [h[0], h[1], h[2]],
+        [h[3], h[4], h[5]],
+        [h[6], h[7], 1.0],
+    ], dtype=np.float64)
+    return H if np.isfinite(H).all() else None
+
+
+def _solve_linear_system(a, b):
+    """Gauss-Jordan solver for small dense systems; avoids LAPACK native crashes."""
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64).reshape(-1, 1)
+    n = a.shape[0]
+    aug = np.hstack([a, b])
+    for col in range(n):
+        pivot = col + int(np.argmax(np.abs(aug[col:, col])))
+        if abs(float(aug[pivot, col])) < 1e-10:
+            return None
+        if pivot != col:
+            aug[[col, pivot]] = aug[[pivot, col]]
+        aug[col] = aug[col] / aug[col, col]
+        for row in range(n):
+            if row == col:
+                continue
+            aug[row] -= aug[row, col] * aug[col]
+    out = aug[:, -1]
+    return out if np.isfinite(out).all() else None
 
 
 def apply_homography(points, H):
     """Apply homography transformation to point set."""
     pts = np.asarray(points, dtype=np.float64)
-    ones = np.ones((pts.shape[0], 1), dtype=np.float64)
-    hp = np.hstack([pts, ones]) @ H.T
-    denom = hp[:, 2:3]
-    denom[np.abs(denom) < 1e-12] = 1e-12
-    return hp[:, :2] / denom
+    H = np.asarray(H, dtype=np.float64)
+    x = pts[:, 0]
+    y = pts[:, 1]
+    denom = H[2, 0] * x + H[2, 1] * y + H[2, 2]
+    denom = np.where(np.abs(denom) < 1e-12, 1e-12, denom)
+    u = (H[0, 0] * x + H[0, 1] * y + H[0, 2]) / denom
+    v = (H[1, 0] * x + H[1, 1] * y + H[1, 2]) / denom
+    return np.stack([u, v], axis=1)
+
+
+def invert_homography(H):
+    """Invert a 3x3 homography with an explicit adjugate formula."""
+    H = np.asarray(H, dtype=np.float64)
+    a, b, c = H[0]
+    d, e, f = H[1]
+    g, h, i = H[2]
+    A = e * i - f * h
+    B = c * h - b * i
+    C = b * f - c * e
+    D = f * g - d * i
+    E = a * i - c * g
+    F = c * d - a * f
+    G = d * h - e * g
+    HH = b * g - a * h
+    I = a * e - b * d
+    det = a * A + b * D + c * G
+    if abs(float(det)) < 1e-12:
+        return None
+    inv = np.array([[A, B, C], [D, E, F], [G, HH, I]], dtype=np.float64) / det
+    return inv if np.isfinite(inv).all() else None
 
 
 def ransac_homography(src, dst, iterations=500, threshold=4.0):
@@ -163,7 +226,8 @@ def ransac_homography(src, dst, iterations=500, threshold=4.0):
         if H is None:
             continue
         pred = apply_homography(src, H)
-        err = np.linalg.norm(pred - dst, axis=1)
+        diff = pred - dst
+        err = np.sqrt(np.sum(diff * diff, axis=1))
         inliers = err < threshold
         if int(inliers.sum()) > int(best_inliers.sum()):
             best_inliers = inliers
@@ -240,20 +304,26 @@ def stitch_images(left, right, H, max_output_side=1200):
     weight[ly:ly+h1, lx:lx+w1] += 1.0
 
     # Inverse map right image
-    try:
-        invH = np.linalg.inv(H)
-    except np.linalg.LinAlgError:
+    invH = invert_homography(H)
+    if invH is None:
         invH = np.eye(3, dtype=np.float64)
 
     yy, xx = np.indices((out_h, out_w), dtype=np.float64)
     world_x = xx.ravel() - offset[0]
     world_y = yy.ravel() - offset[1]
-    pts = np.stack([world_x, world_y, np.ones_like(world_x)], axis=1) @ invH.T
-    denom = pts[:, 2]
+    denom = invH[2, 0] * world_x + invH[2, 1] * world_y + invH[2, 2]
     valid_denom = np.abs(denom) > 1e-12
     rx, ry = np.zeros_like(world_x), np.zeros_like(world_y)
-    rx[valid_denom] = pts[valid_denom, 0] / denom[valid_denom]
-    ry[valid_denom] = pts[valid_denom, 1] / denom[valid_denom]
+    rx[valid_denom] = (
+        invH[0, 0] * world_x[valid_denom]
+        + invH[0, 1] * world_y[valid_denom]
+        + invH[0, 2]
+    ) / denom[valid_denom]
+    ry[valid_denom] = (
+        invH[1, 0] * world_x[valid_denom]
+        + invH[1, 1] * world_y[valid_denom]
+        + invH[1, 2]
+    ) / denom[valid_denom]
     valid = valid_denom & (rx >= 0) & (rx <= w2-1) & (ry >= 0) & (ry <= h2-1)
 
     if np.any(valid):

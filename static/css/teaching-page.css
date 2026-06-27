@@ -5,7 +5,7 @@ body {
 }
 
 .teach-page {
-  width: min(1440px, calc(100% - 36px));
+  width: min(1540px, calc(100% - 48px));
   margin: 0 auto;
   padding: 14px 0 34px;
 }
@@ -1648,7 +1648,7 @@ body {
 
 @media (max-width: 640px) {
   .teach-page {
-    width: min(100% - 22px, 100%);
+    width: min(100% - 20px, 100%);
     padding-top: 16px;
   }
 

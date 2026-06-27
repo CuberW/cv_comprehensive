@@ -7,6 +7,7 @@ Route hub.
 import os
 import inspect
 import imageio.v3 as iio
+from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request
 from app.modules import MODULE_REGISTRY, get_modules_by_phase
 from app.modules.implementation import get_implementation_meta
@@ -23,27 +24,33 @@ from app.runners import get_remote_runner
 main_bp = Blueprint('main', __name__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LEGACY_HISTORY = []
+_LEGACY_HISTORY_NEXT_ID = 1
 TEACHING_PAGE_IDS = {
-    'grayscale', 'noise', 'bilateral', 'convolution',
-    'contour', 'nms', 'template_match',
+    'grayscale', 'noise', 'bilateral', 'convolution', 'smoothing',
     'kmeans', 'watershed', 'grabcut', 'slic', 'hog_svm', 'optical_flow', 'stereo',
-    'detection', 'semantic', 'instance', 'unet', 'yolo',
+    'ai_eye', 'detection', 'semantic', 'instance', 'unet', 'yolo',
     'resnet', 'gan', 'diffusion', 'vit', 'detr', 'clip', 'sam', 'stable_diffusion', 'nerf',
 }
 
 # New dedicated pages (override teaching.html fallback)
 DEDICATED_PAGES = {
-    'median': 'median_new.html',
+    'smoothing': 'smoothing.html',
+    'median': 'smoothing.html',
     'sobel': 'sobel_new.html',
     'histogram': 'histogram_new.html',
     'threshold': 'threshold_new.html',
-    'gaussian': 'gaussian_new.html',
+    'gaussian': 'smoothing.html',
+    'bilateral': 'smoothing.html',
 }
 
 PREFERRED_STATIC_PAGES = {
-    'detection': 'detection.html',
-    'semantic': 'semantic.html',
-    'instance': 'instance.html',
+    'ai_eye': 'detection_segmentation.html',
+    'detection': 'detection_segmentation.html?task=detection',
+    'semantic': 'detection_segmentation.html?task=semantic',
+    'instance': 'detection_segmentation.html?task=instance',
+    'yolo': 'detection_segmentation.html?task=yolo',
+    'unet': 'detection_segmentation.html?task=unet',
     'resnet': 'nn_resnet.html',
     'gan': 'nn_gan.html',
     'diffusion': 'diffusion.html',
@@ -103,13 +110,19 @@ def index():
 def api_modules():
     """Return all registered module metadata organized by phase."""
     phases = get_modules_by_phase()
+    hidden_module_ids = {'ai_eye', 'nms', 'template_match', 'hough', 'contour'}
     for phase in phases:
+        phase['modules'] = [
+            mod for mod in phase['modules']
+            if mod.get('id') not in hidden_module_ids
+        ]
         for mod in phase['modules']:
             cls = MODULE_REGISTRY.get(mod['id'])
             page = _module_page(mod['id'], cls)
             if page:
                 mod['page'] = page
             mod['implementation'] = get_implementation_meta(mod['id'])
+    phases = [phase for phase in phases if phase['modules']]
 
     return jsonify({'phases': phases, 'total': len(MODULE_REGISTRY)})
 
@@ -130,6 +143,115 @@ def _save_upload(file):
     upload_path = os.path.join(upload_dir, unique_name)
     file.save(upload_path)
     return unique_name, upload_path
+
+
+def _save_legacy_result(image, source_name, prefix):
+    upload_dir = os.path.join(PROJECT_ROOT, 'static', 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    stem = os.path.splitext(source_name)[0]
+    result_name = f'{prefix}{stem}.png'
+    result_path = os.path.join(upload_dir, result_name)
+    iio.imwrite(result_path, image)
+    return result_name, result_path
+
+
+def _legacy_file_info(path):
+    size_bytes = os.path.getsize(path)
+    if size_bytes >= 1024 * 1024:
+        size_text = f'{size_bytes / (1024 * 1024):.1f} MB'
+    elif size_bytes >= 1024:
+        size_text = f'{size_bytes / 1024:.1f} KB'
+    else:
+        size_text = f'{size_bytes} B'
+    return {
+        'file_size': size_text,
+        'format': os.path.splitext(path)[1].upper().lstrip('.') or 'PNG',
+    }
+
+
+def _legacy_array_info(image):
+    shape = image.shape
+    return {
+        'width': int(shape[1]),
+        'height': int(shape[0]),
+        'channels': 1 if len(shape) == 2 else int(shape[2]),
+    }
+
+
+def _legacy_pixel_stats(image):
+    import numpy as np
+    arr = np.asarray(image, dtype=np.float64)
+    return {
+        'min': int(arr.min()),
+        'max': int(arr.max()),
+        'mean': round(float(arr.mean()), 1),
+        'std': round(float(arr.std()), 1),
+    }
+
+
+def _legacy_histogram(image, bins=256):
+    import numpy as np
+    hist, _ = np.histogram(np.asarray(image).ravel(), bins=bins, range=(0, 256))
+    return [int(v) for v in hist]
+
+
+def _legacy_history_snapshot():
+    return [dict(entry) for entry in _LEGACY_HISTORY]
+
+
+def _legacy_add_history_entry(module_key, module_title, original_image, result_image,
+                              original_filename='', original_info=None, result_info=None,
+                              stats=None, histogram=None, metadata=None):
+    global _LEGACY_HISTORY_NEXT_ID
+    entry = {
+        'id': _LEGACY_HISTORY_NEXT_ID,
+        'module_key': module_key,
+        'module_title': module_title,
+        'original_image': original_image,
+        'result_image': result_image,
+        'original_filename': original_filename,
+        'original_info': original_info,
+        'result_info': result_info,
+        'stats': stats,
+        'histogram': histogram,
+        'metadata': metadata or {},
+        'timestamp': datetime.now().isoformat(),
+    }
+    _LEGACY_HISTORY_NEXT_ID += 1
+    _LEGACY_HISTORY.insert(0, entry)
+    del _LEGACY_HISTORY[100:]
+    return dict(entry)
+
+
+def _legacy_remove_history_entry(entry_id):
+    for idx, entry in enumerate(_LEGACY_HISTORY):
+        if int(entry.get('id', -1)) == int(entry_id):
+            del _LEGACY_HISTORY[idx]
+            return True
+    return False
+
+
+def _legacy_clear_history(module_key=None):
+    if module_key:
+        before = len(_LEGACY_HISTORY)
+        _LEGACY_HISTORY[:] = [entry for entry in _LEGACY_HISTORY if entry.get('module_key') != module_key]
+        return before - len(_LEGACY_HISTORY)
+    cleared = len(_LEGACY_HISTORY)
+    _LEGACY_HISTORY.clear()
+    return cleared
+
+
+def _demo_fixture_path():
+    """Return a stable built-in image for demo endpoints without uploads."""
+    candidates = [
+        os.path.join(PROJECT_ROOT, 'static', 'images', 'demo-street.jpg'),
+        os.path.join(PROJECT_ROOT, 'bus.jpg'),
+        os.path.join(PROJECT_ROOT, '1.jpg'),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
 
 
 def _to_data_url(image):
@@ -166,6 +288,7 @@ STEP_FORMULA_FALLBACKS = {
 }
 
 MODULE_FORMULA_FALLBACKS = {
+    'smoothing': 'I_denoised=f(I_noisy; filter)',
     'bilateral': "I'_p=(1/W_p) sum_q G_s(||p-q||)G_r(|I_p-I_q|)I_q",
     'convolution': 'Y(i,j)=sum_{u,v} K(u,v) I(i+u,j+v)',
     'gaussian': 'G(x,y)=1/(2*pi*sigma^2) exp(-(x^2+y^2)/(2*sigma^2))',
@@ -309,6 +432,34 @@ def _step_to_dict(step, module_id=None):
             k: (v.tolist() if hasattr(v, 'tolist') else v)
             for k, v in step['data'].items()
         }
+    if isinstance(step.get('applications'), list):
+        out['applications'] = list(step['applications'])
+    if isinstance(step.get('channels'), list):
+        channels = []
+        for channel in step['channels']:
+            if not isinstance(channel, dict):
+                continue
+            item = {
+                k: v
+                for k, v in channel.items()
+                if k not in {'image', 'img', 'image_b64'}
+            }
+            ch_img = channel.get('image')
+            if ch_img is None:
+                ch_img = channel.get('img')
+            if ch_img is not None and not isinstance(ch_img, str):
+                try:
+                    item['image_base64'] = to_base64(ch_img)
+                except Exception:
+                    pass
+            elif isinstance(ch_img, str):
+                item['image_base64'] = _strip_data_url(ch_img)
+            elif isinstance(channel.get('image_b64'), str):
+                item['image_base64'] = _strip_data_url(channel['image_b64'])
+            elif isinstance(channel.get('image_base64'), str):
+                item['image_base64'] = _strip_data_url(channel['image_base64'])
+            channels.append(item)
+        out['channels'] = channels
     if not out.get('formula'):
         out['formula'] = _fallback_formula(module_id, step)
     if not out.get('explanation'):
@@ -358,21 +509,66 @@ def _normalize_pipeline_result(result, module_id=None):
     return steps, metrics
 
 
-def _json_demo_error(message, status_code, implementation, metrics=None):
-    return jsonify({
+def _json_demo_error(message, status_code, implementation, metrics=None, extra=None):
+    payload = {
         'error': str(message),
         'steps': [],
         'metrics': metrics or {'status': 'error'},
         'implementation': implementation,
-    }), status_code
+    }
+    if isinstance(extra, dict):
+        if isinstance(extra.get('steps'), list):
+            payload['steps'] = [
+                step
+                for step in (_step_to_dict(s, module_id=extra.get('module_id') or 'module') for s in extra['steps'])
+                if step is not None
+            ]
+        for key in ('models', 'outputs', 'algorithms', 'module_id', 'requested_module_id'):
+            if key in extra:
+                payload[key] = extra[key]
+    return jsonify(payload), status_code
+
+
+@main_bp.route('/api/demo/vision-real-status', methods=['GET'])
+def vision_real_status():
+    """Status endpoint consumed by detection/segmentation concept demos."""
+    module_ids = ['detection', 'semantic', 'instance']
+    modules = {}
+    ready = True
+    for module_id in module_ids:
+        meta = get_implementation_meta(module_id)
+        runnable = meta.get('category') not in {'not_implemented', 'requires_external_weights', 'model_not_available'}
+        modules[module_id] = {
+            'ready': bool(runnable),
+            'category': meta.get('category'),
+            'real_model': bool(meta.get('real_model')),
+            'backend': meta.get('backend'),
+            'model': meta.get('model'),
+            'note': meta.get('note'),
+        }
+        ready = ready and bool(runnable)
+    return jsonify({
+        'ready': ready,
+        'modules': modules,
+        'note': 'Detection, semantic segmentation and instance segmentation demos have runnable local API pipelines.',
+    })
+
+
+@main_bp.route('/api/ai-eye/models', methods=['GET'])
+def ai_eye_models():
+    """Return AI Eye torchvision model catalog and local weight cache status."""
+    from app.modules.phase4_deep_learning.ai_eye.processor import list_models
+    return jsonify(list_models())
 
 
 @main_bp.route('/gray/', methods=['POST'])
 def legacy_grayscale():
     """
     Legacy endpoint for grayscale.html interactive page.
-    Accepts: multipart file upload
-    Returns: JSON with original and result images (base64 PNG)
+    Accepts: multipart file upload.
+    Returns the richer JSON shape expected by the restored legacy
+    grayscale/color-space page: image URLs, metadata, stats, histogram,
+    and a history entry.
     """
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -386,12 +582,42 @@ def legacy_grayscale():
     from app.modules.phase1_fundamentals.grayscale.algorithm import weighted_average
     original = load_image_u8(upload_path, mode='rgb', max_side=1024)
     gray = weighted_average(original)
+    result_name, _ = _save_legacy_result(gray, unique_name, 'gray_')
+
+    original_url = f'/static/uploads/{unique_name}'
+    result_url = f'/static/uploads/{result_name}'
+    original_info = {
+        **_legacy_file_info(upload_path),
+        **_legacy_array_info(original),
+    }
+    result_info = _legacy_array_info(gray)
+    stats = _legacy_pixel_stats(gray)
+    histogram = _legacy_histogram(gray)
+    entry = _legacy_add_history_entry(
+        'gray',
+        '灰度转换',
+        original_url,
+        result_url,
+        original_filename=file.filename,
+        original_info=original_info,
+        result_info=result_info,
+        stats=stats,
+        histogram=histogram,
+        metadata={'algorithm': 'weighted_average', 'formula': 'Y=0.299R+0.587G+0.114B'},
+    )
 
     return jsonify({
-        'original_image': f'/static/uploads/{unique_name}',
+        'original_image': original_url,
+        'result_image': result_url,
         'result_image_base64': to_base64(gray),
         'original_width': int(original.shape[1]),
         'original_height': int(original.shape[0]),
+        'original_info': original_info,
+        'result_info': result_info,
+        'stats': stats,
+        'histogram': histogram,
+        'entry': entry,
+        'history': _legacy_history_snapshot(),
     })
 
 
@@ -635,15 +861,16 @@ def legacy_match():
 # ---- History API (used by old interactive pages) ----
 @main_bp.route('/api/history', methods=['GET', 'DELETE'])
 def legacy_history():
-    """Minimal history endpoint for old interactive pages."""
+    """History endpoint for restored legacy interactive pages."""
     if request.method == 'DELETE':
-        return jsonify({'cleared': 0})
-    return jsonify({'history': []})
+        module_key = request.args.get('module_key') or request.args.get('module')
+        return jsonify({'cleared': _legacy_clear_history(module_key)})
+    return jsonify({'history': _legacy_history_snapshot()})
 
 
 @main_bp.route('/api/history/<int:entry_id>', methods=['DELETE'])
 def legacy_history_delete(entry_id):
-    return jsonify({'deleted': entry_id})
+    return jsonify({'deleted': _legacy_remove_history_entry(entry_id), 'id': entry_id})
 
 
 # ---- Conv training API (used by conv_training.html) ----
@@ -957,26 +1184,40 @@ def _get_demo_processor(module_id):
         from app.modules.phase4_deep_learning.cnn_basics.algorithm import build_pipeline as fn
     elif module_id == 'conv_training':
         from app.modules.phase4_deep_learning.conv_training.algorithm import build_pipeline as fn
-    # fcn, faster_rcnn, mask_rcnn: redirect to real PyTorch backends
+    # fcn, faster_rcnn, mask_rcnn: keep aliases but use the unified AI Eye backend
     elif module_id == 'fcn':
-        from app.modules.phase4_deep_learning.semantic.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_semantic_pipeline as _ai_semantic
+        def fn(**kwargs):
+            kwargs.setdefault('model', 'fcn_resnet50')
+            result = _ai_semantic(**kwargs)
+            result['module_id'] = 'semantic'
+            return result
     elif module_id == 'faster_rcnn':
-        from app.modules.phase4_deep_learning.detection.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_detection_pipeline as _ai_detection
+        def fn(**kwargs):
+            kwargs.setdefault('model', 'fasterrcnn_resnet50_fpn')
+            result = _ai_detection(**kwargs)
+            result['module_id'] = 'detection'
+            return result
         params = {'score_threshold': 0.3}
     elif module_id == 'mask_rcnn':
-        from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_instance_pipeline as _ai_instance
+        def fn(**kwargs):
+            kwargs.setdefault('model', 'maskrcnn_resnet50_fpn')
+            result = _ai_instance(**kwargs)
+            result['module_id'] = 'instance'
+            return result
         return fn, params
 
+    elif module_id in {'smoothing', 'gaussian', 'median', 'bilateral'}:
+        from app.modules.phase1_fundamentals.smoothing.algorithm import build_pipeline as _smoothing_fn
+        def fn(**kwargs):
+            kwargs.setdefault('requested_algorithm', module_id)
+            return _smoothing_fn(**kwargs)
     elif module_id == 'noise':
         from app.modules.phase1_fundamentals.noise.algorithm import build_pipeline as fn
-    elif module_id == 'gaussian':
-        from app.modules.phase1_fundamentals.gaussian.algorithm import build_pipeline as fn
     elif module_id == 'sobel':
         from app.modules.phase1_fundamentals.sobel.algorithm import build_pipeline as fn
-    elif module_id == 'median':
-        from app.modules.phase1_fundamentals.median.algorithm import build_pipeline as fn
-    elif module_id == 'bilateral':
-        from app.modules.phase1_fundamentals.bilateral.algorithm import build_pipeline as fn
     elif module_id == 'nms':
         from app.modules.phase2_classical.nms.algorithm import build_pipeline as fn
     elif module_id == 'template_match':
@@ -986,6 +1227,8 @@ def _get_demo_processor(module_id):
         params = {'threshold_ratio': 0.01, 'min_distance': 3}
     elif module_id == 'kmeans':
         from app.modules.phase3_intermediate.kmeans.algorithm import build_pipeline as fn
+    elif module_id == 'colorspace':
+        from app.modules.phase1_fundamentals.colorspace.processor import build_pipeline as fn
     elif module_id == 'grayscale':
         from app.modules.phase1_fundamentals.grayscale.processor import build_pipeline as fn
     elif module_id == 'convolution':
@@ -1071,32 +1314,38 @@ def _get_demo_processor(module_id):
     elif module_id == 'diffusion':
         from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline as fn
         params = {'num_steps': 50}
+    elif module_id == 'ai_eye':
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_pipeline as fn
     elif module_id == 'detection':
-        from app.modules.phase4_deep_learning.detection.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_detection_pipeline as _ai_detection
+        def fn(**kwargs):
+            result = _ai_detection(**kwargs)
+            result['module_id'] = 'detection'
+            return result
     elif module_id == 'semantic':
-        from app.modules.phase4_deep_learning.semantic.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_semantic_pipeline as _ai_semantic
+        def fn(**kwargs):
+            result = _ai_semantic(**kwargs)
+            result['module_id'] = 'semantic'
+            return result
     elif module_id == 'instance':
-        from app.modules.phase4_deep_learning.instance.processor import build_pipeline as fn
+        from app.modules.phase4_deep_learning.ai_eye.processor import build_instance_pipeline as _ai_instance
+        def fn(**kwargs):
+            result = _ai_instance(**kwargs)
+            result['module_id'] = 'instance'
+            return result
     elif module_id == 'lenet':
         from app.modules.phase4_deep_learning.lenet.processor import build_inference_trace as fn
     elif module_id == 'live':
         from app.modules.phase1_fundamentals.live.algorithm import build_pipeline as fn
     elif module_id == 'vit':
-        from app.modules.offline_teaching import external_weight_error as _external_error
-        def fn(**kwargs):
-            return _external_error('vit')
+        from app.modules.phase5_frontier.vit.processor import build_pipeline as fn
     elif module_id == 'detr':
-        from app.modules.offline_teaching import external_weight_error as _external_error
-        def fn(**kwargs):
-            return _external_error('detr')
+        from app.modules.phase5_frontier.detr.processor import build_pipeline as fn
     elif module_id == 'sam':
-        from app.modules.offline_teaching import external_weight_error as _external_error
-        def fn(**kwargs):
-            return _external_error('sam')
+        from app.modules.phase5_frontier.sam.processor import build_pipeline as fn
     elif module_id == 'clip':
-        from app.modules.offline_teaching import external_weight_error as _external_error
-        def fn(**kwargs):
-            return _external_error('clip')
+        from app.modules.phase5_frontier.clip.processor import build_pipeline as fn
     elif module_id == 'stable_diffusion':
         from app.modules.offline_teaching import external_weight_error as _external_error
         def fn(**kwargs):
@@ -1207,8 +1456,6 @@ def demo_endpoint(module_id):
             {'status': 'not_implemented'},
         )
     requires_upload = bool(implementation.get('requires_upload', True))
-    if requires_upload and ('file' not in request.files or not request.files['file'].filename):
-        return _json_demo_error('No file part', 400, implementation, {'status': 'missing_upload'})
 
     try:
         sig = inspect.signature(fn)
@@ -1221,6 +1468,13 @@ def demo_endpoint(module_id):
 
     # Collect params from form data, falling back to defaults
     kwargs = dict(defaults)
+    for key in request.args:
+        val = request.args[key]
+        try:
+            if '.' in val: kwargs[key] = float(val)
+            else: kwargs[key] = int(val)
+        except ValueError:
+            kwargs[key] = val
     for key in request.form:
         val = request.form[key]
         try:
@@ -1244,6 +1498,20 @@ def demo_endpoint(module_id):
             import numpy as np
             kwargs['image_28x28'] = np.array(img, dtype=np.float32)
         original_url = f'/static/uploads/{unique_name}'
+    elif requires_upload and _demo_fixture_path():
+        upload_path = _demo_fixture_path()
+        kwargs['image_path'] = upload_path
+        kwargs['upload_path'] = upload_path
+        if valid_keys is None or 'left_path' in valid_keys: kwargs['left_path'] = upload_path
+        if valid_keys is None or 'right_path' in valid_keys: kwargs['right_path'] = upload_path
+        if valid_keys is None or 'image' in valid_keys:
+            kwargs['image'] = load_image_u8(upload_path, mode='rgb', max_side=1024)
+        if valid_keys is None or 'image_28x28' in valid_keys:
+            from PIL import Image
+            img = Image.open(upload_path).convert('L').resize((28,28))
+            import numpy as np
+            kwargs['image_28x28'] = np.array(img, dtype=np.float32)
+        original_url = '/static/images/demo-street.jpg'
     else:
         kwargs['image_path'] = None
         kwargs['upload_path'] = None
@@ -1269,13 +1537,20 @@ def demo_endpoint(module_id):
     if isinstance(result, dict) and result.get('error'):
         result_status = result.get('metrics', {}).get('status')
         status_code = 503 if result_status in {'model_not_available', 'requires_external_weights'} else 400
-        return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}))
+        return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}), extra=result)
 
     steps_out, metrics = _normalize_pipeline_result(result, module_id=module_id)
-    resp = {'steps': steps_out, 'metrics': metrics}
-    if requested_module_id != module_id:
-        resp['module_id'] = module_id
-        resp['requested_module_id'] = requested_module_id
+    resp_module_id = result.get('module_id', module_id) if isinstance(result, dict) else module_id
+    resp = {
+        'steps': steps_out,
+        'metrics': metrics,
+        'module_id': resp_module_id,
+        'requested_module_id': requested_module_id,
+    }
+    if isinstance(result, dict):
+        for extra_key in ('algorithms', 'family_module_id', 'models', 'outputs', 'task'):
+            if extra_key in result:
+                resp[extra_key] = result[extra_key]
     if original_url:
         resp['original_image'] = original_url
     resp['implementation'] = implementation

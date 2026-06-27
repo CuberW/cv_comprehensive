@@ -49,6 +49,28 @@ def detect_objects(image, threshold=0.5):
     with torch.no_grad():
         outputs = model(**inputs, output_attentions=True)
 
+    pixel_values = inputs["pixel_values"][0].detach().cpu().numpy()
+    probs = torch.softmax(outputs.logits[0], dim=-1)
+    # The last DETR class is "no-object"; objectness is one minus that
+    # probability. These are raw query predictions before confidence filtering.
+    objectness = 1.0 - probs[:, -1]
+    class_probs, class_ids = probs[:, :-1].max(dim=-1)
+    query_scores = objectness * class_probs
+    pred_boxes = outputs.pred_boxes[0].detach().cpu().numpy()
+    top_query_idx = torch.topk(query_scores, k=min(12, query_scores.numel())).indices.cpu().numpy()
+    query_predictions = []
+    for q in top_query_idx:
+        label_id = int(class_ids[q])
+        query_predictions.append({
+            'query': int(q),
+            'box_cxcywh': [round(float(v), 4) for v in pred_boxes[q].tolist()],
+            'label': model.config.id2label.get(label_id, str(label_id)),
+            'class_id': label_id,
+            'objectness': round(float(objectness[q]), 4),
+            'class_probability': round(float(class_probs[q]), 4),
+            'score': round(float(query_scores[q]), 4),
+        })
+
     # Process detections
     target_sizes = torch.tensor([img.size[::-1]])
     results = processor.post_process_object_detection(
@@ -71,18 +93,21 @@ def detect_objects(image, threshold=0.5):
 
         # Get feature map spatial size (encoder output after CNN backbone)
         encoder_seq_len = cross_attn.shape[-1]
-        feat_size = int(np.sqrt(encoder_seq_len))
+        feat_h, feat_w = _factor_grid(encoder_seq_len)
 
         cross_attentions = {
             'maps': cross_attn,
             'num_heads': cross_attn.shape[0],
             'num_queries': cross_attn.shape[1],
-            'feature_size': feat_size,
+            'feature_size': feat_h,
+            'feature_shape': (feat_h, feat_w),
         }
 
     return {
         'detections': detections,
         'cross_attentions': cross_attentions,
+        'preprocess_tensor': pixel_values,
+        'query_predictions': query_predictions,
         'num_queries': 100,
     }
 
@@ -93,9 +118,18 @@ def visualize_query_attention(cross_attn, query_idx=0, head_idx=0):
         return None
     # cross_attn['maps']: (heads, queries, seq_len)
     attn = cross_attn['maps'][head_idx, query_idx]  # (seq_len,)
-    feat_size = cross_attn['feature_size']
-    heatmap = attn.reshape(feat_size, feat_size)
+    feat_h, feat_w = cross_attn.get('feature_shape') or (cross_attn['feature_size'], cross_attn['feature_size'])
+    heatmap = attn[:feat_h * feat_w].reshape(feat_h, feat_w)
     hm_min, hm_max = heatmap.min(), heatmap.max()
     if hm_max - hm_min > 1e-8:
         heatmap = (heatmap - hm_min) / (hm_max - hm_min)
     return heatmap
+
+
+def _factor_grid(n):
+    """Return factor pair closest to square for a flattened feature map."""
+    root = int(np.sqrt(n))
+    for h in range(root, 0, -1):
+        if n % h == 0:
+            return h, n // h
+    return 1, n

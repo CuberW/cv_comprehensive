@@ -4,18 +4,20 @@
   };
 
   const implementationMeta = {
-    gan: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy DCGAN' },
-    diffusion: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
+    gan: { status: '真实本地机制实现', category: 'local_mechanism', localInference: true, realModel: false, model: 'NumPy tiny GAN training' },
+    diffusion: { status: '真实本地机制实现', category: 'local_mechanism', localInference: true, realModel: false, model: 'NumPy DDPM equations' },
     detection: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'fasterrcnn_resnet50_fpn' },
     semantic: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'fcn_resnet50' },
     instance: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'maskrcnn_resnet50_fpn' },
+    yolo: { status: '真实本地机制实现', category: 'local_mechanism', localInference: true, realModel: false, requiresUpload: true, model: 'YOLO-style NumPy grid detector' },
+    unet: { status: '真实本地机制实现', category: 'local_mechanism', localInference: true, realModel: false, requiresUpload: true, model: 'U-Net-style NumPy encoder-decoder' },
     vit: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'google/vit-base-patch16-224' },
     detr: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'facebook/detr-resnet-50' },
     sam: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'SAM ViT-B checkpoint' },
     clip: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'openai/clip-vit-base-patch32' },
     stable_diffusion: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
     sd: { status: '真实预训练模型', category: 'pretrained_model', localInference: true, realModel: true, model: 'runwayml/stable-diffusion-v1-5' },
-    nerf: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy TinyNeRF' },
+    nerf: { status: '真实本地机制实现', category: 'local_mechanism', localInference: true, realModel: false, model: 'NumPy volume rendering' },
     shitomasi: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Shi-Tomasi' },
     ncuts: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy Normalized Cuts' },
     bovw_spm: { status: '真实 NumPy 算法', category: 'numpy_algorithm', localInference: true, realModel: false, model: 'NumPy BoVW+SPM' },
@@ -25,7 +27,7 @@
   };
 
   const localTeachingWeightIds = new Set([
-    'vit','detr','sam','clip','stable_diffusion','sd'
+    'stable_diffusion','sd'
   ]);
 
   const localFrontierAlgorithmIds = new Set([
@@ -92,12 +94,13 @@
     colorspace: {
       phase: '阶段一 · 基础原语',
       title: '色彩空间转换',
-      english: 'RGB / HSV / Lab / Grayscale',
+      english: 'RGB / HSV / Lab / CMYK',
       tagline: '同一张图像可以从不同语义坐标系观察：RGB 看显示器发光，HSV 看人类调色，Lab 看感知均匀性，灰度只保留亮度。',
       status: '语义科普讲解',
       difficulty: '入门',
-      endpoint: '/api/demo/grayscale',
-      formula: 'RGB \\rightarrow HSV,\\quad RGB \\rightarrow Lab,\\quad Y=0.299R+0.587G+0.114B',
+      endpoint: '/api/demo/colorspace',
+      implementation: { status: 'local color-space algorithm', category: 'local_algorithm', localInference: true, realModel: false, requiresUpload: true, model: 'NumPy RGB/HSV/Lab/CMYK conversion' },
+      formula: 'RGB \\rightarrow HSV,\\quad RGB \\rightarrow Lab,\\quad RGB \\rightarrow CMYK',
       principles: [
         '色彩空间不是改变图像内容，而是改变描述颜色的坐标系。不同算法关心的语义不同，所以会选择不同空间。',
         'RGB 适合显示和通道计算；HSV 适合按色相、饱和度、明度做交互调色；Lab 更接近人眼感知距离；灰度则为阈值、梯度和形状分析压缩掉颜色。'
@@ -164,7 +167,7 @@
       metrics: {
         '展示类型': '四种色彩空间语义对比',
         '本地推理': '讲解模式',
-        '覆盖模式': 'RGB / HSV / Lab / 灰度'
+        '覆盖模式': 'RGB / HSV / Lab / CMYK'
       }
     },
     grayscale: {
@@ -293,14 +296,47 @@
         gaussian_noise: ['高斯噪声', '每个像素叠加正态扰动。', 'I+n']
       }
     },
+    smoothing: {
+      phase: '阶段一 · 基础原语',
+      title: '平滑与去噪',
+      english: 'Gaussian / Median / Bilateral',
+      tagline: '把高斯平滑、中值滤波和双边滤波放在同一个专题里比较：同一张图、不同噪声、不同滤波器，观察过程和取舍。',
+      status: '真实 NumPy 算法',
+      difficulty: '入门',
+      endpoint: '/api/demo/smoothing',
+      formula: "Gaussian: I'=G*I; Median: I'=median(Omega); Bilateral: I'_p=sum_q G_s G_r I_q / W_p",
+      principles: [
+        '平滑/去噪不是一个固定动作，而是根据噪声模型选择邻域内哪些像素可信。',
+        '高斯平滑按空间距离做线性加权，适合连续颗粒但会软化边缘；中值滤波按排序排除极端坏点，适合椒盐噪声；双边滤波同时考虑空间距离和颜色相似度，适合保边去噪。'
+      ],
+      core: [['输入', '同一张原图和构造出的噪声场景'], ['核心问题', '邻域内哪些像素应该参与重算中心像素'], ['输出', '三种滤波器的步骤、结果和对比指标']],
+      pipeline: [['构造噪声', '生成高斯噪声和椒盐噪声，建立适用场景。'], ['高斯平滑', '显示高斯核、局部窗口和加权求和结果。'], ['中值滤波', '显示 3x3 窗口、排序数组和中位数替换。'], ['双边滤波', '显示空间核、颜色核和组合权重如何保边。'], ['统一对比', '比较平滑强度、边缘保留、计算代价和局限。']],
+      applications: ['相机/扫描图像预处理', 'Canny 和 SIFT 前置降噪', '椒盐坏点修复', '人像或物体边缘保留', '分割前保边平滑'],
+      visualStory: { intro: '三种滤波器的差别，在于它们如何判断邻居是否可信。', cards: [
+        { type: 'cardAnim', anim: 'gaussian', title: '高斯：滑窗加权平均', text: '中心权重大，远处权重小；连续颗粒会被抹平，但边缘也会变软。', caption: 'distance weighted average' },
+        { type: 'window', title: '中值：排序排除极端值', text: '椒盐噪声通常是局部极端值，排序后自然落在两端，中位数来自更可信的邻域。', values: [34, 36, 255, 38, 40, 41, 42, 43, 44] },
+        { type: 'bilateral', title: '双边：距离近且颜色像', text: '跨边缘像素虽然离得近，但颜色差异大，所以范围核会降低它的贡献。' },
+        { type: 'bars', title: '不同噪声对应不同滤波器', text: '先判断噪声，再选滤波器，而不是把所有图都交给同一种平滑。', items: [
+          { label: 'Gaussian', value: 70, caption: '连续噪声', color: '#3b82f6' },
+          { label: 'Median', value: 86, caption: '椒盐坏点', color: '#f59e0b' },
+          { label: 'Bilateral', value: 78, caption: '保边', color: '#22c55e' }
+        ] }
+      ] },
+      stepMeta: {
+        gaussian_kernel: ['高斯核', '按距离分配归一化权重。', 'G(x,y)'],
+        median_sort: ['排序取中值', '把窗口值排序后选择中间值。', 'median(Omega)'],
+        bilateral_combined_weights: ['双边组合权重', '空间核和颜色核相乘后归一化。', 'G_s G_r / W_p'],
+        comparison: ['同图对比', '比较三种滤波器的适用噪声和视觉效果。', 'choose filter by noise']
+      }
+    },
     gaussian: {
       phase: '阶段一 · 基础原语',
       title: '高斯模糊',
       english: 'Gaussian Blur',
-      tagline: '用距离中心越远权重越小的核做平滑，是尺度空间、Canny 和 SIFT 的前置基础。',
+      tagline: '已合并到“平滑与去噪”统一专题：作为三种滤波器之一，与中值滤波和双边滤波同图对比。',
       status: '真实 NumPy 算法',
       difficulty: '入门',
-      endpoint: '/api/demo/gaussian',
+      endpoint: '/api/demo/smoothing',
       formula: 'G(x,y)=\\frac{1}{2\\pi\\sigma^2}e^{-(x^2+y^2)/(2\\sigma^2)}',
       principles: [
         '高斯核不会平均对待窗口内的所有像素，中心像素权重大，远处像素权重小。',
@@ -341,10 +377,10 @@
       phase: '阶段一 · 基础原语',
       title: '中值滤波',
       english: 'Median Filter',
-      tagline: '用窗口内的中位数替代中心像素，擅长消除椒盐噪声，同时比均值滤波更保边。',
+      tagline: '已合并到“平滑与去噪”统一专题：作为三种滤波器之一，与高斯平滑和双边滤波同图对比。',
       status: '真实 NumPy 算法',
       difficulty: '入门',
-      endpoint: '/api/demo/median',
+      endpoint: '/api/demo/smoothing',
       formula: 'I^{\\prime}(x,y)=median\\{I(u,v)|(u,v)\\in\\Omega\\}',
       principles: ['中值滤波是非线性的，它不做加权平均，而是选择排序后的中间值。', '孤立黑白点往往是极端值，会在中位数选择中被自然排除。'],
       core: [['输入', '含噪图像'], ['核心问题', '如何去掉孤立异常值'], ['输出', '去椒盐后的图像']],
@@ -359,10 +395,10 @@
       phase: '阶段一 · 基础原语',
       title: '双边滤波',
       english: 'Bilateral Filter',
-      tagline: '同时考虑空间距离和颜色差异，平滑同质区域，同时尽量保留边缘。',
+      tagline: '已合并到“平滑与去噪”统一专题：作为三种滤波器之一，与高斯平滑和中值滤波同图对比。',
       status: '真实 NumPy 算法',
       difficulty: '基础',
-      endpoint: '/api/demo/bilateral',
+      endpoint: '/api/demo/smoothing',
       formula: 'I_p^{\\prime}=\\frac{1}{W_p}\\sum_q G_s(\\|p-q\\|)G_r(\\|I_p-I_q\\|)I_q',
       principles: ['普通高斯只看空间距离，跨过边缘也会平均，容易把边界抹糊。', '双边滤波要求“离得近”且“颜色像”才给高权重，所以边缘两侧不容易互相污染。'],
       core: [['输入', '彩色或灰度图'], ['核心问题', '怎样平滑而不跨边缘平均'], ['输出', '保边平滑图']],
@@ -2002,7 +2038,7 @@
       });
     }
 
-    var localTeaching = ['vit', 'detr', 'clip', 'sam', 'stable_diffusion', 'sd'];
+    var localTeaching = ['stable_diffusion', 'sd'];
     localTeaching.forEach(function(id) {
       var cfg = window.AlgorithmContent[id];
       if (!cfg) return;
@@ -2370,6 +2406,140 @@
       attachImplementation(id, window.AlgorithmContent[id]);
     });
   })();
+
+  window.AlgorithmContent.colorspace = {
+    phase: '阶段一 · 基础原语',
+    title: '色彩空间',
+    english: 'RGB / HSV / Lab / CMYK',
+    tagline: '同一张图片可以用不同颜色坐标系解释：RGB 看发光，HSV 看调色，Lab 看感知距离，CMYK 看印刷油墨。',
+    status: '本地确定性色彩空间算法',
+    difficulty: '入门',
+    endpoint: '/api/demo/colorspace',
+    implementation: { status: 'local color-space algorithm', category: 'local_algorithm', localInference: true, realModel: false, requiresUpload: true, model: 'NumPy RGB/HSV/Lab/CMYK conversion' },
+    formula: 'RGB -> HSV, RGB -> Lab, RGB -> CMYK',
+    principles: [
+      '色彩空间不改变图像内容，只改变描述颜色的坐标。不同坐标会突出不同语义。',
+      'RGB 适合显示和通道处理；HSV 适合颜色阈值和调色；Lab 适合感知色差和颜色校正；CMYK 适合印刷分色。'
+    ],
+    core: [
+      ['输入', 'RGB、灰度或 RGBA 图像'],
+      ['核心问题', '同一像素在发光、调色、感知和印刷四种语境下分别是什么维度'],
+      ['输出', 'RGB 3 通道、HSV 3 通道、Lab 3 通道、CMYK 4 通道']
+    ],
+    pipeline: [
+      ['RGB 拆分', '保留 R/G/B 单通道发光强度。'],
+      ['HSV 转换', '计算色相 H、饱和度 S、明度 V。'],
+      ['Lab 转换', '先线性化 RGB 并转 XYZ，再转 L/a/b。'],
+      ['CMYK 转换', '计算 C/M/Y/K 四个油墨覆盖比例。']
+    ],
+    applications: {
+      RGB: '屏幕显示、相机图像、网页图像、逐像素通道处理',
+      HSV: '颜色选择器、按色相阈值分割、目标跟踪、交互调色',
+      Lab: '感知颜色距离、Delta E 色差、亮度增强、超像素聚类、颜色校正',
+      CMYK: '印刷分色、出版排版、喷墨或胶印预览、油墨覆盖分析'
+    },
+    visualStory: {
+      intro: '上传同一张图后，页面会纵向展示四种色彩模式及每个维度的中间图。',
+      cards: [
+        { type: 'mix', title: 'RGB 三圆相加', text: '红、绿、蓝三束光相加生成屏幕颜色。', labels: ['R', 'G', 'B'] },
+        { type: 'gradientSet', title: 'HSV 色相圆环', text: 'H 是颜色种类，S 是纯度，V 是亮度。', rows: [
+          { label: 'H', caption: '色相', gradient: 'linear-gradient(90deg,#ef4444,#facc15,#22c55e,#3b82f6,#8b5cf6,#ef4444)' },
+          { label: 'S', caption: '饱和度', gradient: 'linear-gradient(90deg,#f8fafc,#3b82f6)' },
+          { label: 'V', caption: '明度', gradient: 'linear-gradient(90deg,#020617,#f8fafc)' }
+        ] },
+        { type: 'gradientSet', title: 'Lab 感知轴', text: 'L 是黑白亮度，a 是绿到红，b 是蓝到黄。', rows: [
+          { label: 'L', caption: '亮度', gradient: 'linear-gradient(90deg,#020617,#f8fafc)' },
+          { label: 'a', caption: '绿到红', gradient: 'linear-gradient(90deg,#22c55e,#f8fafc,#ef4444)' },
+          { label: 'b', caption: '蓝到黄', gradient: 'linear-gradient(90deg,#2563eb,#f8fafc,#facc15)' }
+        ] },
+        { type: 'gradientSet', title: 'CMYK 油墨覆盖', text: 'C/M/Y/K 表示青、品红、黄、黑四种油墨覆盖比例。', rows: [
+          { label: 'C', caption: '青', gradient: 'linear-gradient(90deg,#fff,#00aeef)' },
+          { label: 'M', caption: '品红', gradient: 'linear-gradient(90deg,#fff,#ec008c)' },
+          { label: 'Y', caption: '黄', gradient: 'linear-gradient(90deg,#fff,#ffdd00)' },
+          { label: 'K', caption: '黑', gradient: 'linear-gradient(90deg,#fff,#111827)' }
+        ] }
+      ]
+    },
+    metrics: {
+      '展示类型': '四种色彩空间语义对比',
+      '本地推理': 'NumPy 确定性转换',
+      '覆盖模式': 'RGB / HSV / Lab / CMYK'
+    }
+  };
+
+  window.AlgorithmContent.histogram = {
+    phase: '阶段一 · 基础原语',
+    title: '直方图与均衡化',
+    english: 'Histogram Equalization',
+    tagline: '统计亮度分布，用 CDF 把拥挤的灰度段拉开，让低对比图像使用更完整的动态范围。',
+    status: '真实 NumPy 算法',
+    difficulty: '入门',
+    endpoint: '/api/demo/histogram',
+    formula: 'h(k)=sum[I(x,y)=k], CDF(k)=sum_{i<=k}h(i)/N, T(k)=round((CDF(k)-CDF_min)/(N-CDF_min)*255)',
+    principles: [
+      '直方图只关心每个亮度出现多少次，不关心它出现在图像哪里。',
+      '均衡化用 CDF 生成查找表，把像素密集的亮度段展开，从而增强对比度。'
+    ],
+    core: [['输入', '彩色或灰度图像'], ['核心问题', '亮度是否挤在窄范围，如何重新分配'], ['输出', '直方图、CDF、映射表、均衡化结果']],
+    pipeline: [['灰度化', '得到亮度 Y。'], ['统计直方图', '计算 h(k)。'], ['累计分布', '计算 CDF(k)。'], ['生成映射', '得到 T(k)。'], ['重映射像素', "Y'=T(Y)。"]],
+    applications: ['低光照照片增强', '医学/工业图像对比度增强', '扫描文档改善', '遥感图像增强'],
+    visualStory: { intro: '页面会展示亮度从旧位置移动到新位置的过程。', cards: [
+      { type: 'histogram', title: '亮度分布是否拥挤', text: '柱子集中说明动态范围窄，对比度不足。', values: [8, 16, 40, 82, 95, 70, 32, 12, 6, 4, 5, 8, 10, 9, 6, 4] },
+      { type: 'bars', title: 'CDF 映射把灰度拉开', text: '拥挤的亮度段经过映射后占用更宽范围。', items: [
+        { label: 'Before', value: 36, caption: '窄', color: '#94a3b8' },
+        { label: 'After', value: 86, caption: '宽', color: '#14b8a6' }
+      ] }
+    ] }
+  };
+
+  window.AlgorithmContent.threshold = {
+    phase: '阶段一 · 基础原语',
+    title: '阈值化',
+    english: 'Thresholding',
+    tagline: '用一条亮度分界线把连续灰度切成前景和背景，Otsu 会自动寻找最能分开两类的阈值。',
+    status: '真实 NumPy 算法',
+    difficulty: '入门',
+    endpoint: '/api/demo/threshold',
+    formula: 'B(x,y)=255 if Y(x,y)>=T else 0; sigma_b^2=w0w1(mu0-mu1)^2',
+    principles: [
+      '阈值化把连续亮度变成二值标签，是轮廓、形态学和连通域分析的常见入口。',
+      'Otsu 遍历所有候选阈值，选择类间方差最大的那一刀。'
+    ],
+    core: [['输入', '灰度亮度图'], ['核心问题', '阈值放在哪里最能分开前景和背景'], ['输出', '二值图和前景覆盖检查']],
+    pipeline: [['灰度化', '统一成单通道亮度。'], ['统计直方图', '观察前景背景峰。'], ['Otsu 搜索', '最大化类间方差。'], ['二值判定', '按阈值输出 0/255。'], ['叠加检查', '看分割是否合理。']],
+    applications: ['文档二值化', '工业缺陷检测', '医学区域粗分割', '轮廓/形态学前处理'],
+    visualStory: { intro: '页面会展示红色阈值线如何切开直方图和像素。', cards: [
+      { type: 'threshold', title: '一条线切开灰度轴', text: '线左侧归为背景，右侧归为前景。', position: 52 },
+      { type: 'histogram', title: 'Otsu 找峰谷之间的位置', text: '当前景和背景形成两个峰，最佳阈值通常落在中间谷底。', values: [6, 14, 42, 78, 55, 20, 8, 5, 9, 24, 62, 80, 48, 18, 8, 4] }
+    ] }
+  };
+
+  window.AlgorithmContent.noise = {
+    phase: '阶段一 · 基础原语',
+    title: '噪声模型',
+    english: 'Noise Models',
+    tagline: '噪声是信号里的随机扰动。椒盐、高斯、泊松噪声有不同形态，也需要不同的处理策略。',
+    status: '真实 NumPy 算法',
+    difficulty: '入门',
+    endpoint: '/api/demo/noise',
+    formula: "I_noisy=I+n; Gaussian: n~N(0,sigma^2); SaltPepper: I'=0 or 255",
+    principles: [
+      '椒盐噪声是稀疏极端坏点，适合用中值滤波处理。',
+      '高斯噪声是连续加性扰动，常用高斯、双边或更强的去噪方法。',
+      '泊松噪声与光子计数有关，低光照图像里很常见。'
+    ],
+    core: [['输入', '干净图像'], ['核心问题', '噪声以什么分布、位置和强度破坏像素'], ['输出', '噪声图、残差图和模型统计']],
+    pipeline: [['生成椒盐噪声', '随机替换黑白坏点。'], ['生成高斯噪声', '逐像素叠加正态误差。'], ['生成泊松噪声', '模拟光子计数波动。'], ['残差分析', '观察图像被改动的位置和强度。']],
+    applications: ['相机传感器建模', '图像降噪前分析', '滤波算法教学', '低光照成像理解'],
+    visualStory: { intro: '噪声页采用实验台布局，对比不同噪声怎样破坏同一张图。', cards: [
+      { type: 'particles', title: '随机扰动不是一种形态', text: '坏点是稀疏突发，高斯是连续颗粒，泊松和亮度相关。' },
+      { type: 'bars', title: '不同噪声对应不同滤波器', text: '先判断噪声模型，再选择中值、高斯或保边滤波。', items: [
+        { label: 'Median', value: 82, caption: '椒盐', color: '#f97316' },
+        { label: 'Gaussian', value: 62, caption: '颗粒', color: '#8b5cf6' },
+        { label: 'Bilateral', value: 70, caption: '保边', color: '#22c55e' }
+      ] }
+    ] }
+  };
 
   window.AlgorithmContent.common = common;
 })();

@@ -11,4 +11,4 @@ class YOLOModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'nn_interactive.html?id=yolo'
+        return 'yolo.html'

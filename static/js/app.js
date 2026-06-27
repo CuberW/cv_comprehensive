@@ -15,20 +15,15 @@ const App = (() => {
       {id:'threshold',   n:'阈值化',         en:'Thresholding',      d:'全局/自适应/Otsu二值化'},
       {id:'noise',       n:'噪声模型',       en:'Noise Models',      d:'椒盐/高斯噪声生成与分析'},
       {id:'convolution', n:'卷积操作',       en:'Convolution',       d:'1D→2D滑窗，CV的数学心脏'},
-      {id:'gaussian',    n:'高斯模糊',       en:'Gaussian Blur',     d:'高斯核+σ与窗口，尺度空间基石'},
+      {id:'smoothing',   n:'平滑与去噪',     en:'Smoothing',         d:'高斯/中值/双边统一对比'},
       {id:'sobel',       n:'Sobel梯度',      en:'Sobel Gradient',    d:'一阶导数，梯度幅值与方向'},
-      {id:'median',      n:'中值滤波',       en:'Median Filter',     d:'非线性去噪，排序取中位'},
-      {id:'bilateral',   n:'双边滤波',       en:'Bilateral Filter',  d:'保边平滑，空间+色彩双核'},
       {id:'live',        n:'实时摄像头滤镜', en:'Live Camera',       d:'Webcam实时卷积效果演示'},
     ]},
     { phase:'phase2', color:'#10B981', name:'阶段二 · 经典特征检测', en:'Classical Features', sub:'从像素到结构', diff:2, subs:null, algo:[
       {id:'edge',        n:'Canny边缘检测',  en:'Canny Edge',        d:'五步流水线：高斯→Sobel→NMS→双阈值→滞后'},
       {id:'corner',      n:'Harris角点检测', en:'Harris Corner',     d:'结构张量M→角点响应R，特征值三分法'},
       {id:'sift',        n:'SIFT特征检测',   en:'SIFT',              d:'四阶段：DoG→极值→方向→128D描述子'},
-      {id:'hough',       n:'Hough变换',      en:'Hough Transform',   d:'(ρ,θ)参数空间投票找直线圆'},
       {id:'morphology',  n:'形态学操作',     en:'Morphology',        d:'腐蚀/膨胀/开/闭，SE结构元素'},
-      {id:'contour',     n:'轮廓查找',       en:'Contour Finding',   d:'层级树，面积/周长/凸包分析'},
-      {id:'nms',         n:'非极大值抑制',   en:'NMS',               d:'边缘→角点→检测框的通用后处理'},
     ]},
     { phase:'phase3', color:'#F59E0B', name:'阶段三 · 中级视觉', en:'Intermediate Vision', sub:'几何验证与特征匹配', diff:3, subs:null, algo:[
       {id:'match',       n:'特征匹配（SIFT+RANSAC）', en:'Feature Matching', d:'L2距离→ratio test→RANSAC单应性，3D重建/SLAM核心'},
@@ -74,10 +69,10 @@ const App = (() => {
   const IDMAP={
     live:'live',conv_training:'conv_training',lenet:'lenet',
     convolution:'convolution',canny:'edge',harris:'corner',edge:'edge',corner:'corner',sift:'sift',
-    hough:'hough',morphology:'morphology',contour:'contour',
-    grayscale:'grayscale',histogram:'histogram',threshold:'threshold',
-    noise:'noise',gaussian:'gaussian',sobel:'sobel',median:'median',
-    bilateral:'bilateral',nms:'nms',template_match:'template_match',tpl_match:'template_match',
+    morphology:'morphology',
+    colorspace:'colorspace',grayscale:'grayscale',histogram:'histogram',threshold:'threshold',
+    noise:'noise',smoothing:'smoothing',gaussian:'gaussian',sobel:'sobel',median:'median',
+    bilateral:'bilateral',
     match:'match',sift_ransac:'match',
     detection:'detection',semantic:'semantic',instance:'instance',
     faster_rcnn:'detection',fcn:'semantic',mask_rcnn:'instance',
@@ -97,15 +92,15 @@ const App = (() => {
   }
   // Modules with verified working backends (tested 28/28)
   const VERIFIED=new Set([
-    'grayscale','histogram','threshold','noise','convolution','gaussian','sobel','median','bilateral','live',
-    'edge','corner','sift','hough','morphology','contour','nms','template_match',
+    'colorspace','grayscale','histogram','threshold','noise','convolution','smoothing','gaussian','sobel','median','bilateral','live',
+    'edge','corner','sift','morphology',
     'match',
     'cnn_basics','lenet','conv_training','resnet','detection','semantic','instance',
     'gan','diffusion','ddpm','sd',
     'vit','detr','clip','sam','nerf',
   ]);
-  const SPECIAL_PAGE_IDS=new Set(['edge','corner','sift','match','cnn_basics',
-    'hough','morphology','median','sobel','histogram','threshold','gaussian']);
+  const SPECIAL_PAGE_IDS=new Set(['colorspace','edge','corner','sift','match','cnn_basics',
+    'morphology','smoothing','median','sobel','histogram','threshold','gaussian','bilateral']);
   function _implInfo(id){
     const m=_apiMap[id];
     if(m && m.implementation) return m.implementation;
@@ -229,21 +224,21 @@ const App = (() => {
       narrative:'卷积是 CV 的数学心脏——一个权重窗口在像素矩阵上滑动。高斯用它温柔降噪，Sobel 用它发现梯度方向，中值滤波铁腕去除椒盐噪声，双边滤波聪明地在降噪的同时保留边缘——空间近且颜色近才加权。',
       colorFrom:'#3B82F6', colorTo:'#93c5fd',
       cover:'<div class="cv-cover cv-conv"><div class="cv-kernel-3x3"><i></i><i></i><i></i><i></i><i class="active"></i><i></i><i></i><i></i><i></i></div><div class="cv-scan-lines"><span></span><span></span><span></span></div></div>',
-      algos:[{id:'convolution',role:'数学基础',label:'卷积操作'},{id:'gaussian',role:'温柔降噪',label:'高斯模糊'},{id:'sobel',role:'发现梯度',label:'Sobel梯度'},{id:'median',role:'去椒盐',label:'中值滤波'},{id:'bilateral',role:'保边平滑',label:'双边滤波'}]},
+      algos:[{id:'convolution',role:'数学基础',label:'卷积操作'},{id:'smoothing',role:'统一降噪专题',label:'平滑与去噪'},{id:'sobel',role:'发现梯度',label:'Sobel梯度'}]},
 
     // ── Phase 2 ──
     { id:'edges-to-corners', phase:1,
       kicker:'结构发现', title:'从边缘到角点：几何结构的诞生',
-      narrative:'Canny 用五步流水线把梯度精炼成连续边缘。Harris 在边缘的拐弯处计算结构张量，找到那些"无论往哪移变化都很大"的角点。Shi-Tomasi 改进了判据让跟踪更稳定。NMS 负责去重——只留最好的。',
+      narrative:'Canny 用五步流水线把梯度精炼成连续边缘，其中非极大值抑制已经作为 Canny 的内部步骤讲解。Harris 在边缘的拐弯处计算结构张量，找到那些"无论往哪移变化都很大"的角点。Shi-Tomasi 改进了判据让跟踪更稳定。',
       colorFrom:'#10B981', colorTo:'#34d399',
       cover:'<div class="cv-cover cv-edge-corner"><div class="cv-edge-line-glow"></div><div class="cv-corner-spark"></div><div class="cv-edge-dots"><i></i><i></i><i></i><i></i></div></div>',
-      algos:[{id:'canny',role:'精确边缘',label:'Canny边缘'},{id:'harris',role:'发现角点',label:'Harris角点'},{id:'nms',role:'去重筛选',label:'NMS'}]},
+      algos:[{id:'canny',role:'精确边缘',label:'Canny边缘'},{id:'harris',role:'发现角点',label:'Harris角点'}]},
     { id:'descriptors-and-shapes', phase:1,
       kicker:'物体记忆', title:'描述与形状：让计算机"记住"物体',
-      narrative:'SIFT 用 DoG 找关键点，128 维描述子不惧旋转缩放。Hough 变换在参数空间投票——把零散的边缘点聚成直线和圆。形态学操作像一把精细手术刀——腐蚀去噪、膨胀填洞。轮廓查找提取物体边界的拓扑层级树。模板匹配做最朴素的"找相似"。',
+      narrative:'SIFT 用 DoG 找关键点，128 维描述子不惧旋转缩放。形态学操作像一把精细手术刀——腐蚀去噪、膨胀填洞，让二值结构变得干净可分析。',
       colorFrom:'#10B981', colorTo:'#6ee7b7',
       cover:'<div class="cv-cover cv-descriptors"><div class="cv-desc-patch"></div><div class="cv-hough-circle"></div><div class="cv-contour-blob"></div></div>',
-      algos:[{id:'sift',role:'特征描述',label:'SIFT'},{id:'tpl_match',role:'模板查找',label:'模板匹配'},{id:'hough',role:'形状检测',label:'Hough变换'},{id:'morphology',role:'形状精修',label:'形态学操作'},{id:'contour',role:'边界提取',label:'轮廓查找'}]},
+      algos:[{id:'sift',role:'特征描述',label:'SIFT'},{id:'morphology',role:'形状精修',label:'形态学操作'}]},
 
     // ── Phase 3 ──
     { id:'feature-matching', phase:2,
@@ -337,7 +332,13 @@ const App = (() => {
   function openModule(id){
     const m=_openIfReady(id); if(!m){Utils.toast('模块 "'+id+'" 尚未实现');return;}
     _current=m; $dname.textContent=m.name; $den.textContent=m.name_en||'';
-    $ifr.src=m.page?'/static/pages/'+m.page+'?v='+Date.now():''; $overlay.classList.add('active');
+    if(m.page){
+      const sep=m.page.indexOf('?')>=0?'&':'?';
+      $ifr.src='/static/pages/'+m.page+sep+'v='+Date.now();
+    }else{
+      $ifr.src='';
+    }
+    $overlay.classList.add('active');
   }
   function closeDetail(){$overlay.classList.remove('active');$ifr.src='';_current=null;}
   function openNetwork(){

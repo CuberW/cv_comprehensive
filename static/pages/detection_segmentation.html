@@ -3,357 +3,247 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>检测与分割三部曲 - CV 通识教育</title>
+<title>AI之眼：检测、语义分割、实例分割</title>
 <link rel="stylesheet" href="../css/iframe-theme.css">
 <script src="../js/theme-sync.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-    color: #e2e8f0;
-    background:
-      radial-gradient(circle at 12% 8%, rgba(14, 165, 233, 0.2), transparent 32rem),
-      radial-gradient(circle at 88% 4%, rgba(168, 85, 247, 0.18), transparent 30rem),
-      linear-gradient(135deg, #0b1220 0%, #111827 52%, #0f172a 100%);
-  }
-  .page { max-width: 1180px; margin: 0 auto; padding: 20px 22px 42px; }
+  body { margin: 0; min-height: 100vh; }
+  .page { display: grid; gap: 16px; }
   .hero {
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+    gap: 14px;
     align-items: stretch;
-    margin-bottom: 14px;
   }
-  .hero-main, .relation-card, .panel {
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    background: rgba(15, 23, 42, 0.72);
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
-    backdrop-filter: blur(12px);
-    border-radius: 18px;
+  .hero-main, .control-panel, .result-panel, .info-panel, .compare-panel {
+    border: 1px solid var(--cv-border);
+    border-radius: var(--cv-radius);
+    background: var(--cv-panel);
+    box-shadow: var(--cv-shadow);
   }
-  .hero-main { padding: 18px 20px; }
-  .eyebrow { color: #67e8f9; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; }
-  h1 { margin: 6px 0 8px; font-size: clamp(1.55rem, 3vw, 2.35rem); line-height: 1.12; }
-  .subtitle { margin: 0; color: #a5b4fc; font-size: 0.94rem; line-height: 1.65; }
-  .status-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    border-radius: 999px; padding: 5px 10px;
-    background: rgba(14, 165, 233, 0.12);
-    border: 1px solid rgba(14, 165, 233, 0.22);
-    color: #bae6fd; font-size: 0.76rem; font-weight: 700;
-  }
-  .relation-card { padding: 14px; }
-  .relation-title { margin: 0 0 10px; font-size: 0.9rem; color: #f8fafc; }
-  .ladder { display: grid; gap: 8px; }
-  .ladder-step {
-    display: grid; grid-template-columns: 34px 1fr; gap: 9px; align-items: center;
-    padding: 9px; border-radius: 13px;
-    background: rgba(30, 41, 59, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.13);
-  }
-  .ladder-step strong { display: block; font-size: 0.84rem; }
-  .ladder-step span { display: block; color: #94a3b8; font-size: 0.76rem; line-height: 1.45; }
-  .num {
-    width: 30px; height: 30px; display: grid; place-items: center;
-    border-radius: 10px; font-weight: 900; color: #0f172a;
-    background: linear-gradient(135deg, #38bdf8, #a78bfa);
-  }
-  .tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 14px 0;
-  }
-  .course-strip {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 0 0 14px;
-    padding: 12px;
-    border-radius: 18px;
-    background: rgba(15, 23, 42, 0.62);
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    overflow: hidden;
-  }
-  .course-strip::before {
-    content: "";
-    position: absolute;
-    left: 9%;
-    right: 9%;
-    top: 35px;
-    height: 3px;
+  .hero-main { padding: 18px; }
+  .eyebrow {
+    display: inline-flex;
+    margin-bottom: 10px;
+    padding: 5px 9px;
+    border: 1px solid color-mix(in srgb, var(--cv-accent) 28%, transparent);
     border-radius: 999px;
-    background: linear-gradient(90deg, rgba(56, 189, 248, 0.85), rgba(34, 197, 94, 0.85), rgba(168, 85, 247, 0.85));
-    opacity: 0.45;
+    color: var(--cv-accent);
+    background: color-mix(in srgb, var(--cv-accent) 10%, transparent);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
   }
-  .course-node {
-    position: relative;
-    z-index: 1;
-    padding: 8px 10px 10px;
-    text-align: center;
-    border-radius: 14px;
-    color: #94a3b8;
-    transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
-  }
-  .course-node.active {
-    color: #f8fafc;
-    background: rgba(30, 41, 59, 0.72);
-    transform: translateY(-1px);
-  }
-  .course-dot {
-    width: 34px;
-    height: 34px;
+  h1, h2, h3, p { margin-top: 0; }
+  h1 { margin-bottom: 10px; color: var(--cv-title); font-size: clamp(1.5rem, 3vw, 2.35rem); line-height: 1.12; }
+  h2 { color: var(--cv-title); font-size: 1.04rem; }
+  h3 { color: var(--cv-title); font-size: .95rem; }
+  p { color: var(--cv-muted); line-height: 1.62; }
+  .hero-main p { max-width: 900px; margin-bottom: 0; }
+  .status-grid {
     display: grid;
-    place-items: center;
-    margin: 0 auto 7px;
-    border-radius: 12px;
-    color: #06121f;
-    font-weight: 950;
-    background: linear-gradient(135deg, #67e8f9, #a78bfa);
-    box-shadow: 0 10px 24px rgba(14, 165, 233, 0.22);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
-  .course-node strong { display: block; font-size: 0.82rem; }
-  .course-node span { display: block; margin-top: 3px; font-size: 0.72rem; line-height: 1.35; }
-  .tab {
-    cursor: pointer;
-    text-align: left;
-    color: #cbd5e1;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    border-radius: 16px;
-    padding: 13px 14px;
-    background: rgba(15, 23, 42, 0.68);
-    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  .status-card {
+    padding: 12px;
+    border: 1px solid var(--cv-border);
+    border-radius: 8px;
+    background: var(--cv-soft-surface);
   }
-  .tab:hover { transform: translateY(-1px); border-color: rgba(125, 211, 252, 0.4); }
-  .tab.active { background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(168, 85, 247, 0.14)); border-color: rgba(125, 211, 252, 0.55); }
-  .tab small { display: block; color: #94a3b8; margin-top: 4px; line-height: 1.45; }
+  .status-card strong { display: block; color: var(--cv-title); font-size: .9rem; }
+  .status-card span { display: block; margin-top: 5px; color: var(--cv-muted); font-size: .78rem; line-height: 1.45; }
   .workspace {
     display: grid;
-    grid-template-columns: minmax(280px, 360px) 1fr;
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
     gap: 14px;
     align-items: start;
   }
-  .panel { padding: 16px; }
-  .panel h2, .panel h3 { margin: 0 0 10px; font-size: 1rem; }
-  .task-copy { color: #cbd5e1; line-height: 1.65; font-size: 0.9rem; margin: 0 0 12px; }
-  .concept-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 13px; }
-  .concept {
-    min-height: 74px;
-    border-radius: 13px;
-    padding: 10px;
-    background: rgba(30, 41, 59, 0.68);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-  }
-  .concept strong { display: block; font-size: 0.8rem; margin-bottom: 4px; color: #e0f2fe; }
-  .concept span { color: #94a3b8; font-size: 0.75rem; line-height: 1.45; }
-  .upload-zone {
-    border: 1.5px dashed rgba(148, 163, 184, 0.32);
-    border-radius: 16px;
-    padding: 14px;
-    background: rgba(2, 6, 23, 0.3);
-    transition: border-color 0.18s ease, background 0.18s ease;
-  }
-  .upload-zone.dragover { border-color: #38bdf8; background: rgba(14, 165, 233, 0.08); }
-  .upload-zone.has-file { border-style: solid; border-color: rgba(34, 197, 94, 0.58); }
-  .upload-row { display: flex; gap: 10px; align-items: center; }
+  .control-panel, .result-panel, .info-panel, .compare-panel { padding: 15px; }
+  .control-group { display: grid; gap: 9px; margin-bottom: 14px; }
+  .task-grid, .mode-grid { display: grid; gap: 8px; }
+  .task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  button, select, input { font: inherit; }
   button {
-    font: inherit;
-    border: 0;
-    border-radius: 12px;
+    min-height: 38px;
+    border: 1px solid var(--cv-border);
+    border-radius: 7px;
+    color: var(--cv-text);
+    background: var(--cv-control-bg);
     cursor: pointer;
   }
-  .upload-btn, .run-btn {
-    padding: 10px 14px;
-    color: #06121f;
-    font-weight: 900;
-    background: linear-gradient(135deg, #67e8f9, #a78bfa);
+  button:hover { border-color: color-mix(in srgb, var(--cv-accent) 40%, transparent); }
+  button.active, .run-btn, .upload-btn {
+    border-color: color-mix(in srgb, var(--cv-accent) 42%, transparent);
+    background: linear-gradient(135deg, var(--cv-accent), var(--cv-accent-2));
+    color: #04110d;
+    font-weight: 800;
   }
-  .ghost-btn {
-    padding: 10px 13px;
-    color: #cbd5e1;
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(148, 163, 184, 0.11);
-  }
-  button:disabled { opacity: 0.48; cursor: not-allowed; }
-  .file-meta { color: #94a3b8; font-size: 0.82rem; line-height: 1.45; }
-  .file-meta strong { color: #e2e8f0; }
-  .params { display: grid; gap: 12px; margin-top: 14px; }
-  .param { display: none; }
-  .param.visible { display: block; }
-  .param label { display: flex; justify-content: space-between; color: #cbd5e1; font-size: 0.82rem; margin-bottom: 6px; }
-  .param b { color: #67e8f9; }
-  input[type="range"] { width: 100%; accent-color: #38bdf8; }
-  .actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 14px; }
-  .hint { color: #64748b; font-size: 0.78rem; margin-top: 10px; line-height: 1.5; }
-  .lesson-card {
-    margin: 12px 0 14px;
-    padding: 13px;
-    border-radius: 16px;
-    background:
-      linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(168, 85, 247, 0.08)),
-      rgba(2, 6, 23, 0.26);
-    border: 1px solid rgba(125, 211, 252, 0.16);
-  }
-  .lesson-card h3 {
-    margin: 0 0 8px;
-    font-size: 0.9rem;
-    color: #e0f2fe;
-  }
-  .lesson-card p {
-    margin: 0;
-    color: #cbd5e1;
-    font-size: 0.82rem;
-    line-height: 1.65;
-  }
-  .lesson-formula {
+  .upload-box {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 8px;
-    align-items: center;
-    margin-top: 10px;
-    color: #94a3b8;
-    font-size: 0.76rem;
-  }
-  .lesson-formula code {
-    display: inline-block;
-    padding: 5px 8px;
-    border-radius: 10px;
-    color: #bae6fd;
-    background: rgba(15, 23, 42, 0.72);
-    border: 1px solid rgba(148, 163, 184, 0.13);
-  }
-  .task-anim {
-    margin: 0 0 14px;
+    gap: 9px;
     padding: 12px;
-    border-radius: 16px;
-    background: rgba(2, 6, 23, 0.28);
-    border: 1px solid rgba(148, 163, 184, 0.13);
+    border: 1px dashed var(--cv-border-strong);
+    border-radius: 8px;
+    background: var(--cv-soft-surface);
   }
-  .task-anim-stage {
-    position: relative;
-    height: 150px;
+  .file-line { color: var(--cv-muted); font-size: .82rem; overflow-wrap: anywhere; }
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    color: var(--cv-muted);
+    font-size: .8rem;
+  }
+  select, input[type="range"] { width: 100%; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .run-btn { grid-column: 1 / -1; }
+  .hint { margin: 10px 0 0; color: var(--cv-faint); font-size: .78rem; line-height: 1.5; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .summary-grid.single { grid-template-columns: minmax(0, 1fr); }
+  .summary-card {
     overflow: hidden;
-    border-radius: 13px;
-    background: linear-gradient(180deg, #0ea5e9 0 48%, #166534 48% 100%);
+    border: 1px solid var(--cv-border);
+    border-radius: 8px;
+    background: var(--cv-soft-surface);
   }
-  .task-anim-stage span { position: absolute; display: block; }
-  .anim-subject {
-    bottom: 31px;
-    width: 42px;
-    height: 67px;
-    border-radius: 24px 24px 11px 11px;
-    background: #f97316;
-    z-index: 4;
+  .summary-card header {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 11px;
+    border-bottom: 1px solid var(--cv-border);
   }
-  .anim-subject::before {
-    content: "";
-    position: absolute;
-    left: 11px;
-    top: -18px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fed7aa;
+  .summary-card header strong { color: var(--cv-title); }
+  .summary-card header span { color: var(--cv-muted); font-size: .76rem; }
+  .summary-card .media {
+    min-height: 190px;
+    display: grid;
+    place-items: center;
+    background: var(--cv-media-bg);
   }
-  .anim-subject.one { left: 24%; }
-  .anim-subject.two { left: 47%; height: 58px; background: #a855f7; }
-  .anim-car {
-    right: 17%;
-    bottom: 32px;
-    width: 76px;
-    height: 42px;
-    border-radius: 22px 28px 12px 12px;
-    background: #38bdf8;
-    z-index: 3;
+  .summary-card img, .step-card img { width: 100%; display: block; }
+  .summary-card p { margin: 0; padding: 10px 11px; font-size: .78rem; }
+  .metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
   }
-  .anim-box {
-    z-index: 8;
-    border: 2px solid #facc15;
-    border-radius: 9px;
-    opacity: 0;
-  }
-  .anim-box.one { left: 21%; bottom: 20px; width: 20%; height: 91px; }
-  .anim-box.two { left: 44%; bottom: 22px; width: 18%; height: 78px; }
-  .anim-box.three { right: 14%; bottom: 24px; width: 26%; height: 60px; }
-  .anim-sem {
-    z-index: 6;
-    opacity: 0;
-    mix-blend-mode: screen;
-  }
-  .anim-sem.sky { inset: 0 0 52%; background: rgba(37, 99, 235, 0.52); }
-  .anim-sem.ground { left: 0; right: 0; bottom: 0; height: 52%; background: rgba(34, 197, 94, 0.52); }
-  .anim-mask {
-    z-index: 9;
-    opacity: 0;
-    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.2));
-  }
-  .anim-mask.one { left: 23%; bottom: 27px; width: 46px; height: 78px; border-radius: 26px 26px 13px 13px; background: rgba(244, 114, 182, 0.68); }
-  .anim-mask.two { left: 46%; bottom: 27px; width: 44px; height: 69px; border-radius: 25px 25px 13px 13px; background: rgba(196, 181, 253, 0.68); }
-  .anim-caption {
-    margin-top: 8px;
-    color: #94a3b8;
-    font-size: 0.76rem;
-    line-height: 1.5;
-  }
-  .task-anim[data-mode="detection"] .anim-box { animation: popBox 1.8s ease-in-out infinite; }
-  .task-anim[data-mode="detection"] .anim-box.two { animation-delay: .16s; }
-  .task-anim[data-mode="detection"] .anim-box.three { animation-delay: .32s; }
-  .task-anim[data-mode="semantic"] .anim-sem { animation: washSemantic 2.2s ease-in-out infinite; }
-  .task-anim[data-mode="instance"] .anim-box,
-  .task-anim[data-mode="instance"] .anim-mask { animation: showInstance 2.2s ease-in-out infinite; }
-  .task-anim[data-mode="instance"] .anim-mask.two,
-  .task-anim[data-mode="instance"] .anim-box.two { animation-delay: .18s; }
-  @keyframes popBox { 0%,100%{opacity:.25;transform:scale(.98)} 35%,75%{opacity:1;transform:scale(1)} }
-  @keyframes washSemantic { 0%,100%{opacity:.2;clip-path:inset(0 100% 0 0)} 45%,75%{opacity:1;clip-path:inset(0 0 0 0)} }
-  @keyframes showInstance { 0%,100%{opacity:.18;transform:translateY(5px)} 42%,80%{opacity:1;transform:translateY(0)} }
-  .results-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
-  .results-head p { margin: 0; color: #94a3b8; font-size: 0.84rem; }
-  .metrics { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   .metric {
-    border-radius: 12px;
-    padding: 8px 10px;
-    min-width: 92px;
-    background: rgba(14, 165, 233, 0.09);
-    border: 1px solid rgba(14, 165, 233, 0.17);
+    padding: 7px 9px;
+    border: 1px solid var(--cv-border);
+    border-radius: 7px;
+    background: var(--cv-soft-surface);
+    color: var(--cv-muted);
+    font-size: .74rem;
   }
-  .metric span { display: block; color: #94a3b8; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .metric strong { display: block; color: #e0f2fe; font-size: 0.88rem; margin-top: 3px; overflow-wrap: anywhere; }
-  .steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 12px; }
-  .experiment-note {
-    display: none;
-    margin: 0 0 12px;
-    padding: 12px 13px;
-    border-radius: 14px;
-    color: #cbd5e1;
-    background: rgba(34, 197, 94, 0.08);
-    border: 1px solid rgba(34, 197, 94, 0.18);
-    font-size: 0.82rem;
-    line-height: 1.6;
+  .metric strong { color: var(--cv-title); }
+  .model-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
   }
-  .step {
+  .model-card {
+    padding: 12px;
+    border: 1px solid var(--cv-border);
+    border-radius: 8px;
+    background: var(--cv-soft-surface);
+  }
+  .model-card strong { display: block; color: var(--cv-title); }
+  .model-card span { display: inline-flex; margin: 7px 0; color: var(--cv-accent); font-size: .76rem; font-weight: 800; }
+  .model-card p { margin-bottom: 0; font-size: .78rem; }
+  .step-toolbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin: 12px 0 10px;
+  }
+  .step-filter { display: flex; gap: 7px; flex-wrap: wrap; }
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .step-card {
     overflow: hidden;
-    border-radius: 15px;
-    background: rgba(15, 23, 42, 0.66);
-    border: 1px solid rgba(148, 163, 184, 0.13);
+    border: 1px solid var(--cv-border);
+    border-radius: 8px;
+    background: var(--cv-panel-2);
   }
-  .step-img { min-height: 145px; display: grid; place-items: center; background: rgba(2, 6, 23, 0.42); }
-  .step-img img { width: 100%; display: block; }
-  .step-body { padding: 11px 12px; }
-  .step-body strong { display: block; font-size: 0.86rem; color: #f8fafc; }
-  .step-body p { margin: 5px 0 0; color: #94a3b8; font-size: 0.76rem; line-height: 1.55; }
-  .empty, .error, .loading { border-radius: 14px; padding: 18px; text-align: center; color: #94a3b8; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(148, 163, 184, 0.12); }
-  .error { display: none; color: #fecaca; background: rgba(127, 29, 29, 0.24); border-color: rgba(248, 113, 113, 0.32); }
-  .loading { display: none; }
-  .spinner { width: 30px; height: 30px; margin: 0 auto 10px; border-radius: 50%; border: 3px solid rgba(148, 163, 184, 0.22); border-top-color: #67e8f9; animation: spin 0.8s linear infinite; }
+  .step-card .img-area {
+    min-height: 150px;
+    display: grid;
+    place-items: center;
+    background: var(--cv-media-bg);
+  }
+  .step-card .body { padding: 11px; }
+  .step-card strong { display: block; color: var(--cv-title); font-size: .86rem; }
+  .step-card p { margin: 6px 0 0; font-size: .76rem; }
+  .step-formula {
+    display: block;
+    margin-top: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--cv-border);
+    border-radius: 6px;
+    background: var(--cv-code-bg);
+    color: var(--cv-text);
+    font-size: .72rem;
+    overflow-wrap: anywhere;
+  }
+  .data-mini {
+    margin-top: 8px;
+    color: var(--cv-faint);
+    font-size: .72rem;
+    line-height: 1.45;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  .compare-table th, .compare-table td {
+    padding: 10px;
+    border: 1px solid var(--cv-border);
+    color: var(--cv-muted);
+    text-align: left;
+    vertical-align: top;
+    font-size: .82rem;
+  }
+  .compare-table th { color: var(--cv-title); background: var(--cv-soft-surface); }
+  .loading, .error, .empty {
+    padding: 18px;
+    border: 1px solid var(--cv-border);
+    border-radius: 8px;
+    background: var(--cv-soft-surface);
+    color: var(--cv-muted);
+    text-align: center;
+  }
+  .loading, .error { display: none; }
+  .error { color: var(--cv-danger-text); border-color: color-mix(in srgb, var(--cv-danger) 30%, transparent); }
+  .spinner {
+    width: 28px;
+    height: 28px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    border: 3px solid color-mix(in srgb, var(--cv-muted) 25%, transparent);
+    border-top-color: var(--cv-accent);
+    animation: spin .8s linear infinite;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 860px) {
-    .hero, .workspace { grid-template-columns: 1fr; }
-    .tabs, .concept-grid, .course-strip { grid-template-columns: 1fr; }
-    .course-strip::before { display: none; }
+  @media (max-width: 980px) {
+    .hero, .workspace, .summary-grid { grid-template-columns: 1fr; }
+    .status-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -361,367 +251,104 @@
 <main class="page">
   <section class="hero">
     <div class="hero-main">
-      <div class="eyebrow">Detection to Segmentation</div>
-      <h1>视觉识别三部曲：框出来、涂出来、分开来</h1>
-      <p class="subtitle">目标检测回答“在哪里、是什么”；语义分割把每个像素归类；实例分割继续区分同类里的不同个体。三者是递进关系，适合用同一张图连续观察。</p>
-      <div class="status-row">
-        <span class="pill" id="statusPill">本地可运行</span>
-        <span class="pill">同页三子页</span>
-        <span class="pill">上传图可复用</span>
-      </div>
+      <span class="eyebrow">Torchvision Pretrained Studio</span>
+      <h1>AI之眼：同一张图的三种视角</h1>
+      <p>目标检测回答“是什么、在哪里”，语义分割回答“每个像素是什么类别”，实例分割继续回答“这是同类里的哪一个个体”。Faster R-CNN、FCN/DeepLab、Mask R-CNN 来自真实 torchvision 预训练模型；YOLO 和 U-Net 以本地机制实现展示关键数据流，结果同样由 Python 后端计算。</p>
     </div>
-    <aside class="relation-card">
-      <h2 class="relation-title">递进关系</h2>
-      <div class="ladder">
-        <div class="ladder-step"><div class="num">1</div><div><strong>目标检测</strong><span>物体级：输出框、类别、置信度。</span></div></div>
-        <div class="ladder-step"><div class="num">2</div><div><strong>语义分割</strong><span>像素级：同类像素共享一个标签。</span></div></div>
-        <div class="ladder-step"><div class="num">3</div><div><strong>实例分割</strong><span>像素级 + 个体级：同类目标也要分开。</span></div></div>
-      </div>
-    </aside>
-  </section>
-
-  <nav class="tabs" aria-label="检测与分割子页面">
-    <button class="tab" data-tab="detection"><strong>目标检测</strong><small>先找到物体范围：box + score</small></button>
-    <button class="tab" data-tab="semantic"><strong>语义分割</strong><small>再给每个像素贴类别标签</small></button>
-    <button class="tab" data-tab="instance"><strong>实例分割</strong><small>最后把同类里的不同个体分开</small></button>
-  </nav>
-
-  <section class="course-strip" aria-label="课程进度">
-    <div class="course-node" data-progress="detection"><div class="course-dot">1</div><strong>框出物体</strong><span>object-level location</span></div>
-    <div class="course-node" data-progress="semantic"><div class="course-dot">2</div><strong>涂满像素</strong><span>pixel-level class map</span></div>
-    <div class="course-node" data-progress="instance"><div class="course-dot">3</div><strong>分开个体</strong><span>pixel-level instance ID</span></div>
+    <div class="status-grid">
+      <div class="status-card"><strong>目标检测</strong><span>Faster R-CNN、RetinaNet、FCOS 等模型输出类别、置信度和边界框。</span></div>
+      <div class="status-card"><strong>语义分割</strong><span>FCN、DeepLabV3、LR-ASPP 输出每个像素的类别标签和置信度。</span></div>
+      <div class="status-card"><strong>实例分割</strong><span>Mask R-CNN 在检测框基础上为每个目标生成独立 mask。</span></div>
+    </div>
   </section>
 
   <section class="workspace">
-    <aside class="panel">
-      <h2 id="taskTitle">目标检测</h2>
-      <p class="task-copy" id="taskCopy"></p>
-      <div class="concept-grid" id="conceptGrid"></div>
-      <div class="lesson-card">
-        <h3 id="lessonTitle">学习重点</h3>
-        <p id="lessonBody"></p>
-        <div class="lesson-formula"><code id="lessonFormula"></code><span id="lessonFormulaText"></span></div>
-      </div>
-      <div class="task-anim" id="taskAnim" data-mode="detection">
-        <div class="task-anim-stage">
-          <span class="anim-subject one"></span>
-          <span class="anim-subject two"></span>
-          <span class="anim-car"></span>
-          <span class="anim-sem sky"></span>
-          <span class="anim-sem ground"></span>
-          <span class="anim-box one"></span>
-          <span class="anim-box two"></span>
-          <span class="anim-box three"></span>
-          <span class="anim-mask one"></span>
-          <span class="anim-mask two"></span>
+    <aside class="control-panel">
+      <h2>运行设置</h2>
+      <div class="control-group">
+        <label>任务视角</label>
+        <div class="task-grid">
+          <button class="task-btn active" data-task="all">三视角总览</button>
+          <button class="task-btn" data-task="detection">目标检测</button>
+          <button class="task-btn" data-task="yolo">YOLO范式</button>
+          <button class="task-btn" data-task="semantic">语义分割</button>
+          <button class="task-btn" data-task="unet">U-Net机制</button>
+          <button class="task-btn" data-task="instance">实例分割</button>
         </div>
-        <div class="anim-caption" id="animCaption">检测阶段只保留目标级矩形框，先回答“在哪里”。</div>
       </div>
 
-      <div class="upload-zone" id="uploadZone">
+      <div class="control-group">
+        <label>模型版本</label>
+        <select id="modelSelect"></select>
+        <p class="hint" id="modelHint">选择任务后可切换该任务的不同 torchvision 官方预训练模型。</p>
+      </div>
+
+      <div class="control-group upload-box">
         <input type="file" id="fileInput" accept="image/*" hidden>
-        <div class="upload-row">
-          <button class="upload-btn" id="uploadBtn">选择图片</button>
-          <div class="file-meta">
-            <strong id="fileName">未选择文件</strong><br>
-            上传一次后可在三个子页之间复用
-          </div>
-        </div>
+        <button class="upload-btn" id="uploadBtn">选择图片</button>
+        <div class="file-line" id="fileLine">未选择图片，将使用内置示例图。</div>
       </div>
 
-      <div class="params">
-        <div class="param" data-param="score_threshold">
-          <label>置信度阈值 <b id="scoreVal">0.32</b></label>
-          <input type="range" id="scoreThreshold" min="10" max="85" value="32" step="1">
-        </div>
-        <div class="param" data-param="num_classes">
-          <label>语义区域数 <b id="classesVal">5</b></label>
-          <input type="range" id="numClasses" min="2" max="8" value="5" step="1">
-        </div>
-        <div class="param" data-param="num_instances">
-          <label>实例数量上限 <b id="instancesVal">4</b></label>
-          <input type="range" id="numInstances" min="1" max="8" value="4" step="1">
-        </div>
+      <div class="control-group field">
+        <label>置信度阈值 <b id="scoreValue">0.50</b></label>
+        <input type="range" id="scoreThreshold" min="5" max="95" value="50">
+      </div>
+      <div class="control-group field">
+        <label>Mask 阈值 <b id="maskValue">0.50</b></label>
+        <input type="range" id="maskThreshold" min="20" max="90" value="50">
+      </div>
+      <div class="control-group field">
+        <label>结果透明度 <b id="opacityValue">0.78</b></label>
+        <input type="range" id="overlayOpacity" min="35" max="100" value="78">
       </div>
 
       <div class="actions">
-        <button class="run-btn" id="runBtn">运行当前子页</button>
-        <button class="ghost-btn" id="sampleBtn">使用内置示例</button>
+        <button id="sampleBtn">使用示例</button>
+        <button id="modelsBtn">刷新模型状态</button>
+        <button class="run-btn" id="runBtn">运行 AI之眼</button>
       </div>
-      <div class="hint">默认使用本地可视化算法稳定运行；设置 <code>CV_ENABLE_PRETRAINED_DEMOS=1</code> 后会尝试本地 torchvision 真实模型。</div>
+      <p class="hint">首次运行未缓存模型时，torchvision 会下载官方权重。权重不放入仓库，可运行 <code>python prepare_ai_eye_assets.py --all</code> 预先准备。</p>
     </aside>
 
-    <section class="panel">
-      <div class="results-head">
-        <div>
-          <h3 id="resultTitle">运行结果</h3>
-          <p id="resultHint">选择图片或使用示例图，然后运行当前子页。</p>
+    <section class="result-panel">
+      <div class="metrics" id="metrics"></div>
+      <div class="loading" id="loading"><div class="spinner"></div>后端真实模型推理中，首次加载权重可能需要一些时间。</div>
+      <div class="error" id="errorBox"></div>
+      <div class="empty" id="emptyBox">上传图片或直接使用示例图，然后运行模型。结果会按“三视角总览 + 每一步中间结果”展开。</div>
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="step-toolbar">
+        <h2>中间步骤</h2>
+        <div class="step-filter">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="detection">检测</button>
+          <button class="filter-btn" data-filter="yolo">YOLO</button>
+          <button class="filter-btn" data-filter="semantic">语义</button>
+          <button class="filter-btn" data-filter="unet">U-Net</button>
+          <button class="filter-btn" data-filter="instance">实例</button>
         </div>
       </div>
-      <div class="metrics" id="metrics"></div>
-      <div class="experiment-note" id="experimentNote"></div>
-      <div class="loading" id="loading"><div class="spinner"></div>算法运行中...</div>
-      <div class="error" id="errorBox"></div>
-      <div class="empty" id="emptyBox">结果会在这里按步骤展开：输入、核心中间表示、最终输出。</div>
-      <div class="steps" id="steps"></div>
+      <div class="steps-grid" id="stepsGrid"></div>
     </section>
+  </section>
+
+  <section class="info-panel">
+    <h2>本页使用的算法版本</h2>
+    <div class="model-strip" id="modelStrip"></div>
+  </section>
+
+  <section class="compare-panel">
+    <h2>三种任务怎么比较</h2>
+    <table class="compare-table">
+      <thead><tr><th>任务</th><th>输出</th><th>主流模型</th><th>适用场景</th><th>局限</th></tr></thead>
+      <tbody>
+        <tr><td>目标检测</td><td>类别 + 置信度 + 边界框</td><td>Faster R-CNN / RetinaNet / FCOS / YOLO</td><td>计数、定位、跟踪入口、粗粒度场景理解</td><td>边界是矩形，不能表达精细轮廓</td></tr>
+        <tr><td>语义分割</td><td>每个像素一个类别</td><td>FCN / DeepLabV3 / SegFormer / Mask2Former</td><td>道路、天空、人体、医学或遥感区域理解</td><td>同类目标会合并，不能区分第几个个体</td></tr>
+        <tr><td>实例分割</td><td>类别 + 框 + 每个实例 mask</td><td>Mask R-CNN / YOLO-seg / YOLACT / Mask2Former</td><td>需要独立物体轮廓、遮挡分析、精细抠图</td><td>计算更重，依赖训练类别和 mask 质量</td></tr>
+      </tbody>
+    </table>
   </section>
 </main>
 
-<script>
-(function() {
-  var TASKS = {
-    detection: {
-      title: '目标检测',
-      module: 'detection',
-      runText: '运行目标检测',
-      copy: '检测只关心“有什么”和“在哪里”：它用矩形框表达物体范围，适合计数、定位和后续跟踪。',
-      params: ['score_threshold'],
-      concepts: [
-        ['Box', '用矩形框包住一个候选物体。'],
-        ['Score', '模型或本地规则对候选区域的确信程度。'],
-        ['NMS', '去掉重叠太高的重复框，只保留代表框。']
-      ],
-      lessonTitle: '第一步：从整图到“物体候选”',
-      lessonBody: '目标检测不会关心每个像素的精细边界，它先用框把可能的物体区域粗定位出来。这一步很适合作为后续分割和跟踪的入口。',
-      formula: 'box = (x1, y1, x2, y2)',
-      formulaText: '输出是物体级结构：位置框、类别名和置信度。',
-      animCaption: '检测阶段只保留目标级矩形框，先回答“在哪里”。'
-    },
-    semantic: {
-      title: '语义分割',
-      module: 'semantic',
-      runText: '运行语义分割',
-      copy: '语义分割把整张图变成像素级分类图：每个像素都有类别，但同类目标不会区分第几个。',
-      params: ['num_classes'],
-      concepts: [
-        ['Pixel label', '每个像素都分到一个语义区域。'],
-        ['Dense map', '输出尺寸与图像对应，边界比检测框更细。'],
-        ['Same class', '同一类别会被涂成同一种语义颜色。']
-      ],
-      lessonTitle: '第二步：从物体级走向像素级',
-      lessonBody: '语义分割把图像看成密集分类问题：每个像素都必须给出一个类别。它比检测更细，但还不会区分同类中的第一个人与第二个人。',
-      formula: 'mask[y, x] = class_id',
-      formulaText: '输出是语义标签图：每个像素只有类别，没有个体编号。',
-      animCaption: '语义分割阶段把整张图涂成类别区域，回答“每个像素是什么”。'
-    },
-    instance: {
-      title: '实例分割',
-      module: 'instance',
-      runText: '运行实例分割',
-      copy: '实例分割是在检测和语义分割之上再进一步：既知道像素属于什么，也知道它属于哪一个具体个体。',
-      params: ['score_threshold', 'num_instances'],
-      concepts: [
-        ['Proposal', '先找可能存在物体的候选区域。'],
-        ['Mask', '在每个候选框内预测独立像素掩码。'],
-        ['Instance ID', '同类目标也会被拆成不同个体。']
-      ],
-      lessonTitle: '第三步：语义之外，再分清“哪一个”',
-      lessonBody: '实例分割结合检测和像素掩码：它既保留目标级的独立个体，又给每个个体一张自己的 mask，所以能处理同类目标互相靠近的情况。',
-      formula: 'mask[y, x] = instance_id',
-      formulaText: '输出是个体级掩码：同类目标也会拥有不同 ID。',
-      animCaption: '实例分割阶段给不同个体独立 mask，回答“这是哪一个”。'
-    }
-  };
-
-  var active = initialTask();
-  var selectedFile = null;
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-tab]'));
-  var fileInput = document.getElementById('fileInput');
-  var uploadBtn = document.getElementById('uploadBtn');
-  var uploadZone = document.getElementById('uploadZone');
-  var fileName = document.getElementById('fileName');
-  var runBtn = document.getElementById('runBtn');
-  var sampleBtn = document.getElementById('sampleBtn');
-  var loading = document.getElementById('loading');
-  var errorBox = document.getElementById('errorBox');
-  var emptyBox = document.getElementById('emptyBox');
-  var steps = document.getElementById('steps');
-  var metrics = document.getElementById('metrics');
-  var experimentNote = document.getElementById('experimentNote');
-
-  bind();
-  renderTask();
-  hydrateStatus();
-
-  function initialTask() {
-    var params = new URLSearchParams(location.search);
-    var raw = params.get('module') || params.get('tab') || location.hash.replace('#', '') || 'detection';
-    return TASKS[raw] ? raw : 'detection';
-  }
-
-  function bind() {
-    tabs.forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        active = tab.getAttribute('data-tab');
-        history.replaceState(null, '', '?module=' + encodeURIComponent(active));
-        renderTask();
-      });
-    });
-    uploadBtn.addEventListener('click', function() { fileInput.click(); });
-    fileInput.addEventListener('change', function(e) {
-      selectedFile = e.target.files[0] || null;
-      if (selectedFile) {
-        fileName.textContent = selectedFile.name;
-        uploadZone.classList.add('has-file');
-      }
-    });
-    uploadZone.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      uploadZone.classList.add('dragover');
-    });
-    uploadZone.addEventListener('dragleave', function() {
-      uploadZone.classList.remove('dragover');
-    });
-    uploadZone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      uploadZone.classList.remove('dragover');
-      selectedFile = e.dataTransfer.files[0] || null;
-      if (selectedFile) {
-        fileName.textContent = selectedFile.name;
-        uploadZone.classList.add('has-file');
-      }
-    });
-    document.getElementById('scoreThreshold').addEventListener('input', function() {
-      document.getElementById('scoreVal').textContent = (Number(this.value) / 100).toFixed(2);
-    });
-    document.getElementById('numClasses').addEventListener('input', function() {
-      document.getElementById('classesVal').textContent = this.value;
-    });
-    document.getElementById('numInstances').addEventListener('input', function() {
-      document.getElementById('instancesVal').textContent = this.value;
-    });
-    runBtn.addEventListener('click', runActive);
-    sampleBtn.addEventListener('click', function() {
-      selectedFile = null;
-      fileInput.value = '';
-      fileName.textContent = '内置示例图';
-      uploadZone.classList.add('has-file');
-      runActive();
-    });
-  }
-
-  function renderTask() {
-    var cfg = TASKS[active];
-    tabs.forEach(function(tab) {
-      tab.classList.toggle('active', tab.getAttribute('data-tab') === active);
-    });
-    document.querySelectorAll('[data-progress]').forEach(function(node) {
-      node.classList.toggle('active', node.getAttribute('data-progress') === active);
-    });
-    document.getElementById('taskTitle').textContent = cfg.title;
-    document.getElementById('taskCopy').textContent = cfg.copy;
-    document.getElementById('runBtn').textContent = cfg.runText;
-    document.getElementById('resultTitle').textContent = cfg.title + '结果';
-    document.getElementById('resultHint').textContent = '当前子页：' + cfg.title + '。同一张上传图会被保留，可直接切换到其他子页继续运行。';
-    document.querySelectorAll('[data-param]').forEach(function(node) {
-      node.classList.toggle('visible', cfg.params.indexOf(node.getAttribute('data-param')) >= 0);
-    });
-    document.getElementById('conceptGrid').innerHTML = cfg.concepts.map(function(item) {
-      return '<div class="concept"><strong>' + escapeHtml(item[0]) + '</strong><span>' + escapeHtml(item[1]) + '</span></div>';
-    }).join('');
-    document.getElementById('lessonTitle').textContent = cfg.lessonTitle;
-    document.getElementById('lessonBody').textContent = cfg.lessonBody;
-    document.getElementById('lessonFormula').textContent = cfg.formula;
-    document.getElementById('lessonFormulaText').textContent = cfg.formulaText;
-    document.getElementById('taskAnim').setAttribute('data-mode', active);
-    document.getElementById('animCaption').textContent = cfg.animCaption;
-  }
-
-  function runActive() {
-    var cfg = TASKS[active];
-    var form = new FormData();
-    if (selectedFile) form.append('file', selectedFile);
-    form.append('score_threshold', (Number(document.getElementById('scoreThreshold').value) / 100).toFixed(2));
-    form.append('threshold', (Number(document.getElementById('scoreThreshold').value) / 100).toFixed(2));
-    form.append('num_classes', document.getElementById('numClasses').value);
-    form.append('num_instances', document.getElementById('numInstances').value);
-
-    setBusy(true);
-    fetch('/api/demo/' + cfg.module, { method: 'POST', body: form })
-      .then(function(res) {
-        return res.json().catch(function() { return {}; }).then(function(json) {
-          if (!res.ok) throw new Error(json.error || (json.implementation && json.implementation.note) || ('HTTP ' + res.status));
-          return json;
-        });
-      })
-      .then(renderResult)
-      .catch(function(err) {
-        setBusy(false);
-        showError('运行失败：' + (err.message || err));
-      });
-  }
-
-  function renderResult(data) {
-    setBusy(false);
-    errorBox.style.display = 'none';
-    emptyBox.style.display = 'none';
-    renderMetrics(data.metrics || {});
-    experimentNote.style.display = 'block';
-    experimentNote.textContent = experimentSummary(data.metrics || {});
-    steps.innerHTML = (data.steps || []).map(function(step, index) {
-      var img = step.image_base64 ? '<img src="data:image/png;base64,' + step.image_base64 + '" alt="' + escapeHtml(step.name || '') + '" loading="lazy">' : '<span>无图像</span>';
-      return '<article class="step"><div class="step-img">' + img + '</div><div class="step-body"><strong>' +
-        escapeHtml((index + 1) + '. ' + (step.name || step.id || 'Step')) + '</strong><p>' +
-        escapeHtml(step.explanation || '') + '</p>' + (step.formula ? '<code class="step-formula">' + escapeHtml(step.formula) + '</code>' : '') + '</div></article>';
-    }).join('');
-  }
-
-  function experimentSummary(runMetrics) {
-    var status = runMetrics.status === 'pretrained_model' ? '真实预训练模型' : '本地教学算法';
-    if (active === 'detection') {
-      return '实验观察：当前使用' + status + '输出候选框。注意它只表达“哪里有目标”，边界通常是粗粒度矩形。';
-    }
-    if (active === 'semantic') {
-      return '实验观察：当前使用' + status + '输出像素级区域。注意颜色代表语义区域，同类区域会合并显示。';
-    }
-    return '实验观察：当前使用' + status + '输出独立实例 mask。注意每个候选个体都有自己的框和掩码。';
-  }
-
-  function renderMetrics(obj) {
-    metrics.innerHTML = Object.keys(obj).map(function(key) {
-      var value = obj[key];
-      if (typeof value === 'number') value = Math.round(value * 1000) / 1000;
-      return '<div class="metric"><span>' + escapeHtml(key) + '</span><strong>' + escapeHtml(String(value)) + '</strong></div>';
-    }).join('');
-  }
-
-  function setBusy(isBusy) {
-    loading.style.display = isBusy ? 'block' : 'none';
-    emptyBox.style.display = isBusy ? 'none' : emptyBox.style.display;
-    if (isBusy) experimentNote.style.display = 'none';
-    errorBox.style.display = 'none';
-    runBtn.disabled = isBusy;
-    sampleBtn.disabled = isBusy;
-  }
-
-  function showError(message) {
-    errorBox.textContent = message;
-    errorBox.style.display = 'block';
-  }
-
-  function hydrateStatus() {
-    fetch('/api/modules')
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        var mods = {};
-        (data.phases || []).forEach(function(phase) {
-          (phase.modules || []).forEach(function(mod) { mods[mod.id] = mod; });
-        });
-        var allReady = ['detection', 'semantic', 'instance'].every(function(id) {
-          return mods[id] && mods[id].implementation && mods[id].implementation.category !== 'requires_external_weights';
-        });
-        document.getElementById('statusPill').textContent = allReady ? '三个子页均可运行' : '状态读取完成';
-      })
-      .catch(function() {});
-  }
-
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, function(ch) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
-    });
-  }
-})();
-</script>
+<script src="../js/detection-segmentation.js"></script>
 </body>
 </html>

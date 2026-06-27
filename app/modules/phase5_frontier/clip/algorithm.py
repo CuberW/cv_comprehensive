@@ -49,7 +49,7 @@ def compute_image_text_similarity(image, text_list):
 
     # Normalized embeddings
     img_emb = outputs.image_embeds[0].cpu().numpy()
-    txt_embs = outputs.text_embeds[0].cpu().numpy()
+    txt_embs = outputs.text_embeds.cpu().numpy()
 
     # Cosine similarity
     img_norm = img_emb / (np.linalg.norm(img_emb) + 1e-8)
@@ -76,8 +76,12 @@ def zero_shot_classify(image, class_names):
     )
 
     sims = np.array(result['similarities'])
+    text_emb = np.asarray(result['text_embeddings'], dtype=np.float64)
+    text_similarity = text_emb @ text_emb.T
     # Softmax
-    probs = np.exp(sims * 100) / np.sum(np.exp(sims * 100))
+    logits = sims * 100
+    logits = logits - logits.max()
+    probs = np.exp(logits) / np.sum(np.exp(logits))
 
     predictions = []
     for i in np.argsort(-probs):
@@ -91,6 +95,9 @@ def zero_shot_classify(image, class_names):
     return {
         'predictions': predictions,
         'similarities': result['similarities'],
+        'image_embedding': result['image_embedding'],
+        'text_embeddings': result['text_embeddings'],
+        'text_similarity': text_similarity.tolist(),
     }
 
 

@@ -41,10 +41,12 @@ def build_pipeline(image_path=None, **kwargs):
         return _error(f'模型加载失败: {e}', img_u8)
 
     # --- Preprocess ---
+    resize_crop = Compose([Resize(256), CenterCrop(224)])
     preprocess = Compose([Resize(256), CenterCrop(224), ToTensor(),
                           Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])])
     from PIL import Image
     pil_img = Image.fromarray(img_u8)  # 224×224 for model
+    model_view = np.array(resize_crop(pil_img))
     input_tensor = preprocess(pil_img).unsqueeze(0).to(device)
 
     # --- Classification ---
@@ -117,6 +119,15 @@ def build_pipeline(image_path=None, **kwargs):
     heatmap = (heatmap * 255).astype(np.uint8)
     overlay = (display_img.astype(np.float32) * 0.5 + heatmap.astype(np.float32) * 0.5).clip(0, 255).astype(np.uint8)
 
+    feat = torch.relu(act).mean(dim=0)
+    feat = feat - feat.min()
+    if feat.max() > 0:
+        feat = feat / feat.max()
+    feat_img = PILImage.fromarray((feat.cpu().numpy() * 255).astype(np.uint8)).resize(
+        (display_img.shape[1], display_img.shape[0]), PILImage.BILINEAR)
+    feat_arr = np.array(feat_img, dtype=np.float32) / 255.0
+    feature_map = (cm.viridis(feat_arr)[:, :, :3] * 255).astype(np.uint8)
+
     # --- Result label overlay ---
     from PIL import ImageDraw
     result_img = PILImage.fromarray(display_img.copy())
@@ -127,13 +138,24 @@ def build_pipeline(image_path=None, **kwargs):
     return {
         'steps': [
             {'id': 'input', 'name': '输入图像', 'image': display_img,
-             'explanation': '上传的原图。模型实际处理的是缩放+裁剪后的224×224版本。'},
+             'formula': 'I in R^{H x W x 3}',
+             'explanation': '上传的原图。ResNet 会先把图像缩放、中心裁剪，并按 ImageNet 均值方差归一化。'},
+            {'id': 'preprocess', 'name': 'ImageNet 预处理 224×224', 'image': model_view,
+             'formula': 'x=(resize_crop(I)/255 - mean) / std',
+             'explanation': '真实模型输入是 224×224 张量。这个步骤解释为什么上传任意尺寸图片也能进入固定结构的分类网络。'},
+            {'id': 'feature_map', 'name': '深层卷积特征响应', 'image': feature_map,
+             'formula': 'A = layer4(x)',
+             'explanation': '这里可视化 ResNet 最后一组残差块的平均激活。亮区表示深层语义特征响应更强的位置。'},
             {'id': 'predictions', 'name': f'Top-5 预测 (Top-1: {top5[0][0]})', 'image': np.array(result_img),
-             'explanation': f'ImageNet-1K 1000类分类。Top-1: {top5[0][0]} ({top5[0][1]:.3f})。'},
+             'formula': 'p_c = softmax(logits)_c',
+             'explanation': f'ImageNet-1K 真实分类结果。Top-1: {top5[0][0]} ({top5[0][1]:.3f})。',
+             'data': {'top5': [{'label': n, 'probability': round(p, 4)} for n, p in top5]}},
             {'id': 'gradcam', 'name': 'Grad-CAM 热力图', 'image': overlay,
-             'explanation': f'模型判断"{top5[0][0]}"时关注的区域（红=高关注，蓝=低关注），已放大到原图尺寸。'},
+             'formula': 'L^c = ReLU(sum_k alpha_k^c A^k), alpha_k^c = mean(dy^c/dA^k)',
+             'explanation': f'模型判断“{top5[0][0]}”时关注的区域（红=高关注，蓝=低关注），已放大到原图尺寸。'},
             {'id': 'heatmap', 'name': '原始热力值', 'image': heatmap,
-             'explanation': 'CAM 激活值双线性插值到原图尺寸。'},
+             'formula': 'CAM -> resize(H,W)',
+             'explanation': '这是 Grad-CAM 原始热力图的彩色版本，便于和叠加图对照查看模型证据。'},
         ],
         'metrics': {
             'status': 'pretrained_model', 'model': 'resnet50', 'backend': 'torchvision',

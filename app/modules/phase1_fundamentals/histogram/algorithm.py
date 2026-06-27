@@ -25,9 +25,24 @@ def histogram_equalization(gray_img):
     Formula: new_pixel = round(CDF_normalized(old_pixel) * 255)
     """
     arr = np.asarray(gray_img, dtype=np.uint8)
+    mapping = histogram_equalization_mapping(arr)
+    return mapping[arr]
+
+
+def histogram_equalization_mapping(gray_img):
+    """Return the 0-255 lookup table used by global histogram equalization."""
+    arr = np.asarray(gray_img, dtype=np.uint8)
     hist = compute_histogram(arr)
     cdf = np.cumsum(hist)
-    cdf_min = cdf[cdf > 0].min() if (cdf > 0).any() else 0
-    cdf_norm = (cdf - cdf_min) / (arr.size - cdf_min)
-    mapping = np.round(cdf_norm * 255).astype(np.uint8)
-    return mapping[arr]
+    nonzero = cdf[cdf > 0]
+    if arr.size == 0 or nonzero.size == 0:
+        return np.arange(256, dtype=np.uint8)
+
+    cdf_min = float(nonzero.min())
+    denom = float(arr.size) - cdf_min
+    if denom <= 0:
+        # Constant images have no dynamic range to stretch safely.
+        return np.arange(256, dtype=np.uint8)
+
+    mapping = np.round((cdf - cdf_min) / denom * 255.0)
+    return np.clip(mapping, 0, 255).astype(np.uint8)

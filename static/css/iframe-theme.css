@@ -38,6 +38,19 @@
   --cv-warning: #fbbf24;
   --cv-success: var(--accent);
   --cv-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+  --cv-hover-shadow: 0 30px 80px rgba(0, 0, 0, 0.44);
+  --cv-title: #ffffff;
+  --cv-page-header-bg:
+    linear-gradient(135deg, rgba(102, 242, 194, 0.10), transparent 42%),
+    rgba(13, 18, 32, 0.70);
+  --cv-soft-surface: rgba(255, 255, 255, 0.055);
+  --cv-soft-surface-2: rgba(255, 255, 255, 0.04);
+  --cv-control-bg: rgba(2, 6, 23, 0.44);
+  --cv-media-bg: #050812;
+  --cv-code-bg: rgba(2, 6, 23, 0.35);
+  --cv-tip-bg: rgba(7, 10, 18, 0.82);
+  --cv-topbar-bg: rgba(7, 10, 18, 0.86);
+  --cv-danger-text: #fecdd3;
   --cv-radius: 8px;
   --cv-radius-sm: 6px;
   --app-gradient:
@@ -67,6 +80,19 @@
   --cv-panel-2: color-mix(in srgb, var(--bg-card) 94%, transparent);
   --cv-panel-3: color-mix(in srgb, var(--bg-hover) 58%, transparent);
   --cv-shadow: 0 12px 32px rgba(139,115,85,.12);
+  --cv-hover-shadow: 0 16px 38px rgba(139,115,85,.16);
+  --cv-title: var(--text);
+  --cv-page-header-bg:
+    linear-gradient(135deg, rgba(13, 148, 136, 0.10), transparent 46%),
+    color-mix(in srgb, var(--bg-card) 94%, white);
+  --cv-soft-surface: rgba(61, 50, 38, 0.045);
+  --cv-soft-surface-2: rgba(61, 50, 38, 0.035);
+  --cv-control-bg: color-mix(in srgb, var(--bg-card) 88%, white);
+  --cv-media-bg: color-mix(in srgb, var(--bg-surface) 68%, white);
+  --cv-code-bg: color-mix(in srgb, var(--bg-surface) 76%, white);
+  --cv-tip-bg: color-mix(in srgb, var(--bg-card) 92%, white);
+  --cv-topbar-bg: color-mix(in srgb, var(--bg-card) 92%, white);
+  --cv-danger-text: #991b1b;
   --app-gradient: var(--bg-deep) !important;
 }
 
@@ -97,8 +123,11 @@ body::before {
 }
 
 .page,
-.match-page {
-  width: min(1440px, calc(100% - 36px)) !important;
+.match-page,
+.teach-page,
+.nn-page {
+  width: min(1540px, calc(100% - 48px)) !important;
+  max-width: 1540px !important;
   padding-top: 24px !important;
   padding-bottom: 36px !important;
 }
@@ -115,6 +144,10 @@ body::before {
 .upload-section,
 .metrics-bar,
 .step-card,
+.step,
+.concept,
+.analogy,
+.loading,
 .profile-card,
 .module-selector,
 .topbar,
@@ -152,7 +185,7 @@ body::before {
   padding: 6px 10px;
   border: 1px solid rgba(102, 242, 194, 0.22);
   border-radius: 999px;
-  color: #b8ffe4;
+  color: var(--cv-accent);
   background: rgba(102, 242, 194, 0.08);
   font-size: 0.72rem;
   font-weight: 750;
@@ -165,9 +198,7 @@ body::before {
   padding: 14px 16px !important;
   border: 1px solid var(--cv-border) !important;
   border-radius: var(--cv-radius) !important;
-  background:
-    linear-gradient(135deg, rgba(102, 242, 194, 0.10), transparent 42%),
-    rgba(13, 18, 32, 0.70) !important;
+  background: var(--cv-page-header-bg) !important;
   box-shadow: var(--cv-shadow);
 }
 
@@ -176,7 +207,7 @@ body::before {
 .hero h1,
 .match-header h1,
 .topbar h1 {
-  color: #ffffff !important;
+  color: var(--cv-title) !important;
   font-size: clamp(1.18rem, 2vw, 1.72rem) !important;
   line-height: 1.12 !important;
   font-weight: 820 !important;
@@ -184,6 +215,7 @@ body::before {
 }
 
 .page-header .subtitle,
+.subtitle,
 .page-subtitle,
 .hero p,
 .match-header p,
@@ -196,7 +228,10 @@ body::before {
 .progress-text,
 .math-panel p,
 .thresholds-note,
-.thresholds-hint {
+.thresholds-hint,
+.results-head p,
+.concept span,
+.analogy {
   color: var(--cv-muted) !important;
 }
 
@@ -234,7 +269,7 @@ body::before {
 .algo-btn {
   border: 1px solid rgba(148, 163, 184, 0.16) !important;
   border-radius: 7px !important;
-  background: rgba(255, 255, 255, 0.055) !important;
+  background: var(--cv-soft-surface) !important;
   color: var(--cv-muted) !important;
 }
 
@@ -267,7 +302,7 @@ body::before {
 .math-card {
   border: 1px solid rgba(148, 163, 184, 0.16) !important;
   border-radius: 7px !important;
-  background: rgba(255, 255, 255, 0.045) !important;
+  background: var(--cv-soft-surface) !important;
   color: var(--cv-text) !important;
   box-shadow: none !important;
 }
@@ -305,7 +340,7 @@ textarea,
 input[type="number"] {
   border: 1px solid rgba(148, 163, 184, 0.20) !important;
   border-radius: 7px !important;
-  background: rgba(2, 6, 23, 0.44) !important;
+  background: var(--cv-control-bg) !important;
   color: var(--cv-text) !important;
   accent-color: var(--cv-accent) !important;
 }
@@ -328,18 +363,24 @@ input[type="range"] {
 .pipeline-title h2,
 .history-head h3,
 .step-title,
-.step-name {
+.step-name,
+.step-body strong,
+.concept strong,
+.file-meta strong {
   color: var(--cv-text) !important;
 }
 
 .metric-item .metric-label,
 .step-desc,
+.step-body p,
 .step-formula,
 .profile-item span:first-child,
 .algo-label,
 .match-console label,
 .ratio-control small,
-.upload-info .hint {
+.upload-info .hint,
+.file-meta,
+.no-img {
   color: var(--cv-faint) !important;
 }
 
@@ -353,7 +394,7 @@ input[type="range"] {
   padding: 7px 9px;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--bg-surface) 68%, transparent);
+  background: var(--cv-code-bg);
   color: var(--cv-text) !important;
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.74rem;
@@ -366,14 +407,14 @@ input[type="range"] {
   gap: 10px !important;
   background:
     linear-gradient(135deg, rgba(102, 242, 194, 0.10), rgba(56, 189, 248, 0.035)),
-    rgba(13, 18, 32, 0.62) !important;
+    var(--cv-panel-2) !important;
 }
 .metric-item {
   min-width: 110px;
   padding: 10px 12px;
   border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--cv-soft-surface-2);
 }
 
 .steps-grid,
@@ -391,7 +432,7 @@ input[type="range"] {
 .history-card:hover {
   transform: translateY(-4px) !important;
   border-color: rgba(102, 242, 194, 0.30) !important;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.44) !important;
+  box-shadow: var(--cv-hover-shadow) !important;
 }
 .step-card.step-input {
   border-left: 3px solid var(--cv-accent-2) !important;
@@ -400,18 +441,22 @@ input[type="range"] {
   border-left: 3px solid var(--cv-accent) !important;
 }
 .step-card .img-area,
+.step-img,
 .image-panel,
+.image-frame,
 .anim-canvas-wrap,
 .preview-box,
+.result-box,
 .canvas-row,
 .match-result-image,
 .viewport {
   border: 1px solid rgba(148, 163, 184, 0.13) !important;
   border-radius: 7px !important;
-  background: #050812 !important;
+  background: var(--cv-media-bg) !important;
+  color: var(--cv-muted) !important;
 }
 .step-card .info {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--cv-soft-surface-2);
 }
 
 .top-panel {
@@ -434,7 +479,7 @@ input[type="range"] {
 .view-tabs {
   border: 1px solid rgba(148, 163, 184, 0.14) !important;
   border-radius: var(--cv-radius) !important;
-  background: rgba(13, 18, 32, 0.62) !important;
+  background: var(--cv-panel-2) !important;
   box-shadow: var(--cv-shadow);
   padding: 10px !important;
 }
@@ -460,7 +505,7 @@ input[type="range"] {
   border: 1px solid rgba(251, 113, 133, 0.28) !important;
   border-radius: 7px !important;
   background: rgba(251, 113, 133, 0.10) !important;
-  color: #fecdd3 !important;
+  color: var(--cv-danger-text) !important;
 }
 
 /* Feature matching page */
@@ -469,21 +514,21 @@ input[type="range"] {
 }
 .match-console select,
 .match-console button {
-  background: rgba(2, 6, 23, 0.44) !important;
+  background: var(--cv-control-bg) !important;
 }
 .image-panel span,
 .point-tip,
 .ratio-tip {
   border: 1px solid rgba(148, 163, 184, 0.16) !important;
   border-radius: 7px !important;
-  background: rgba(7, 10, 18, 0.82) !important;
+  background: var(--cv-tip-bg) !important;
   color: var(--cv-text) !important;
   backdrop-filter: blur(16px);
 }
 
 /* Full-screen convolution pages */
 .topbar {
-  background: rgba(7, 10, 18, 0.86) !important;
+  background: var(--cv-topbar-bg) !important;
 }
 .main-area,
 .viewport {
@@ -509,13 +554,15 @@ code,
 .formula-block {
   color: var(--cv-text) !important;
   border-color: rgba(148, 163, 184, 0.16) !important;
-  background: rgba(2, 6, 23, 0.35) !important;
+  background: var(--cv-code-bg) !important;
 }
 
 @media (max-width: 920px) {
   .page,
-  .match-page {
-    width: min(100% - 24px, 1440px) !important;
+  .match-page,
+  .teach-page,
+  .nn-page {
+    width: min(100% - 20px, 1540px) !important;
     padding-top: 16px !important;
   }
   .hero,

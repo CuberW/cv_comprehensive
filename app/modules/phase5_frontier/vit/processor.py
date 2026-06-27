@@ -40,22 +40,30 @@ def build_pipeline(image_path=None, **kwargs):
 
     steps = [
         {'id': 'original', 'name': '输入图像', 'image': img_u8,
+         'formula': 'I in R^{H x W x 3}',
          'explanation': '原始图像。ViT 将图像分割为 16×16 的 Patch，每个 Patch 像一个"视觉单词"送入 Transformer'},
         {'id': 'patches', 'name': 'Patch 切分 (16×16)', 'image': patch_grid,
+         'formula': 'x_p^i = flatten(patch_i)',
          'explanation': f'图像被切分为 {grid_size}×{grid_size} = {result["num_patches"]} 个不重叠的 Patch。每个 Patch 通过线性投影变成一个向量(Token)，加上位置编码后送入 Transformer'},
         {'id': 'pos_embed', 'name': '位置编码相似度', 'image': pos_heatmap,
+         'formula': 'z_i = E x_p^i + e_pos^i',
          'explanation': '位置编码之间的余弦相似度矩阵。相近位置的编码更相似——这帮助 Transformer 理解 Patch 之间的空间关系，因为自注意力本身是位置无关的'},
         {'id': 'shallow_attn', 'name': f'浅层注意力 (Layer 1)', 'image': shallow_hm,
+         'formula': 'Attention(Q,K,V)=softmax(QK^T/sqrt(d))V',
          'explanation': f'第 1 层自注意力图 ({result["num_heads"]} 个头中的第 1 个)。浅层倾向于关注局部邻域——类似于 CNN 的浅层卷积核'},
         {'id': 'deep_attn', 'name': f'深层注意力 (Layer {num_layers})', 'image': deep_hm,
+         'formula': 'A_l = softmax(Q_l K_l^T / sqrt(d))',
          'explanation': f'第 {num_layers} 层注意力图。深层逐渐关注语义相关的远距离区域——这是 ViT 替代 CNN 的关键能力：长程依赖建模'},
         {'id': 'overlay', 'name': '注意力叠加原图', 'image': attn_overlay,
+         'formula': 'p(y|I)=softmax(head(CLS))',
          'explanation': '深层注意力热度叠加在原图上。亮区 = 模型最关注的区域。CLS Token 通过这些注意力聚合全局信息来做最终分类'},
     ]
 
     return {
         'steps': steps,
         'metrics': {
+            'status': 'pretrained_model',
+            'backend': 'transformers',
             'model': 'ViT-B/16',
             'layers': num_layers,
             'heads': result['num_heads'],

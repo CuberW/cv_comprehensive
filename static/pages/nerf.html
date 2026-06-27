@@ -1,27 +1,57 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NeRF — CV 通识教育</title>
-<link rel="stylesheet" href="../css/iframe-theme.css"><script src="../js/theme-sync.js"></script><script src="../js/model-page-status.js" defer></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;color:#e2e8f0;background:#0f172a;min-height:100vh}
-.page{max-width:1100px;margin:0 auto;padding:20px 24px 40px}h1{font-size:1.6rem;font-weight:700}
-.subtitle{color:#94a3b8;font-size:0.9rem}.status{display:inline-block;padding:3px 12px;border-radius:12px;font-size:0.75rem;font-weight:600;margin:6px 0;background:#065f46;color:#6ee7b7}
-.panel{background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.15);border-radius:16px;padding:18px 20px;margin-bottom:16px}.panel h3{font-size:1rem;margin-bottom:12px}
-.params-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px}.param-item label{display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:4px}.param-item input[type=range]{width:100%;accent-color:#fdba74}.param-item .val{font-size:0.85rem;color:#fdba74;font-weight:600}
-.btn-row{display:flex;gap:10px;margin-top:12px}.btn-primary{padding:10px 28px;background:#fdba74;color:#1e293b;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer}.btn-primary:hover{background:#f97316}
-.metrics-bar{display:flex;flex-wrap:wrap;gap:16px;padding:12px 16px;background:rgba(253,186,116,0.08);border:1px solid rgba(253,186,116,0.2);border-radius:12px;margin-bottom:16px}.metric-item .metric-label{font-size:0.7rem;color:#94a3b8;text-transform:uppercase}.metric-item .metric-value{font-size:1rem;font-weight:700;color:#fdba74}
-.steps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.step-card{background:rgba(30,41,59,0.6);border:1px solid rgba(148,163,184,0.12);border-radius:12px;overflow:hidden}.step-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:translateY(-2px)}.step-card.step-input{border-left:3px solid #3B82F6}.step-card.step-process{border-left:3px solid #fdba74}.step-card.step-output{border-left:3px solid #10B981}
-.step-card .img-area{background:rgba(15,23,42,0.5);min-height:140px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(148,163,184,0.1);overflow:hidden}.step-card .img-area img{width:100%;display:block}.step-card .info{padding:12px 14px}.step-card .info .step-title{font-weight:700;font-size:0.9rem}.step-card .info .step-desc{font-size:0.8rem;color:#94a3b8;margin-top:4px;line-height:1.5}
-.loading{text-align:center;padding:32px;color:#94a3b8;display:none}.loading.visible{display:block}.spinner{display:inline-block;width:36px;height:36px;border:3px solid rgba(148,163,184,0.2);border-top-color:#fdba74;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-.error-box{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px 20px;color:#fca5a5;font-size:0.88rem;margin-top:16px;display:none}.error-box.visible{display:block}.empty-hint{text-align:center;padding:36px 20px;color:#64748b;font-size:0.92rem}.results-section{display:none}.results-section.visible{display:block}
-</style></head><body>
-<main class="page"><h1>🌟 NeRF 神经辐射场</h1><p class="subtitle">Neural Radiance Fields — MLP 隐式 3D 场景表示与体渲染</p><span class="status">算法就绪 (Tiny NeRF)</span>
-<p style="color:#94a3b8;font-size:0.88rem;margin-top:8px;">教育性 Tiny NeRF 实现：位置编码 → MLP → 体渲染 → 新视角合成。演示 NeRF 核心概念。</p>
-<div class="panel"><h3>📐 视角参数</h3>
-<div class="params-grid"><div class="param-item"><label>相机方位角</label><input type="range" id="azimuth" min="0" max="350" value="0" step="10"><span class="val" id="azimuthVal">0°</span></div></div>
-<div class="btn-row"><button class="btn-primary" id="runBtn">▶ 渲染 NeRF 场景</button></div></div>
-<div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:12px;">NeRF 体渲染中 (每个视角约 2-5 秒)...</p></div><div class="error-box" id="errorBox"></div><div class="empty-hint" id="emptyHint">👆 调整相机角度，观察 NeRF 如何从不同视角渲染同一个 3D 场景。</div>
-<div class="results-section" id="resultsSection"><div class="metrics-bar" id="metricsBar"></div><div class="panel" style="margin-top:16px;"><h3>🔬 NeRF 渲染流水线</h3><div class="steps-grid" id="stepsGrid"></div></div></div></main>
-<script>(function(){var e=document.getElementById('errorBox'),f=document.getElementById('resultsSection'),g=document.getElementById('metricsBar'),h=document.getElementById('stepsGrid'),i=document.getElementById('emptyHint'),j=document.getElementById('loading'),k=document.getElementById('runBtn'),n='nerf';k.addEventListener('click',q);var o=document.getElementById('azimuth');o.addEventListener('input',function(){document.getElementById('azimuthVal').textContent=this.value+'°'});function q(){j.classList.add('visible');e.classList.remove('visible');f.classList.remove('visible');i.style.display='none';k.disabled=true;var t=new FormData();t.append('azimuth',o.value);fetch('/api/demo/'+n,{method:'POST',body:t}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(r){j.classList.remove('visible');k.disabled=false;if(r.error){e.textContent=r.error;e.classList.add('visible');return}var s=r.metrics||{},u='';Object.keys(s).forEach(function(v){var w=s[v];if(typeof w==='number')w=Math.round(w*100)/100;u+='<div class="metric-item"><div class="metric-label">'+v+'</div><div class="metric-value">'+w+'</div></div>'});g.innerHTML=u;var x=r.steps||[],y='';x.forEach(function(v,w){var z=(w===0)?'step-input':(w===x.length-1)?'step-output':'step-process';y+='<div class="step-card '+z+'"><div class="img-area">';if(v.image_base64)y+='<img src="data:image/png;base64,'+v.image_base64+'" alt="'+v.name+'">';else y+='<span style="color:#64748b">(无图像)</span>';y+='</div><div class="info"><div class="step-title">'+v.name+'</div>';if(v.explanation)y+='<div class="step-desc">'+v.explanation+'</div>';if(v.formula)y+='<code class="step-formula">'+v.formula+'</code>';y+='</div></div>'});h.innerHTML=y;f.classList.add('visible')}).catch(function(r){j.classList.remove('visible');k.disabled=false;e.textContent='请求失败: '+r.message;e.classList.add('visible')})}})();</script></body></html>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeRF - CV 通识教育</title>
+  <link rel="stylesheet" href="../css/iframe-theme.css">
+  <link rel="stylesheet" href="../css/model-demo-page.css">
+  <script src="../js/theme-sync.js"></script>
+  <script src="../js/page-utils.js"></script>
+</head>
+<body>
+<main class="page">
+  <section class="hero">
+    <div class="hero-main">
+      <div class="eyebrow">隐式 3D</div>
+      <h1 id="pageTitle">NeRF</h1>
+      <p class="subtitle" id="subtitle"></p>
+      <p class="intro" id="introText"></p>
+      <span class="status" id="statusPill"></span>
+    </div>
+    <aside class="panel controls">
+      <h2>运行真实后端</h2>
+      <div class="control-row">
+        <button id="sampleBtn">使用默认场景</button>
+        <button id="runBtn" class="primary">渲染 NeRF</button>
+      </div>
+      <div class="file-line" id="fileName">NeRF 使用内置三维辐射场</div>
+      <div id="paramsPanel" class="params"></div>
+    </aside>
+  </section>
+  <section class="info-grid">
+    <div class="panel"><h2>算法流程</h2><ul id="pipelineList"></ul></div>
+    <div class="panel"><h2>应用场景</h2><ul id="applicationsList"></ul></div>
+    <div class="panel"><h2>局限性</h2><ul id="limitationsList"></ul></div>
+  </section>
+  <div id="loading" class="loading" hidden>后端正在做真实射线采样和体渲染...</div>
+  <div id="errorBox" class="error" hidden></div>
+  <section id="metricsGrid" class="metrics"></section>
+  <section class="panel"><h2>真实中间步骤</h2><div id="stepsGrid" class="steps"></div></section>
+</main>
+<script>
+window.ModelDemoConfig = {
+  moduleId: 'nerf',
+  title: 'NeRF',
+  subtitle: '沿相机射线采样 3D 点，再把颜色和密度体渲染成图像。',
+  intro: '本页使用本地 NumPy 辐射场做真实 ray marching 和 volume rendering，展示 NeRF 的核心计算机制。',
+  status: '真实本地机制实现',
+  params: [{ name: 'resolution', label: '分辨率', type: 'range', min: 64, max: 128, step: 16, value: 96 }, { name: 'samples_per_ray', label: '采样点数', type: 'range', min: 32, max: 128, step: 16, value: 80 }],
+  pipeline: ['生成相机射线', '沿射线采样 3D 点', '查询每个点的颜色和密度', '按 alpha compositing 累积颜色', '得到深度图和新视角渲染'],
+  applications: ['新视角合成', '三维重建教学', '理解体渲染', '连接传统多视图几何和神经表示'],
+  limitations: ['这里是机制演示，不是训练好的真实场景', '完整 NeRF 训练需要多视角数据和较长优化时间', '分辨率越高计算越慢']
+};
+</script>
+<script src="../js/model-demo-page.js"></script>
+</body>
+</html>

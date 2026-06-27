@@ -1,24 +1,31 @@
 """Implementation truth table for frontend/API reporting.
 
-This file is intentionally boring: it says what each registered module really
-runs today, so the UI does not imply that an educational visualization is a
-pretrained model.
+The UI must say what each module really runs.  A local teaching mechanism is
+useful, but it must not be reported as pretrained inference.
 """
+from __future__ import annotations
+
+import os
+
 
 DEFAULT_IMPLEMENTATION = {
     'status': '真实 NumPy 算法',
     'category': 'numpy_algorithm',
-    'backend': 'NumPy',
+    'backend': 'NumPy/Pillow',
     'local_inference': True,
     'real_model': False,
     'requires_upload': True,
     'model': '',
-    'note': '项目内手写算法实现，返回真实中间结果。',
+    'note': '项目内手写或本地算法实现，返回真实中间结果。',
 }
 
+
+# Stable Diffusion is no longer part of the formal scope. Keep it as a
+# compatibility teaching visualization unless a future pass wires real weights.
 LOCAL_TEACHING_MODELS = {
-    'vit', 'detr', 'clip', 'sam', 'stable_diffusion',
+    'stable_diffusion',
 }
+
 
 LOCAL_FRONTIER_ALGORITHMS = {
     'swin', 'dino', 'mae', 'dino_det', 'grdino', 'mask2former', 'sam2',
@@ -26,9 +33,10 @@ LOCAL_FRONTIER_ALGORITHMS = {
     'orbslam3', 'mediapipe', 'vitpose',
 }
 
-OFFLINE_TEACHING = set()  # 已废弃——所有模块必须有真实实现
 
+OFFLINE_TEACHING = set()
 REQUIRES_EXTERNAL_WEIGHTS = set()
+
 
 EXTERNAL_WEIGHT_META = {
     'status': 'requires external weights',
@@ -41,6 +49,7 @@ EXTERNAL_WEIGHT_META = {
     'note': 'This algorithm requires local pretrained weights or a remote model. It is intentionally disabled in offline mode.',
 }
 
+
 OFFLINE_TEACHING_META = {
     'status': 'offline teaching demo',
     'category': 'teaching_simulation',
@@ -52,6 +61,7 @@ OFFLINE_TEACHING_META = {
     'note': 'Offline teaching visualization; not a pretrained-model inference result.',
 }
 
+
 LOCAL_TEACHING_MODEL_META = {
     'status': 'local deterministic teaching visualization',
     'category': 'numpy_algorithm',
@@ -60,8 +70,9 @@ LOCAL_TEACHING_MODEL_META = {
     'real_model': False,
     'requires_upload': False,
     'model': 'local teaching pipeline',
-    'note': 'This page shows the algorithm mechanics with deterministic local NumPy/PIL visualizations. It is not a downloaded pretrained-model inference result.',
+    'note': 'This page shows algorithm mechanics with deterministic local visualizations. It is not pretrained inference.',
 }
+
 
 LOCAL_FRONTIER_ALGORITHM_META = {
     'status': 'local small algorithm implementation',
@@ -74,26 +85,17 @@ LOCAL_FRONTIER_ALGORITHM_META = {
     'note': 'Local small algorithm implementation; not pretrained-weight inference.',
 }
 
+
 IMPLEMENTATION_META = {
-    'gan': {
-        'status': '真实 NumPy 算法',
-        'category': 'numpy_algorithm',
-        'backend': 'NumPy DCGAN',
-        'local_inference': True,
-        'real_model': False,
-        'requires_upload': False,
-        'model': 'DCGAN random-weight forward pass',
-        'note': '四层转置卷积DCGAN生成器前向传播。权重随机初始化，展示真实网络架构。',
-    },
-    'diffusion': {
+    'ai_eye': {
         'status': '真实预训练模型',
         'category': 'pretrained_model',
-        'backend': 'PyTorch + diffusers',
+        'backend': 'torchvision',
         'local_inference': True,
         'real_model': True,
-        'requires_upload': False,
-        'model': 'runwayml/stable-diffusion-v1-5',
-        'note': '通过 diffusers 加载 Stable Diffusion v1.5，不再使用前向加噪模拟。',
+        'requires_upload': True,
+        'model': 'Faster R-CNN / DeepLabV3 / Mask R-CNN and selectable torchvision variants',
+        'note': 'AI之眼主结果来自 torchvision 官方预训练权重；权重缺失时返回下载建议，不用启发式结果冒充成功。',
     },
     'detection': {
         'status': '真实预训练模型',
@@ -103,17 +105,7 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'fasterrcnn_resnet50_fpn',
-        'note': '通过 torchvision 加载 Faster R-CNN COCO 权重；torch 不可用时自动降级到本地教学检测。',
-    },
-    'resnet': {
-        'status': '真实预训练模型',
-        'category': 'pretrained_model',
-        'backend': 'torchvision',
-        'local_inference': True,
-        'real_model': True,
-        'requires_upload': False,
-        'model': 'resnet50',
-        'note': '通过 torchvision 加载 ResNet-50 ImageNet 权重，包含 Grad-CAM 热力图可视化。不需上传图片，也可上传任意图片测试分类+Grad-CAM。',
+        'note': '通过 AI之眼统一管线运行真实目标检测模型。',
     },
     'semantic': {
         'status': '真实预训练模型',
@@ -122,8 +114,8 @@ IMPLEMENTATION_META = {
         'local_inference': True,
         'real_model': True,
         'requires_upload': True,
-        'model': 'fcn_resnet50',
-        'note': '通过 torchvision 加载 FCN ResNet50 COCO 权重；torch 不可用时自动降级到本地教学分割。',
+        'model': 'deeplabv3_resnet50 / fcn_resnet50',
+        'note': '通过 AI之眼统一管线运行真实语义分割模型。',
     },
     'instance': {
         'status': '真实预训练模型',
@@ -133,11 +125,68 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'maskrcnn_resnet50_fpn',
-        'note': '通过 torchvision 加载 Mask R-CNN COCO 权重；torch 不可用时自动降级到本地教学分割。',
+        'note': '通过 AI之眼统一管线运行真实实例分割模型。',
     },
-
-
-    # Actual model-loading pages.
+    'faster_rcnn': {
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
+        'local_inference': True,
+        'real_model': True,
+        'requires_upload': True,
+        'model': 'fasterrcnn_resnet50_fpn',
+        'note': 'Faster R-CNN 别名走 AI之眼目标检测管线。',
+    },
+    'fcn': {
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
+        'local_inference': True,
+        'real_model': True,
+        'requires_upload': True,
+        'model': 'fcn_resnet50',
+        'note': 'FCN 别名走 AI之眼语义分割管线。',
+    },
+    'mask_rcnn': {
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
+        'local_inference': True,
+        'real_model': True,
+        'requires_upload': True,
+        'model': 'maskrcnn_resnet50_fpn',
+        'note': 'Mask R-CNN 别名走 AI之眼实例分割管线。',
+    },
+    'yolo': {
+        'status': '真实本地机制实现',
+        'category': 'local_mechanism',
+        'backend': 'NumPy/Pillow one-stage grid detector',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': True,
+        'model': 'YOLO-style one-stage grid mechanism',
+        'note': '后端真实计算网格、目标性、候选框和重叠抑制；不冒充官方 YOLO 预训练权重。',
+    },
+    'unet': {
+        'status': '真实本地机制实现',
+        'category': 'local_mechanism',
+        'backend': 'NumPy/Pillow encoder-decoder with skip fusion',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': True,
+        'model': 'U-Net-style local encoder-decoder mechanism',
+        'note': '后端真实计算编码器、瓶颈、解码器、跳跃连接和 mask；不冒充训练好的 U-Net 权重。',
+    },
+    'resnet': {
+        'status': '真实预训练模型',
+        'category': 'pretrained_model',
+        'backend': 'torchvision',
+        'local_inference': True,
+        'real_model': True,
+        'requires_upload': False,
+        'model': 'resnet50',
+        'note': '加载 torchvision ResNet-50 ImageNet 权重，返回真实分类结果和 Grad-CAM 热力图。',
+    },
     'vit': {
         'status': '真实预训练模型',
         'category': 'pretrained_model',
@@ -146,7 +195,7 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'google/vit-base-patch16-224',
-        'note': '通过 HuggingFace 加载 ViT 分类模型并提取真实注意力。',
+        'note': '加载 HuggingFace ViT 分类模型，返回真实分类概率、patch 切分和注意力图。',
     },
     'detr': {
         'status': '真实预训练模型',
@@ -156,7 +205,7 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'facebook/detr-resnet-50',
-        'note': '通过 HuggingFace 加载 DETR 并运行真实目标检测。',
+        'note': '加载 HuggingFace DETR，返回真实目标检测框和 object query 注意力摘要。',
     },
     'clip': {
         'status': '真实预训练模型',
@@ -166,7 +215,7 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'openai/clip-vit-base-patch32',
-        'note': '通过 HuggingFace 加载 CLIP 并运行零样本图文相似度。',
+        'note': '加载 HuggingFace CLIP，返回真实图文相似度和零样本分类结果。',
     },
     'sam': {
         'status': '真实预训练模型',
@@ -177,27 +226,57 @@ IMPLEMENTATION_META = {
         'requires_upload': True,
         'model': 'SAM ViT-B',
         'weights': 'models/sam_vit_b_01ec64.pth 或 SAM_CHECKPOINT',
-        'note': '需要本地 SAM checkpoint；缺失时 API 会明确报告 model_not_available。',
+        'note': '需要本地 SAM checkpoint；缺失时 API 返回 model_not_available 和下载/配置提示。',
     },
-    'stable_diffusion': {
-        'status': '真实预训练模型',
-        'category': 'pretrained_model',
-        'backend': 'PyTorch + diffusers',
-        'local_inference': True,
-        'real_model': True,
-        'requires_upload': False,
-        'model': 'runwayml/stable-diffusion-v1-5',
-        'note': '通过 diffusers 加载 Stable Diffusion v1.5 生成图像。',
-    },
-    'nerf': {
-        'status': '真实 NumPy 算法',
-        'category': 'numpy_algorithm',
-        'backend': 'PyTorch + NumPy',
+    'gan': {
+        'status': '真实本地机制实现',
+        'category': 'local_mechanism',
+        'backend': 'NumPy tiny GAN training',
         'local_inference': True,
         'real_model': False,
         'requires_upload': False,
-        'model': 'TinyNeRF Ray Casting',
-        'note': '真实射线追踪 + 体渲染。TinyNeRF MLP前向传播预测RGB和密度。',
+        'model': 'tiny GAN on synthetic 2D distribution',
+        'note': '本地 NumPy 训练小型 GAN，展示真实对抗损失、判别器决策面和生成分布变化；不是预训练图像生成模型。',
+    },
+    'diffusion': {
+        'status': '真实本地机制实现',
+        'category': 'local_mechanism',
+        'backend': 'NumPy DDPM equations',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': False,
+        'model': 'DDPM forward/reverse equation trace',
+        'note': '本地计算 DDPM 前向加噪、噪声日程、oracle 反向还原和误差图；不是 Stable Diffusion 预训练采样。',
+    },
+    'nerf': {
+        'status': '真实本地机制实现',
+        'category': 'local_mechanism',
+        'backend': 'NumPy volume rendering',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': False,
+        'model': 'Tiny NeRF-style ray marching',
+        'note': '真实射线采样、密度/颜色查询和体渲染；展示 NeRF 机制，不是训练好的真实场景权重。',
+    },
+    'colorspace': {
+        'status': 'local color-space algorithm',
+        'category': 'local_algorithm',
+        'backend': 'NumPy RGB/HSV/Lab/CMYK conversion',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': True,
+        'model': 'deterministic color conversion',
+        'note': '本地确定性色彩空间转换算法；返回 RGB、HSV、Lab、CMYK 的真实通道拆分与中间结果。',
+    },
+    'smoothing': {
+        'status': '真实 NumPy 算法',
+        'category': 'numpy_algorithm',
+        'backend': 'NumPy smoothing comparison pipeline',
+        'local_inference': True,
+        'real_model': False,
+        'requires_upload': True,
+        'model': 'Gaussian + median + bilateral local filters',
+        'note': '同一输入下运行高斯平滑、中值滤波和双边滤波，并返回真实中间结果。',
     },
     'lenet': {
         'status': '真实 NumPy 网络',
@@ -207,7 +286,7 @@ IMPLEMENTATION_META = {
         'real_model': True,
         'requires_upload': True,
         'model': 'LeNet-5 + lenet_weights.json',
-        'note': '加载本地 LeNet 权重后运行真实前向传播；权重缺失时会返回错误。',
+        'note': '保持现状：加载本地 LeNet 权重后运行真实前向传播。',
     },
     'conv_training': {
         'status': '真实 NumPy 算法',
@@ -217,7 +296,7 @@ IMPLEMENTATION_META = {
         'real_model': False,
         'requires_upload': False,
         'model': 'Kernel gradient descent training',
-        'note': '真实梯度下降训练卷积核。损失曲线和参数更新来自实际优化过程。',
+        'note': '保持现状：真实梯度下降训练卷积核。',
     },
 }
 
@@ -234,27 +313,15 @@ def get_implementation_meta(module_id):
     if module_id in OFFLINE_TEACHING:
         meta.update(OFFLINE_TEACHING_META)
     meta.update(IMPLEMENTATION_META.get(module_id, {}))
-    if module_id in LOCAL_TEACHING_MODELS:
-        # These homepage-visible foundation models deliberately use local
-        # deterministic visualizations unless the project explicitly wires
-        # real weights later.
-        meta.update(LOCAL_TEACHING_MODEL_META)
-    if module_id in LOCAL_FRONTIER_ALGORITHMS:
-        # These frontier modules run small local mechanism implementations.
-        # They are intentionally not reported as pretrained inference.
-        meta.update(LOCAL_FRONTIER_ALGORITHM_META)
-    if module_id in REQUIRES_EXTERNAL_WEIGHTS:
-        # Keep plan-selected offline behavior even if older per-module metadata
-        # says a pretrained model exists locally.
-        meta.update(EXTERNAL_WEIGHT_META)
-    if module_id in OFFLINE_TEACHING:
-        # Keep local teaching demos runnable even if older metadata marked them
-        # as placeholders.
-        meta.update(OFFLINE_TEACHING_META)
-    if module_id == 'sam' and module_id not in REQUIRES_EXTERNAL_WEIGHTS and module_id not in LOCAL_TEACHING_MODELS:
-        import os
+
+    if module_id == 'sam' and module_id not in REQUIRES_EXTERNAL_WEIGHTS:
         checkpoint = os.environ.get('SAM_CHECKPOINT', 'models/sam_vit_b_01ec64.pth')
-        candidates = [checkpoint, 'E:/SAM/sam_vit_b_01ec64.pth', 'sam_vit_b_01ec64.pth']
+        candidates = [
+            checkpoint,
+            'E:/SAM/sam_vit_b_01ec64.pth',
+            'E:/Learning/2025/202520261/DIP/E4/sam_vit_b_01ec64.pth',
+            'sam_vit_b_01ec64.pth',
+        ]
         if not any(os.path.exists(p) for p in candidates):
             meta.update({
                 'status': 'SAM checkpoint not configured',
@@ -263,14 +330,18 @@ def get_implementation_meta(module_id):
                 'note': 'Set SAM_CHECKPOINT or place sam_vit_b_01ec64.pth under models/ before this module is counted as runnable.',
             })
 
-    # Remote runners are intentionally ignored for external-weight modules in
-    # offline mode so UI/API behavior stays deterministic and never depends on
-    # tokens or network availability.
+    # Do not let optional remote runners overwrite the formal local/backend
+    # truth table. They may still be used by future explicit remote features.
     if (
         module_id not in LOCAL_TEACHING_MODELS
         and module_id not in LOCAL_FRONTIER_ALGORITHMS
         and module_id not in REQUIRES_EXTERNAL_WEIGHTS
-        and module_id not in {'detection', 'semantic', 'instance'}
+        and module_id not in {
+            'detection', 'semantic', 'instance',
+            'faster_rcnn', 'fcn', 'mask_rcnn',
+            'vit', 'detr', 'clip', 'sam',
+            'resnet', 'gan', 'diffusion', 'nerf',
+        }
     ):
         try:
             from app.runners import get_remote_runner

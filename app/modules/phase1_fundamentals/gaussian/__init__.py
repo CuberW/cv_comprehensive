@@ -1,8 +1,15 @@
 from app.modules.base import AlgorithmModule
-class 高斯模糊Module(AlgorithmModule):
-    module_id='gaussian';name='高斯模糊';name_en='Gaussian Blur'
-    phase='phase1_fundamentals';difficulty=1
-    description='高斯核的数学构造,sigma与窗口尺寸的关系。尺度空间基石。'
-    dependencies=['convolution']
+
+
+class GaussianModule(AlgorithmModule):
+    module_id = 'gaussian'
+    name = '高斯平滑'
+    name_en = 'Gaussian Smoothing'
+    phase = 'phase1_fundamentals'
+    difficulty = 1
+    description = '平滑与去噪专题中的线性加权平均滤波，适合连续高斯噪声和快速预处理。'
+    dependencies = ['smoothing', 'convolution']
+
     @staticmethod
-    def get_page(): return 'gaussian.html'
+    def get_page():
+        return 'smoothing.html'

@@ -14,7 +14,7 @@ from app.utils.image_utils import ensure_gray, load_image_u8
 
 
 LOCAL_TEACHING_MODEL_MODULES = {
-    'vit', 'detr', 'sam', 'clip', 'stable_diffusion',
+    'stable_diffusion',
 }
 
 LOCAL_FRONTIER_ALGORITHM_MODULES = {

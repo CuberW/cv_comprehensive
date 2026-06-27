@@ -78,7 +78,11 @@ def test_homepage_topic_algorithms_have_demo_contract():
         assert 'steps' in payload, module_id
         assert 'metrics' in payload, module_id
         assert 'implementation' in payload, module_id
-        if payload['implementation']['category'] != 'requires_external_weights':
+        category = payload['implementation']['category']
+        if category in {'pretrained_model', 'model_not_available'} and resp.status_code in {400, 503}:
+            assert payload.get('error'), module_id
+            continue
+        if category != 'requires_external_weights':
             assert resp.status_code == 200, module_id
             assert payload['steps'], module_id
             assert all(step.get('id') and step.get('name') for step in payload['steps']), module_id
@@ -97,18 +101,21 @@ def test_homepage_aliases_return_canonical_module_id():
         assert payload['steps'], alias
 
 
-def test_local_teaching_weight_models_are_not_reported_as_real_inference():
+def test_formal_foundation_models_report_real_inference_or_weight_setup():
     app = create_app()
     client = app.test_client()
 
-    for module_id in ['vit', 'detr', 'clip', 'sam', 'stable_diffusion']:
+    for module_id in ['vit', 'detr', 'clip', 'sam']:
         resp = client.post(f'/api/demo/{module_id}', data={}, content_type='multipart/form-data')
         payload = resp.get_json()
-        assert resp.status_code == 200, module_id
-        assert payload['steps'], module_id
-        assert payload['implementation']['category'] == 'numpy_algorithm'
-        assert payload['implementation']['real_model'] is False
-        assert payload['metrics']['status'] == 'local_teaching_visualization'
+        assert resp.status_code in {200, 400, 503}, module_id
+        assert payload is not None, module_id
+        assert payload['implementation']['real_model'] is True
+        assert payload['implementation']['category'] in {'pretrained_model', 'model_not_available'}
+        if resp.status_code == 200:
+            assert payload['steps'], module_id
+        else:
+            assert payload.get('error'), module_id
 
 
 def test_homepage_algorithm_content_has_teaching_visualization_contract():
@@ -124,7 +131,10 @@ def test_homepage_algorithm_content_has_teaching_visualization_contract():
         story = cfg.get('visualStory') or {}
         assert story.get('cards'), module_id
         impl = cfg.get('implementation') or {}
-        if module_id in {'vit', 'detr', 'clip', 'sam', 'sd'}:
+        if module_id in {'vit', 'detr', 'clip', 'sam'}:
+            assert cfg.get('endpoint'), module_id
+            assert impl.get('realModel') is True
+        if module_id in {'sd'}:
             assert cfg.get('endpoint'), module_id
             assert impl.get('realModel') is False
 

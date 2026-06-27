@@ -9,6 +9,8 @@ from PIL import Image
 
 _MODEL = None
 _DEVICE = None
+SAM_VIT_B_URL = 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth'
+SAM_DEFAULT_CHECKPOINT = 'models/sam_vit_b_01ec64.pth'
 
 
 def _get_model():
@@ -18,18 +20,24 @@ def _get_model():
         from segment_anything import sam_model_registry, SamPredictor
         # Use ViT-B SAM model
         import os
-        checkpoint = os.environ.get('SAM_CHECKPOINT',
-                                     'models/sam_vit_b_01ec64.pth')
+        checkpoint = os.environ.get('SAM_CHECKPOINT', SAM_DEFAULT_CHECKPOINT)
         if not os.path.exists(checkpoint):
             # Try alternate locations
             alt_paths = [
                 'E:/SAM/sam_vit_b_01ec64.pth',
+                'E:/Learning/2025/202520261/DIP/E4/sam_vit_b_01ec64.pth',
                 'sam_vit_b_01ec64.pth',
             ]
             for p in alt_paths:
                 if os.path.exists(p):
                     checkpoint = p
                     break
+        if not os.path.exists(checkpoint):
+            raise FileNotFoundError(
+                'SAM ViT-B checkpoint not found. '
+                f'Set SAM_CHECKPOINT or place sam_vit_b_01ec64.pth at {SAM_DEFAULT_CHECKPOINT}. '
+                f'Download: {SAM_VIT_B_URL}'
+            )
         sam = sam_model_registry['vit_b'](checkpoint=checkpoint)
         sam.to(device=_DEVICE)
         sam.eval()

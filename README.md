@@ -1,3 +1,7 @@
+# Cvtoolkits
+
+> AI之眼重点页现在使用 torchvision 官方预训练模型实现目标检测、语义分割和实例分割。权重不提交到仓库；运行 `python prepare_ai_eye_assets.py --list` 查看缓存状态，运行 `python prepare_ai_eye_assets.py --all` 准备全部可切换模型。详细说明见 [docs/AI_EYE_SETUP.md](docs/AI_EYE_SETUP.md)。
+
 # 计算机视觉通识教育系统 — Cvtoolkits
 
 ## 项目简介
@@ -65,9 +69,30 @@ flask-cors>=4.0.0
 numpy>=1.24.0
 imageio>=2.31.0
 Pillow>=10.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+timm>=0.9.0
+segment-anything>=1.0
 ```
 
 > **注意**：不依赖 OpenCV (cv2) 或 scikit-image。所有算法均使用纯 NumPy 手写实现。
+> 深度学习与基础模型页面会使用 PyTorch/torchvision/transformers/segment-anything 运行真实预训练模型；权重大文件不提交到仓库。
+
+准备 AI之眼 torchvision 权重：
+
+```bash
+python prepare_ai_eye_assets.py --list
+python prepare_ai_eye_assets.py --all
+```
+
+准备 ViT / DETR / CLIP / SAM 相关资产：
+
+```bash
+python prepare_foundation_assets.py --list
+python prepare_foundation_assets.py --all-hf
+python prepare_foundation_assets.py --download-sam
+```
 
 ### 4. 安装字体（Node.js 方式）
 

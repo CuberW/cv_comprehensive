@@ -92,7 +92,7 @@ body::-webkit-scrollbar-corner       { background: transparent; }
 .page {
     position: relative;
     z-index: 1;
-    width: min(1200px, calc(100% - 32px));
+    width: min(1540px, calc(100% - 48px));
     margin: 0 auto;
     padding: 22px 0 32px;
 }

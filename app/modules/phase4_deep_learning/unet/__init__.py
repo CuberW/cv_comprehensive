@@ -11,4 +11,4 @@ class UNetModule(AlgorithmModule):
 
     @staticmethod
     def get_page():
-        return 'nn_interactive.html?id=unet'
+        return 'unet.html'

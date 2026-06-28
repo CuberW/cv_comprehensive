@@ -1,4 +1,4 @@
-(function() {
+﻿(function() {
   const common = {
     uploadHint: '上传一张图片后，页面会调用当前项目中的 NumPy 实现，并把中间结果逐步展开。',
   };
@@ -410,7 +410,7 @@
       }
     },
     hough: {
-      phase: '阶段二 · 经典特征检测',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: 'Hough 变换',
       english: 'Hough Transform',
       tagline: '让边缘像素在参数空间投票，用“很多点共同支持一个模型”的方式找直线或圆。',
@@ -429,7 +429,7 @@
       }
     },
     morphology: {
-      phase: '阶段二 · 经典特征检测',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '形态学操作',
       english: 'Morphology',
       tagline: '用结构元素在二值图上做集合操作，控制白色区域的收缩、扩张、去噪和补洞。',
@@ -451,7 +451,7 @@
       }
     },
     contour: {
-      phase: '阶段二 · 经典特征检测',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '轮廓查找',
       english: 'Contour Finding',
       tagline: '在二值图中沿着前景边界行走，把像素区域变成可测量的形状对象。',
@@ -470,7 +470,7 @@
       }
     },
     nms: {
-      phase: '阶段二 · 经典特征检测',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '非极大值抑制',
       english: 'Non-Maximum Suppression',
       tagline: '只保留局部最强响应，让厚边缘变细，也让重复检测框变成一个结果。',
@@ -488,7 +488,7 @@
       }
     },
     template_match: {
-      phase: '阶段二 · 经典特征检测',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '模板匹配',
       english: 'Template Matching',
       tagline: '让小模板在大图中滑动，用相似度峰值定位目标，是最直接的目标查找方法。',
@@ -507,7 +507,7 @@
       }
     },
     kmeans: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: 'K-Means 分割',
       english: 'K-Means Segmentation',
       tagline: '把像素颜色看作点，用聚类中心把图像粗分成若干颜色区域。',
@@ -526,7 +526,7 @@
       }
     },
     watershed: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '分水岭分割',
       english: 'Watershed Segmentation',
       tagline: '把梯度图想成地形，从标记点向外注水，水盆相遇的位置就是分割边界。',
@@ -546,7 +546,7 @@
       }
     },
     grabcut: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: 'GrabCut 前景提取',
       english: 'GrabCut',
       tagline: '用一个矩形给出粗略前景范围，再通过颜色模型和图割迭代分离前景背景。',
@@ -571,7 +571,7 @@
       }
     },
     slic: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: 'SLIC 超像素',
       english: 'SLIC Superpixels',
       tagline: '在颜色和空间的五维特征中做局部 K-Means，把像素组织成紧凑小区域。',
@@ -594,7 +594,7 @@
       }
     },
     hog_svm: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: 'HOG + SVM',
       english: 'Histogram of Oriented Gradients',
       tagline: '把局部梯度方向统计成特征向量，是深度学习前行人检测的经典表示。',
@@ -613,7 +613,7 @@
       }
     },
     optical_flow: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '光流',
       english: 'Optical Flow',
       tagline: '估计相邻帧之间像素的运动方向和速度，用矢量场描述视频中的运动。',
@@ -632,7 +632,7 @@
       }
     },
     stereo: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '立体匹配',
       english: 'Stereo Matching',
       tagline: '从左右视角寻找同名点，视差越大通常表示物体越近。',
@@ -652,7 +652,7 @@
       }
     },
     frequency: {
-      phase: '阶段三 · 中级视觉',
+      phase: '阶段二 · 经典结构与几何视觉',
       title: '频域分析',
       english: 'Frequency Domain Analysis',
       tagline: '把图像拆成不同频率的波，低频对应大面积平滑，高频对应边缘、纹理和噪声。',
@@ -674,10 +674,10 @@
 
   const phaseLabel = {
     phase1: '阶段一 · 基础原语',
-    phase2: '阶段二 · 经典特征检测',
-    phase3: '阶段三 · 中级视觉',
-    phase4: '阶段四 · 深度学习时代',
-    phase5: '阶段五 · 基础模型与前沿感知'
+    phase2: '阶段二 · 经典结构与几何视觉',
+    phase3: '阶段二 · 经典结构与几何视觉',
+    phase4: '阶段三 · 深度学习时代',
+    phase5: '阶段四 · 基础模型与前沿感知'
   };
 
   function makeTeachingConfig(spec) {
@@ -810,7 +810,7 @@
     },
     {
       id: 'faster_rcnn', phase: 'phase4', title: 'Faster R-CNN + FPN', english: 'Faster R-CNN + FPN',
-      tagline: '两阶段目标检测：先用 RPN 产生候选框，再对 RoI 分类和回归。',
+      tagline: '两阶段检测器：先用 RPN 产生候选框，再对 RoI 分类和回归。',
       formula: 'L=L_{cls}+L_{box}+L_{rpn}',
       pipeline: [['Backbone/FPN', '提取多尺度特征金字塔。'], ['RPN', '用锚框预测 objectness 和候选框。'], ['RoIAlign/Pooling', '把候选区域裁成固定大小特征。'], ['检测头', '分类并精修边界框。']],
       references: [{title:'Detectron2 reference implementation', url:'https://github.com/facebookresearch/detectron2'}]
@@ -1227,7 +1227,7 @@
 
   // ── Phase 2-3 newly implemented modules ──
   window.AlgorithmContent.shitomasi = {
-    phase: '阶段二 · 经典特征检测',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: 'Shi-Tomasi 角点检测',
     english: 'Shi-Tomasi Corner Detection',
     tagline: '只看两个方向梯度都强的地方。和 Harris 用同一个结构张量，但角点响应换成了 min(λ₁,λ₂)。',
@@ -1260,7 +1260,7 @@
   };
 
   window.AlgorithmContent.ncuts = {
-    phase: '阶段三 · 中级视觉',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: 'Normalized Cuts',
     english: 'Normalized Cuts Segmentation',
     tagline: '把图像当成图来切——节点是像素，边是相似度，一刀切在亲和力最弱的地方。',
@@ -1298,7 +1298,7 @@
   };
 
   window.AlgorithmContent.bovw_spm = {
-    phase: '阶段三 · 中级视觉',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: 'BoVW + SPM',
     english: 'Bag of Visual Words + Spatial Pyramid Matching',
     tagline: '像做文本分类一样做图像分类：局部特征是"视觉单词"，空间金字塔保留词的大致位置。',
@@ -1334,7 +1334,7 @@
   };
 
   window.AlgorithmContent.calibration = {
-    phase: '阶段三 · 中级视觉',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: '相机标定',
     english: 'Camera Calibration (Zhang)',
     tagline: '用几张棋盘格照片算出相机的内参、外参和畸变——把像素坐标和真实世界坐标对应起来。',
@@ -1367,7 +1367,7 @@
   };
 
   window.AlgorithmContent.epipolar = {
-    phase: '阶段三 · 中级视觉',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: '对极几何',
     english: 'Epipolar Geometry',
     tagline: '两个相机看同一个场景——左图上一个点，在右图上一定落在某条线上。找到这条线，匹配就从二维搜变成一维搜。',
@@ -1403,7 +1403,7 @@
   };
 
   window.AlgorithmContent.sfm = {
-    phase: '阶段三 · 中级视觉',
+    phase: '阶段二 · 经典结构与几何视觉',
     title: '三角测量与运动恢复结构',
     english: 'Triangulation & Structure from Motion',
     tagline: '两幅图 + 已知相机位姿 → 用三角测量把 2D 匹配点推回 3D 空间，重建出稀疏的立体结构。',
@@ -1551,7 +1551,7 @@
   const phaseThreeEnhancements = {
     kmeans: {
       controls: [{ name: 'k', label: '聚类数 K', type: 'range', min: 2, max: 8, step: 1, value: 4 }],
-      visualStory: { intro: '阶段三开始从像素走向区域和结构，K-Means 是最直接的无监督分组入口。', cards: [
+      visualStory: { intro: '经典结构与几何视觉开始从像素走向区域和结构，K-Means 是最直接的无监督分组入口。', cards: [
         { type: 'semanticAnim', anim: 'kmeans', title: '颜色点分配到最近中心', text: '像素被看成 RGB 空间里的点。每轮先按最近中心分配，再把中心移动到本簇均值。', caption: 'assign -> update' },
         { type: 'bars', title: 'K 控制分割粗细', text: 'K 越小，颜色区域越粗；K 越大，图像能保留更多颜色层次，但也更容易碎。', items: [
           { label: 'K小', value: 35, caption: '粗分区', color: '#38bdf8' },
@@ -2217,7 +2217,7 @@
     }
 
     var cannyTeaching = {
-      phase: '阶段二 / 经典特征检测',
+      phase: '阶段二 / 经典结构与几何视觉',
       title: 'Canny 边缘检测',
       english: 'Canny Edge Detector',
       tagline: '从降噪、梯度、非极大值抑制到双阈值连接，把厚而乱的亮度变化整理成连续细边缘。',
@@ -2240,7 +2240,7 @@
     };
 
     var harrisTeaching = {
-      phase: '阶段二 / 经典特征检测',
+      phase: '阶段二 / 经典结构与几何视觉',
       title: 'Harris 角点检测',
       english: 'Harris Corner Detector',
       tagline: '用局部结构张量观察窗口向不同方向移动时的亮度变化，找到两个方向都变化明显的位置。',
@@ -2358,7 +2358,7 @@
         ] }
       },
       sift: {
-        phase: '阶段二 · 经典特征检测',
+        phase: '阶段二 · 经典结构与几何视觉',
         title: 'SIFT 特征',
         english: 'Scale-Invariant Feature Transform',
         tagline: 'SIFT 在尺度空间找稳定关键点，再用局部梯度方向直方图形成 128 维描述子。',
@@ -2379,7 +2379,7 @@
         ] }
       },
       match: {
-        phase: '阶段三 · 中级视觉',
+        phase: '阶段二 · 经典结构与几何视觉',
         title: 'SIFT + RANSAC 特征匹配',
         english: 'Feature Matching',
         tagline: '先用描述子距离建立候选匹配，再用 RANSAC 保留符合几何模型的内点。',

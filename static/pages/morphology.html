@@ -53,13 +53,17 @@ button:disabled{opacity:.48;cursor:not-allowed}
 .concept span{color:#94a3b8;font-size:.75rem;line-height:1.45}
 
 .result-area{position:relative}
-.result-area img{max-width:100%;border-radius:14px;display:block}
+.result-compare{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.result-figure{min-width:0;margin:0;padding:10px;border-radius:14px;background:rgba(15,23,42,.42);border:1px solid rgba(148,163,184,.12)}
+.result-figure figcaption{margin-bottom:8px;color:#cbd5e1;font-size:.82rem;font-weight:800}
+.result-figure img{width:100%;height:clamp(180px,28vw,300px);object-fit:contain;border-radius:10px;display:block;background:rgba(2,6,23,.36)}
 .no-result{text-align:center;padding:60px 20px;color:#64748b;font-size:.9rem;border-radius:14px;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.12)}
 .loading{display:none;text-align:center;padding:40px;border-radius:14px;color:#94a3b8;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.12)}
 .error{display:none;padding:14px;border-radius:14px;color:#fecaca;background:rgba(127,29,29,.24);border:1px solid rgba(248,113,113,.32)}
 .spinner{width:30px;height:30px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(148,163,184,.22);border-top-color:#4ade80;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:860px){.hero,.workspace{grid-template-columns:1fr}.op-selector{grid-template-columns:1fr}}
+@media(max-width:640px){.result-compare{grid-template-columns:1fr}.result-figure img{height:220px}}
 </style>
 </head>
 <body>
@@ -128,7 +132,16 @@ button:disabled{opacity:.48;cursor:not-allowed}
     <div class="error" id="errorBox"></div>
     <div class="result-area">
       <div class="no-result" id="noResult">👆 上传图片后点击运行，五种形态学操作一次计算完成。然后点击左侧按钮切换查看。</div>
-      <img id="resultImg" style="display:none" alt="结果">
+      <div class="result-compare" id="resultCompare">
+        <figure class="result-figure">
+          <figcaption>原图</figcaption>
+          <img id="originalImg" alt="原图">
+        </figure>
+        <figure class="result-figure">
+          <figcaption id="resultCaption">结果图</figcaption>
+          <img id="resultImg" alt="结果">
+        </figure>
+      </div>
     </div>
   </section>
 </section>
@@ -141,7 +154,9 @@ button:disabled{opacity:.48;cursor:not-allowed}
   var fileName=document.getElementById('fileName'),uploadBtn=document.getElementById('uploadBtn');
   var runBtn=document.getElementById('runBtn'),sampleBtn=document.getElementById('sampleBtn');
   var loading=document.getElementById('loading'),errorBox=document.getElementById('errorBox');
-  var noResult=document.getElementById('noResult'),resultImg=document.getElementById('resultImg');
+  var noResult=document.getElementById('noResult'),resultCompare=document.getElementById('resultCompare');
+  var originalImg=document.getElementById('originalImg'),resultImg=document.getElementById('resultImg');
+  var resultCaption=document.getElementById('resultCaption');
   var resultHint=document.getElementById('resultHint');
 
   // Operation descriptions
@@ -184,10 +199,13 @@ button:disabled{opacity:.48;cursor:not-allowed}
         (data.steps||[]).forEach(function(s){
           if(s.image_base64) resultCache[s.id]=s;
         });
-        if(resultCache.erode) showOpResult('erode');
+        var activeBtn=document.querySelector('.op-btn.active');
+        var activeOp=activeBtn&&activeBtn.dataset.op;
+        if(resultCache[activeOp]) showOpResult(activeOp);
+        else if(resultCache.erode) showOpResult('erode');
         resultHint.textContent='五种形态学操作已计算完成（Otsu阈值='+(data.metrics&&data.metrics.otsu_threshold)+'）。点击左侧按钮切换查看。';
         noResult.style.display='none';
-        resultImg.style.display='block';
+        resultCompare.style.display='grid';
       })
       .catch(function(e){setBusy(false);showError(e.message||'未知错误')});
   }
@@ -195,10 +213,14 @@ button:disabled{opacity:.48;cursor:not-allowed}
   function showOpResult(op){
     var step=resultCache[op];
     if(!step) return;
+    var original=resultCache.original||resultCache.binary;
+    if(original&&original.image_base64) originalImg.src='data:image/png;base64,'+original.image_base64;
     resultImg.src='data:image/png;base64,'+step.image_base64;
     var info=opInfo[op]||{};
     document.getElementById('resultTitle').textContent=info.name||step.name;
-    resultHint.innerHTML='<strong>几何：</strong>'+esc(info.geo)+'<br><strong>效果：</strong>'+esc(info.effect)+(step.formula?'<br><code class="step-formula">'+esc(step.formula)+'</code>':'');
+    resultCaption.textContent=(info.name||step.name||'结果')+' 结果';
+    resultHint.innerHTML='<strong>几何：</strong>'+esc(info.geo)+'<br><strong>效果：</strong>'+esc(info.effect)+(step.formula?'<br><code class="step-formula" data-latex="'+esc(step.formula)+'"></code>':'');
+    if(window.renderLatexIn) window.renderLatexIn(resultHint);
   }
 
   runBtn.addEventListener('click',function(){doRun(selectedFile)});

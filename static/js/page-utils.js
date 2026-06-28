@@ -60,20 +60,28 @@
 
   function renderLatex(target, formula, options) {
     if (!target) return;
-    var latex = normalizeLatex(formula);
+    var latex = normalizeLatex(formula != null ? formula : target.dataset.latexSource);
     target.classList.add('latex-formula');
     target.dataset.latexSource = latex;
+    if (target.dataset.latexRendered === latex || target.dataset.latexRendering === latex) return;
     if (!latex) {
       target.textContent = '';
+      delete target.dataset.latexRendered;
+      delete target.dataset.latexRendering;
       return;
     }
+    target.dataset.latexRendering = latex;
     var display = !options || options.display !== false;
     target.textContent = display ? '\\[' + latex + '\\]' : '\\(' + latex + '\\)';
     ensureMathJax().then(function () {
       if (!window.MathJax || !window.MathJax.typesetPromise) return;
       if (window.MathJax.typesetClear) window.MathJax.typesetClear([target]);
-      return window.MathJax.typesetPromise([target]);
+      return window.MathJax.typesetPromise([target]).then(function () {
+        delete target.dataset.latexRendering;
+        target.dataset.latexRendered = latex;
+      });
     }).catch(function () {
+      delete target.dataset.latexRendering;
       target.textContent = latex;
       target.dataset.mathFallback = '1';
     });
@@ -85,8 +93,11 @@
       '[data-latex], .step-formula, .teach-step-formula, .nn-step-formula, #stageFormula, #formulaBox'
     );
     Array.prototype.forEach.call(nodes, function (node) {
-      if (node.querySelector && node.querySelector('mjx-container') && !node.dataset.latex) return;
-      var formula = node.dataset.latex || node.textContent;
+      if (node.dataset.katex && !node.dataset.latex && !node.dataset.latexSource) return;
+      var hasRenderedMath = node.querySelector && node.querySelector('mjx-container');
+      var formula = node.dataset.latex ||
+        ((hasRenderedMath || node.dataset.latexRendering) ? node.dataset.latexSource : node.textContent) ||
+        node.dataset.latexSource;
       renderLatex(node, formula, { display: true });
     });
   }
@@ -112,7 +123,18 @@
     if (!window.MutationObserver || document.documentElement.dataset.latexObserver === '1') return;
     document.documentElement.dataset.latexObserver = '1';
     var timer = null;
-    var observer = new MutationObserver(function () {
+    var observer = new MutationObserver(function (mutations) {
+      var onlyMathJax = Array.prototype.every.call(mutations, function (mutation) {
+        var target = mutation.target;
+        if (target && target.closest && target.closest('mjx-container')) return true;
+        return Array.prototype.every.call(mutation.addedNodes || [], function (node) {
+          return node.nodeType === 1 && (
+            node.tagName && node.tagName.toLowerCase() === 'mjx-container' ||
+            node.querySelector && node.querySelector('mjx-container')
+          );
+        });
+      });
+      if (onlyMathJax) return;
       clearTimeout(timer);
       timer = setTimeout(function () { renderLatexIn(document); }, 80);
     });

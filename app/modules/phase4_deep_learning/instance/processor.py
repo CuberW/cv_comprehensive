@@ -2,7 +2,7 @@
 import numpy as np
 
 from app.modules.offline_teaching import _load_or_fixture
-from app.utils.image_utils import ensure_gray, load_image_u8
+from app.utils.image_utils import ensure_gray, load_image_u8, to_base64
 
 
 _MODEL = None
@@ -94,10 +94,10 @@ def build_pipeline(image_path=None, score_threshold=0.5, mask_threshold=0.5, **k
             'mask_threshold': mask_th,
         },
         explanations=[
-            'Image sent to torchvision Mask R-CNN ResNet50-FPN COCO weights.',
-            f'Kept detection boxes with score >= {score_th:.2f}.',
-            f'Masks come from Mask R-CNN mask head using threshold {mask_th:.2f}.',
-            'Each crop shows the original pixels inside one predicted instance.',
+            '图像送入 torchvision 的 Mask R-CNN ResNet50-FPN COCO 预训练权重。',
+            f'保留置信度不低于 {score_th:.2f} 的实例框。',
+            f'掩码来自 Mask R-CNN 的 mask 分支，并使用 {mask_th:.2f} 作为二值化阈值。',
+            '每个裁剪图显示一个预测实例内部的原始像素。',
         ],
     )
 
@@ -119,10 +119,10 @@ def _build_local_pipeline(image_path=None, **kwargs):
             'threshold': score_th,
         },
         explanations=[
-            'Local instance segmentation starts by finding salient object proposals.',
-            'Proposal boxes approximate where separate object instances may exist.',
-            'Inside each box, color and contrast form a per-instance mask instead of one shared semantic class map.',
-            'The strip emphasizes that instance segmentation separates objects one by one.',
+            '本地实例分割先寻找显著的候选目标区域。',
+            '候选框表示不同物体实例可能出现的位置。',
+            '每个框内部再根据颜色和对比度生成独立 mask，而不是整张图共用一张语义类别图。',
+            '裁剪条强调实例分割是把物体一个一个分开。',
         ],
     )
 
@@ -150,7 +150,7 @@ def _local_instances(img, score_threshold=0.28, max_instances=4):
             mask[y1:y2, x1:x2] = True
         instances.append({
             'box': [x1, y1, x2, y2],
-            'label': f'instance {i + 1}',
+            'label': f'实例 {i + 1}',
             'score': det['score'],
             'mask': mask,
         })
@@ -179,6 +179,8 @@ def _package_result(img_u8, instances, status, model, backend, extra_metrics, ex
     mask_vis = _overlay_masks(img_u8, instances)
     detail = _instance_strip(img_u8, instances)
     public_instances = [{k: v for k, v in inst.items() if k != 'mask'} for inst in instances]
+    overlay_instances = _overlay_instances(instances)
+    instance_chart = _instance_chart(instances, img_u8.shape[0] * img_u8.shape[1])
     metrics = {
         'status': status,
         'model': model,
@@ -188,10 +190,29 @@ def _package_result(img_u8, instances, status, model, backend, extra_metrics, ex
     metrics.update(extra_metrics)
     return {
         'steps': [
-            {'id': 'original', 'name': 'Input image', 'image': img_u8, 'explanation': explanations[0]},
-            {'id': 'boxes', 'name': f'Instance boxes ({len(instances)})', 'image': box_vis, 'explanation': explanations[1]},
-            {'id': 'masks', 'name': 'Per-instance masks', 'image': mask_vis, 'explanation': explanations[2]},
-            {'id': 'detail', 'name': 'Instance crops', 'image': detail, 'explanation': explanations[3]},
+            {'id': 'original', 'name': '输入图像', 'image': img_u8,
+             'visual_kind': 'image',
+             'explanation': explanations[0]},
+            {'id': 'boxes', 'name': f'实例框（{len(instances)} 个）', 'image': box_vis,
+             'visual_kind': 'overlay_image',
+             'overlay_scope': 'frame',
+             'overlays': {'boxes': overlay_instances},
+             'data': {'instances': public_instances},
+             'explanation': explanations[1]},
+            {'id': 'masks', 'name': '逐实例掩码', 'image': mask_vis,
+             'visual_kind': 'overlay_image',
+             'overlay_scope': 'frame',
+             'overlays': {'masks': overlay_instances, 'boxes': overlay_instances},
+             'data': {'instances': public_instances},
+             'explanation': explanations[2]},
+            {'id': 'score_area', 'name': '实例分数与面积', 'image': _instance_chart_image(instance_chart),
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': instance_chart,
+             'explanation': '柱状图展示每个实例的置信度，并附带 mask 面积占比；前端根据结构化数据高清绘制。'},
+            {'id': 'detail', 'name': '实例裁剪', 'image': detail,
+             'visual_kind': 'image',
+             'explanation': explanations[3]},
         ],
         'metrics': metrics,
         'instances': public_instances,
@@ -262,3 +283,61 @@ def _colors():
         [239, 68, 68], [34, 197, 94], [59, 130, 246],
         [217, 119, 6], [124, 58, 237], [20, 184, 166],
     ], dtype=np.uint8)
+
+
+def _overlay_instances(instances):
+    colors = _colors()
+    out = []
+    for idx, inst in enumerate(instances):
+        item = {
+            'box': [round(float(v), 1) for v in inst.get('box', [])[:4]],
+            'label': inst.get('label', f'实例 {idx + 1}'),
+            'score': round(float(inst.get('score', 0)), 4),
+            'color': colors[idx % len(colors)].tolist(),
+        }
+        mask = np.asarray(inst.get('mask'), dtype=bool)
+        if mask.ndim == 2 and mask.size:
+            item['mask_base64'] = to_base64(mask.astype(np.uint8) * 255)
+            item['mask_area'] = int(mask.sum())
+        out.append(item)
+    return out
+
+
+def _instance_chart(instances, total_pixels):
+    total = max(1, int(total_pixels))
+    items = []
+    for idx, inst in enumerate(instances[:10]):
+        mask = np.asarray(inst.get('mask'), dtype=bool)
+        items.append({
+            'label': inst.get('label', f'实例 {idx + 1}'),
+            'value': round(float(inst.get('score', 0)), 4),
+            'mask_ratio': round(float(mask.sum()) / total, 4) if mask.size else 0,
+            'box': [round(float(v), 1) for v in inst.get('box', [])[:4]],
+        })
+    return {
+        'type': 'bar',
+        'title': '实例置信度',
+        'subtitle': '柱长表示检测置信度，数据里同时保留 mask 面积占比。',
+        'xLabel': '实例',
+        'yLabel': '置信度',
+        'valueFormat': 'percent',
+        'items': items,
+    }
+
+
+def _instance_chart_image(chart, width=640, height=300):
+    from PIL import Image, ImageDraw
+    canvas = Image.new('RGB', (width, height), (15, 23, 42))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((20, 16), chart.get('title', '实例置信度'), fill=(226, 232, 240))
+    items = chart.get('items', [])[:10]
+    if not items:
+        draw.text((20, height // 2), '暂无实例', fill=(148, 163, 184))
+        return np.array(canvas)
+    bar_h = max(18, (height - 70) // len(items) - 8)
+    for idx, item in enumerate(items):
+        y = 54 + idx * (bar_h + 8)
+        value = float(item.get('value', 0))
+        draw.text((18, y + 2), str(item.get('label', f'实例 {idx + 1}'))[:18], fill=(226, 232, 240))
+        draw.rectangle((180, y, 180 + int(value * (width - 220)), y + bar_h), fill=(168, 85, 247))
+    return np.array(canvas)

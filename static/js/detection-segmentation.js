@@ -9,37 +9,54 @@
     yolo: 'YOLO范式',
     unet: 'U-Net机制'
   };
-  var TASK_STEPS = {
-    detection: ['detection_detections', 'detection_score_filter', 'detection_objectness'],
-    semantic: ['semantic_overlay', 'semantic_label_map', 'semantic_confidence'],
-    instance: ['instance_masks', 'instance_mask_threshold', 'instance_detector_stage'],
-    yolo: ['detections', 'score_filter', 'objectness'],
-    unet: ['mask', 'probability', 'skip_fusion']
+
+  var TASK_GUIDE = {
+    detection: {
+      title: '图里有什么，在哪里',
+      text: '它解决的是“找物体”的问题：比如图里有没有人、车、狗，它们大概在什么位置。结果要按三个东西读：类别名称、置信度、边界框。它适合定位和计数，但只给矩形框，不给精确轮廓。',
+      formula: 'D={(box_i,class_i,score_i)}',
+      output: '框 + 类别 + 置信度'
+    },
+    semantic: {
+      title: '每个像素是什么类别',
+      text: '它解决的是“给整张图涂类别颜色”的问题：道路、天空、车辆、人体等区域分别在哪里。它会给每个像素一个类别，但不会区分同类里的不同个体。',
+      formula: 'label(x,y)=argmax_c p_c(x,y)',
+      output: '每个像素一个类别'
+    },
+    instance: {
+      title: '同类物体也要一个个分开',
+      text: '它解决的是“哪个个体是哪一个”的问题：两个人同样都是 person，但要有两个独立 mask。它结合检测框和像素 mask，适合需要数个体、量面积、抠单个目标的场景。',
+      formula: 'I_i=(box_i,class_i,mask_i)',
+      output: '框 + 类别 + 每个实例自己的 mask'
+    },
+    yolo: {
+      title: 'YOLO范式：一次看完整张图并快速出框',
+      text: '它解决的是“检测要更快”的问题：把图像划成网格，每个位置直接预测有没有目标和框在哪里。本页是后端本地机制实现，用真实计算讲清单阶段思想，不冒充官方 YOLO 权重。',
+      formula: 'box,obj,class=head(grid(I))',
+      output: '网格目标性 + 候选框 + 去重结果'
+    },
+    unet: {
+      title: 'U-Net机制：既看全局，又保边界',
+      text: '它解决的是“像素级 mask 边界要细”的问题：编码器压缩图像看大局，解码器恢复尺寸，跳跃连接把早期边缘细节补回来。本页是后端本地机制实现，不冒充训练好的 U-Net 权重。',
+      formula: 'D_l=concat(up(D_{l+1}),E_l)',
+      output: '前景概率图 + 二值 mask'
+    }
   };
-  var COLORS = [
-    '#22c55e', '#3b82f6', '#a855f7', '#f59e0b', '#14b8a6',
-    '#ec4899', '#eab308', '#38bdf8', '#84cc16', '#fb7185'
-  ];
 
   var state = {
     task: initialTask(),
-    model: initialModel(),
+    model: '',
     file: null,
     models: null,
     result: null,
-    view: 'result',
+    stage: null,
     filter: 'all',
-    selectedTask: 'detection',
-    selectedObject: null,
-    selectedStepIndex: 0,
-    playing: false,
-    playTimer: null
+    selectedTask: 'detection'
   };
 
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     taskBtns: Array.prototype.slice.call(document.querySelectorAll('.task-btn')),
-    viewBtns: Array.prototype.slice.call(document.querySelectorAll('.view-btn')),
     filterBtns: Array.prototype.slice.call(document.querySelectorAll('.filter-btn')),
     modelSelect: $('modelSelect'),
     modelHint: $('modelHint'),
@@ -53,16 +70,6 @@
     scoreValue: $('scoreValue'),
     mask: $('maskThreshold'),
     maskValue: $('maskValue'),
-    opacity: $('overlayOpacity'),
-    opacityValue: $('opacityValue'),
-    stageTitle: $('stageTitle'),
-    stage: $('stage'),
-    stageImage: $('stageImage'),
-    canvas: $('stageCanvas'),
-    stageEmpty: $('stageEmpty'),
-    playBtn: $('playBtn'),
-    stepSlider: $('stepSlider'),
-    stepName: $('stepName'),
     inspectTitle: $('inspectTitle'),
     inspectText: $('inspectText'),
     formula: $('formulaBox'),
@@ -74,12 +81,21 @@
     loading: $('loading'),
     error: $('errorBox')
   };
-  var ctx = el.canvas.getContext('2d');
 
   init();
 
   function init() {
     bind();
+    state.stage = window.InteractiveTeachingStage && window.InteractiveTeachingStage.mount($('interactiveStageRoot'), {
+      compact: true,
+      frameDelay: 1000,
+      onParamChange: function (name, value) {
+        if (name === 'score_threshold') el.score.value = Math.round(Number(value) * 100);
+        if (name === 'mask_threshold') el.mask.value = Math.round(Number(value) * 100);
+        updateThresholdText();
+        runCurrentTask();
+      }
+    });
     loadModels().then(function () {
       applyTask(state.task);
       runCurrentTask();
@@ -89,31 +105,20 @@
   function initialTask() {
     var params = new URLSearchParams(location.search);
     var raw = params.get('module') || params.get('task') || params.get('tab') || location.hash.replace('#', '');
-    if (['detection', 'semantic', 'instance', 'yolo', 'unet'].indexOf(raw) >= 0) return raw;
-    return 'all';
-  }
-
-  function initialModel() {
-    return new URLSearchParams(location.search).get('model') || '';
+    return ['detection', 'semantic', 'instance', 'yolo', 'unet'].indexOf(raw) >= 0 ? raw : 'all';
   }
 
   function bind() {
     el.taskBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         applyTask(btn.dataset.task);
-      });
-    });
-    el.viewBtns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        setView(btn.dataset.view);
+        runCurrentTask();
       });
     });
     el.filterBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         state.filter = btn.dataset.filter;
-        el.filterBtns.forEach(function (item) {
-          item.classList.toggle('active', item === btn);
-        });
+        el.filterBtns.forEach(function (item) { item.classList.toggle('active', item === btn); });
         renderSteps();
       });
     });
@@ -133,31 +138,13 @@
       runCurrentTask();
     });
     el.modelsBtn.addEventListener('click', function () {
-      loadModels(true).then(function () {
-        applyTask(state.task);
-      });
+      loadModels(true).then(function () { applyTask(state.task); });
     });
     el.runBtn.addEventListener('click', runCurrentTask);
-    el.score.addEventListener('input', function () {
-      el.scoreValue.textContent = value01(el.score);
-      updateThresholdHint();
-    });
-    el.mask.addEventListener('input', function () {
-      el.maskValue.textContent = value01(el.mask);
-      updateThresholdHint();
-    });
-    el.opacity.addEventListener('input', function () {
-      el.opacityValue.textContent = value01(el.opacity);
-      renderStageResult();
-    });
-    el.playBtn.addEventListener('click', togglePlayback);
-    el.stepSlider.addEventListener('input', function () {
-      stopPlayback();
-      showStep(Number(el.stepSlider.value));
-    });
-    el.stageImage.addEventListener('load', syncCanvasToImage);
-    window.addEventListener('resize', syncCanvasToImage);
-    el.canvas.addEventListener('click', onCanvasClick);
+    el.score.addEventListener('input', updateThresholdText);
+    el.mask.addEventListener('input', updateThresholdText);
+    el.score.addEventListener('change', runCurrentTask);
+    el.mask.addEventListener('change', runCurrentTask);
   }
 
   function loadModels(force) {
@@ -179,22 +166,20 @@
   function applyTask(task) {
     state.task = task || 'all';
     state.selectedTask = state.task === 'all' ? 'detection' : state.task;
-    state.selectedObject = null;
-    el.taskBtns.forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.task === state.task);
-    });
+    el.taskBtns.forEach(function (btn) { btn.classList.toggle('active', btn.dataset.task === state.task); });
     renderModelOptions();
     renderModelHint();
-    history.replaceState(null, '', '?module=' + encodeURIComponent(state.task === 'all' ? 'ai_eye' : state.task));
-    updateThresholdHint();
+    updateThresholdText();
+    history.replaceState(null, '', '?task=' + encodeURIComponent(state.task));
   }
 
   function renderModelOptions() {
     if (!state.models) return;
     if (state.task === 'yolo' || state.task === 'unet') {
-      var localLabel = state.task === 'yolo' ? 'YOLO-style 本地机制实现' : 'U-Net-style 本地机制实现';
-      el.modelSelect.innerHTML = '<option value="local_mechanism">' + esc(localLabel) + '</option>';
+      var label = state.task === 'yolo' ? 'YOLO-style 本地机制实现' : 'U-Net-style 本地机制实现';
+      el.modelSelect.innerHTML = '<option value="local_mechanism">' + esc(label) + '</option>';
       el.modelSelect.disabled = true;
+      state.model = 'local_mechanism';
       return;
     }
     var task = state.task === 'all' ? 'detection' : state.task;
@@ -213,31 +198,28 @@
   function renderModelHint() {
     if (!state.models) return;
     if (state.task === 'all') {
-      el.modelHint.textContent = '总览会同时运行检测、语义分割、实例分割的默认模型；切到单任务后可切换该任务模型。';
+      el.modelHint.textContent = '总览会同时运行检测、语义分割、实例分割的默认模型；切到单任务后可切换模型。';
       return;
     }
     if (state.task === 'yolo') {
-      el.modelHint.textContent = 'YOLO范式是后端 NumPy/Pillow 本地机制实现：真实计算网格、目标性、候选框和过滤，但不是官方预训练 YOLO 权重。';
+      el.modelHint.textContent = 'YOLO范式为后端 NumPy/Pillow 本地机制实现：真实计算网格、候选框和过滤，但不是官方训练权重。';
       return;
     }
     if (state.task === 'unet') {
-      el.modelHint.textContent = 'U-Net机制是后端本地编码器、瓶颈、解码器、跳跃融合和 mask 计算，用来讲清结构，不冒充训练好权重。';
+      el.modelHint.textContent = 'U-Net机制为后端本地编码器、瓶颈、解码器与跳跃融合计算，用来讲清结构，不冒充训练权重。';
       return;
     }
     var model = state.models.models[state.model];
-    if (!model) return;
-    el.modelHint.textContent = model.description + ' 优势：' + model.strengths + ' 局限：' + model.limitations;
+    el.modelHint.textContent = model ? (model.description + ' 优势：' + model.strengths + ' 局限：' + model.limitations) : '';
   }
 
-  function updateThresholdHint() {
+  function updateThresholdText() {
     el.scoreValue.textContent = value01(el.score);
     el.maskValue.textContent = value01(el.mask);
-    el.opacityValue.textContent = value01(el.opacity);
   }
 
   function runCurrentTask() {
     clearError();
-    stopPlayback();
     setBusy(true);
     var local = state.task === 'yolo' || state.task === 'unet';
     var endpoint = local ? '/api/demo/' + state.task : '/api/demo/ai_eye';
@@ -254,10 +236,10 @@
       .then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (json) {
           json._status = res.status;
-          if (!res.ok) {
-            var error = new Error(json.error || (json.metrics && json.metrics.error) || ('HTTP ' + res.status));
-            error.payload = json;
-            throw error;
+          if (!res.ok && json.error) {
+            var err = new Error(json.error);
+            err.payload = json;
+            throw err;
           }
           return json;
         });
@@ -266,33 +248,28 @@
         setBusy(false);
         state.result = json;
         if (json.models) state.models = json.models;
-        state.selectedTask = defaultSelectedTask(json);
-        state.selectedObject = null;
-        state.selectedStepIndex = Math.max(0, (json.steps || []).length - 1);
         renderAll();
+        if (json.error) showError(json.error);
       })
       .catch(function (err) {
         setBusy(false);
-        renderFailurePayload(err.payload);
+        if (err.payload) {
+          state.result = err.payload;
+          renderAll();
+        }
         showError('运行失败：' + (err.message || err));
       });
   }
 
-  function renderFailurePayload(payload) {
-    if (!payload || typeof payload !== 'object') return;
-    state.result = payload;
-    if (payload.models) state.models = payload.models;
-    state.selectedObject = null;
-    renderModelOptions();
-    renderModelHint();
-    renderModelStrip();
+  function renderAll() {
+    if (state.stage) state.stage.render(state.result || {});
+    state.selectedTask = defaultSelectedTask(state.result || {});
     renderOverview();
     renderObjects();
     renderSteps();
-    setupTimeline();
+    renderModelStrip();
     updateInspectorForTask(state.selectedTask);
-    el.stageImage.removeAttribute('src');
-    el.stageEmpty.classList.remove('is-hidden');
+    if (window.renderLatexIn) window.renderLatexIn(document);
   }
 
   function defaultSelectedTask(json) {
@@ -306,29 +283,21 @@
     return 'detection';
   }
 
-  function renderAll() {
-    el.stageEmpty.classList.add('is-hidden');
-    renderOverview();
-    renderObjects();
-    renderSteps();
-    renderModelStrip();
-    setupTimeline();
-    setView('result');
-    renderStageResult();
-    updateInspectorForTask(state.selectedTask);
-  }
-
-  function setView(view) {
-    state.view = view;
-    el.viewBtns.forEach(function (btn) {
-      btn.classList.toggle('active', btn.dataset.view === view);
-    });
-    if (view === 'process') {
-      showStep(state.selectedStepIndex);
-    } else {
-      renderStageResult();
-      updateInspectorForTask(state.selectedTask);
+  function overviewCards() {
+    if (!state.result) return [];
+    if (state.result.module_id === 'yolo') {
+      return [{ task: 'yolo', title: 'YOLO范式', badge: 'local mechanism', image: findStepImage(['detections', 'score_filter']), text: TASK_GUIDE.yolo.text }];
     }
+    if (state.result.module_id === 'unet') {
+      return [{ task: 'unet', title: 'U-Net机制', badge: 'local mechanism', image: findStepImage(['mask', 'probability', 'skip_fusion']), text: TASK_GUIDE.unet.text }];
+    }
+    return [
+      { task: 'detection', title: '目标检测', badge: 'box + class + score', image: findStepImage(['detection_detections', 'detection_score_filter', 'detections']), text: summarizeTask('detection') },
+      { task: 'semantic', title: '语义分割', badge: 'pixel class map', image: findStepImage(['semantic_overlay', 'semantic_label_map', 'overlay', 'label_map']), text: summarizeTask('semantic') },
+      { task: 'instance', title: '实例分割', badge: 'box + mask', image: findStepImage(['instance_masks', 'instance_mask_threshold', 'masks']), text: summarizeTask('instance') }
+    ].filter(function (card) {
+      return state.task === 'all' || state.task === card.task || ((state.result.outputs || {})[card.task]);
+    });
   }
 
   function renderOverview() {
@@ -347,58 +316,10 @@
     Array.prototype.forEach.call(el.overview.querySelectorAll('.overview-card'), function (button) {
       button.addEventListener('click', function () {
         state.selectedTask = button.dataset.task;
-        state.selectedObject = null;
-        setView('result');
         renderOverview();
         renderObjects();
+        updateInspectorForTask(state.selectedTask);
       });
-    });
-  }
-
-  function overviewCards() {
-    if (!state.result) return [];
-    if (state.result.module_id === 'yolo') {
-      return [{
-        task: 'yolo',
-        title: 'YOLO范式：网格一次性预测',
-        badge: 'local mechanism',
-        image: findStepImage(['detections', 'score_filter', 'raw_boxes']),
-        text: '后端真实计算网格目标性、候选框、过滤和最终框。'
-      }];
-    }
-    if (state.result.module_id === 'unet') {
-      return [{
-        task: 'unet',
-        title: 'U-Net机制：编码解码与跳跃连接',
-        badge: 'local mechanism',
-        image: findStepImage(['mask', 'probability', 'skip_fusion']),
-        text: '后端真实计算编码器细节、瓶颈、跳跃融合、概率图和最终mask。'
-      }];
-    }
-    return [
-      {
-        task: 'detection',
-        title: '目标检测',
-        badge: 'box + class + score',
-        image: findStepImage(['detection_detections', 'detection_score_filter']),
-        text: summarizeTask('detection')
-      },
-      {
-        task: 'semantic',
-        title: '语义分割',
-        badge: 'pixel class map',
-        image: findStepImage(['semantic_overlay', 'semantic_label_map']),
-        text: summarizeTask('semantic')
-      },
-      {
-        task: 'instance',
-        title: '实例分割',
-        badge: 'box + mask',
-        image: findStepImage(['instance_masks', 'instance_mask_threshold']),
-        text: summarizeTask('instance')
-      }
-    ].filter(function (card) {
-      return state.task === 'all' || state.task === card.task || (state.result.outputs || {})[card.task];
     });
   }
 
@@ -407,420 +328,159 @@
     if (!alg) return '当前运行范围未包含该任务。';
     if (alg.error) return alg.error;
     var out = ((state.result.outputs || {})[task]) || alg.output || {};
-    if (task === 'detection') return '检测到 ' + ((out.detections || []).length) + ' 个高于阈值的目标。';
-    if (task === 'semantic') return '得到 ' + ((out.labels || []).length) + ' 个主要语义类别及其像素占比。';
-    return '分离出 ' + ((out.instances || []).length) + ' 个实例，每个实例有独立框和mask统计。';
-  }
-
-  function renderObjects() {
-    var objects = currentObjects();
-    if (!objects.length) {
-      el.objectList.innerHTML = '<div class="empty-card">当前视角没有可点击的结构化对象；请查看过程步骤。</div>';
-      return;
-    }
-    el.objectList.innerHTML = objects.map(function (obj, index) {
-      var score = obj.score != null ? obj.score : obj.ratio != null ? obj.ratio : obj.area_ratio != null ? obj.area_ratio : 0;
-      var active = state.selectedObject && state.selectedObject.key === obj.key ? ' active' : '';
-      return '<button class="object-card' + active + '" type="button" data-index="' + index + '">' +
-        '<header><strong>' + esc(obj.title) + '</strong><span>' + esc(obj.badge) + '</span></header>' +
-        '<p>' + esc(obj.text) + '</p><div class="bars"><div class="mini-bar"><i style="--w:' +
-        Math.max(3, Math.min(100, score * 100)).toFixed(1) + '%"></i></div></div></button>';
-    }).join('');
-    Array.prototype.forEach.call(el.objectList.querySelectorAll('.object-card'), function (button) {
-      button.addEventListener('click', function () {
-        state.selectedObject = objects[Number(button.dataset.index || 0)];
-        setView('result');
-        renderObjects();
-        renderStageResult();
-        updateInspectorForObject(state.selectedObject);
-      });
-    });
+    if (task === 'detection') return TASK_GUIDE.detection.text + ' 当前检测到 ' + ((out.detections || []).length) + ' 个高于阈值的目标。';
+    if (task === 'semantic') return TASK_GUIDE.semantic.text + ' 当前得到 ' + ((out.labels || []).length) + ' 个主要语义类别及像素占比。';
+    return TASK_GUIDE.instance.text + ' 当前分离出 ' + ((out.instances || []).length) + ' 个实例。';
   }
 
   function currentObjects() {
     if (!state.result) return [];
     if (state.selectedTask === 'detection') {
       return getOutput('detection', 'detections').map(function (det, index) {
-        return {
-          key: 'detection-' + index,
-          type: 'box',
-          task: 'detection',
-          box: det.box,
-          title: det.label || 'object',
-          badge: 'score ' + formatNumber(det.score),
-          text: '边界框 ' + formatBox(det.box),
-          data: det,
-          score: Number(det.score || 0)
-        };
+        return { key: 'detection-' + index, title: det.label || 'object', badge: 'score ' + formatNumber(det.score), text: '边界框 ' + formatBox(det.box), data: det, score: Number(det.score || 0) };
       });
     }
     if (state.selectedTask === 'instance') {
       return getOutput('instance', 'instances').map(function (inst, index) {
-        return {
-          key: 'instance-' + index,
-          type: 'box',
-          task: 'instance',
-          box: inst.box,
-          title: inst.label || 'instance',
-          badge: 'score ' + formatNumber(inst.score),
-          text: '面积 ' + (inst.area || 0) + ' 像素，框 ' + formatBox(inst.box),
-          data: inst,
-          score: Number(inst.score || 0)
-        };
+        return { key: 'instance-' + index, title: inst.label || 'instance', badge: 'score ' + formatNumber(inst.score), text: '面积 ' + (inst.area || 0) + ' 像素，框 ' + formatBox(inst.box), data: inst, score: Number(inst.score || 0) };
       });
     }
     if (state.selectedTask === 'semantic') {
       return getOutput('semantic', 'labels').map(function (label, index) {
-        return {
-          key: 'semantic-' + index,
-          type: 'semantic',
-          task: 'semantic',
-          title: label.label || ('class ' + label.label_id),
-          badge: Math.round((label.ratio || 0) * 1000) / 10 + '%',
-          text: '像素数 ' + label.pixels + '，类别 ID ' + label.label_id,
-          data: label,
-          ratio: Number(label.ratio || 0)
-        };
+        return { key: 'semantic-' + index, title: label.label || ('class ' + label.label_id), badge: Math.round((label.ratio || 0) * 1000) / 10 + '%', text: '像素数 ' + label.pixels + '，类别 ID ' + label.label_id, data: label, score: Number(label.ratio || 0) };
       });
     }
     if (state.selectedTask === 'yolo') {
       return extractStepData('detections', 'detections').map(function (det, index) {
-        return {
-          key: 'yolo-' + index,
-          type: 'box',
-          task: 'yolo',
-          box: det.box,
-          title: det.label || ('候选 ' + (index + 1)),
-          badge: 'score ' + formatNumber(det.score),
-          text: 'YOLO机制候选框 ' + formatBox(det.box),
-          data: det,
-          score: Number(det.score || det.objectness || 0)
-        };
+        return { key: 'yolo-' + index, title: det.label || ('候选 ' + (index + 1)), badge: 'score ' + formatNumber(det.score), text: 'YOLO 机制候选框 ' + formatBox(det.box), data: det, score: Number(det.score || det.objectness || 0) };
       });
     }
     return [];
   }
 
-  function renderStageResult() {
-    if (!state.result) return;
-    state.view = 'result';
-    el.canvas.style.pointerEvents = 'auto';
-    var focus = selectedFocusImage();
-    var image = focus || stageImageForTask(state.selectedTask);
-    if (!image) {
-      el.stageImage.removeAttribute('src');
-      el.stageEmpty.classList.remove('is-hidden');
+  function renderObjects() {
+    var objects = currentObjects();
+    if (!objects.length) {
+      el.objectList.innerHTML = '<div class="empty-card">当前视角没有可点击的结构化对象，请查看过程步骤。</div>';
       return;
     }
-    el.stageEmpty.classList.add('is-hidden');
-    el.stageImage.style.opacity = focus ? '1' : String(Number(el.opacity.value) / 100);
-    el.stageImage.src = 'data:image/png;base64,' + image;
-    el.stageTitle.textContent = focus && state.selectedObject
-      ? '聚焦查看：' + state.selectedObject.title
-      : (TASK_TEXT[state.selectedTask] || '结果视图');
-    syncCanvasToImage();
-  }
-
-  function selectedFocusImage() {
-    if (!state.selectedObject || !state.selectedObject.data) return '';
-    return state.selectedObject.data.focus_image_base64 || state.selectedObject.data.image_base64 || '';
-  }
-
-  function stageImageForTask(task) {
-    if (task === 'detection') return findStepImage(['detection_detections', 'detection_score_filter']);
-    if (task === 'semantic') return findStepImage(['semantic_overlay', 'semantic_label_map']);
-    if (task === 'instance') return findStepImage(['instance_masks', 'instance_mask_threshold']);
-    if (task === 'yolo') return findStepImage(['detections', 'score_filter']);
-    if (task === 'unet') return findStepImage(['mask', 'probability', 'skip_fusion']);
-    return findStepImage(['detection_detections', 'semantic_overlay', 'instance_masks', 'detections', 'mask']);
-  }
-
-  function syncCanvasToImage() {
-    var image = el.stageImage;
-    if (!image.complete || !image.naturalWidth || !image.naturalHeight) return;
-    var rect = image.getBoundingClientRect();
-    var stageRect = el.stage.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    el.canvas.width = Math.max(1, Math.round(rect.width));
-    el.canvas.height = Math.max(1, Math.round(rect.height));
-    el.canvas.style.width = rect.width + 'px';
-    el.canvas.style.height = rect.height + 'px';
-    el.canvas.style.left = (rect.left - stageRect.left) + 'px';
-    el.canvas.style.top = (rect.top - stageRect.top) + 'px';
-    drawStageOverlay();
-  }
-
-  function drawStageOverlay() {
-    ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
-    var focus = selectedFocusImage();
-    var objects = focus && state.selectedObject && state.selectedObject.box
-      ? [state.selectedObject]
-      : currentObjects().filter(function (obj) { return obj.box; });
-    if (!objects.length || !el.stageImage.naturalWidth) return;
-    var sx = el.canvas.width / el.stageImage.naturalWidth;
-    var sy = el.canvas.height / el.stageImage.naturalHeight;
-    objects.forEach(function (obj, index) {
-      var box = obj.box;
-      var active = state.selectedObject && state.selectedObject.key === obj.key;
-      var color = COLORS[index % COLORS.length];
-      ctx.lineWidth = active ? 4 : 2;
-      ctx.strokeStyle = color;
-      ctx.fillStyle = active ? hexToRgba(color, 0.18) : hexToRgba(color, 0.06);
-      var x = box[0] * sx;
-      var y = box[1] * sy;
-      var w = (box[2] - box[0]) * sx;
-      var h = (box[3] - box[1]) * sy;
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
-      ctx.fillStyle = color;
-      ctx.fillRect(x, Math.max(0, y - 24), Math.min(180, Math.max(70, String(obj.title).length * 8 + 46)), 22);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(obj.title + ' ' + (obj.data.score ? Number(obj.data.score).toFixed(2) : ''), x + 6, Math.max(14, y - 8));
-    });
-  }
-
-  function onCanvasClick(event) {
-    if (state.view !== 'result' || !el.stageImage.naturalWidth) return;
-    var rect = el.canvas.getBoundingClientRect();
-    var x = (event.clientX - rect.left) / rect.width * el.stageImage.naturalWidth;
-    var y = (event.clientY - rect.top) / rect.height * el.stageImage.naturalHeight;
-    var hit = currentObjects().find(function (obj) {
-      if (!obj.box) return false;
-      return x >= obj.box[0] && x <= obj.box[2] && y >= obj.box[1] && y <= obj.box[3];
-    });
-    if (hit) {
-      state.selectedObject = hit;
-      renderObjects();
-      drawStageOverlay();
-      updateInspectorForObject(hit);
-    }
-  }
-
-  function setupTimeline() {
-    var steps = state.result && state.result.steps ? state.result.steps : [];
-    el.stepSlider.max = String(Math.max(0, steps.length - 1));
-    el.stepSlider.value = String(Math.max(0, state.selectedStepIndex));
-    el.stepName.textContent = steps[state.selectedStepIndex] ? steps[state.selectedStepIndex].name : '等待步骤';
-  }
-
-  function showStep(index) {
-    var steps = state.result && state.result.steps ? state.result.steps : [];
-    if (!steps.length) return;
-    index = Math.max(0, Math.min(steps.length - 1, index));
-    state.view = 'process';
-    state.selectedStepIndex = index;
-    var step = steps[index];
-    el.stageTitle.textContent = step.name || step.id || '过程步骤';
-    el.stepSlider.value = String(index);
-    el.stepName.textContent = step.name || step.id || '过程步骤';
-    if (step.image_base64) {
-      el.stageImage.style.opacity = '1';
-      el.stageImage.src = 'data:image/png;base64,' + step.image_base64;
-      el.stageEmpty.classList.add('is-hidden');
-    }
-    ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
-    updateInspectorForStep(step);
-  }
-
-  function togglePlayback() {
-    var steps = state.result && state.result.steps ? state.result.steps : [];
-    if (!steps.length) return;
-    if (state.playing) {
-      stopPlayback();
-      return;
-    }
-    state.playing = true;
-    el.playBtn.textContent = '暂停';
-    setView('process');
-    var index = 0;
-    showStep(index);
-    state.playTimer = setInterval(function () {
-      index += 1;
-      if (index >= steps.length) {
-        stopPlayback();
-        setView('result');
-        return;
-      }
-      showStep(index);
-    }, 1050);
-  }
-
-  function stopPlayback() {
-    state.playing = false;
-    el.playBtn.textContent = '播放过程';
-    if (state.playTimer) clearInterval(state.playTimer);
-    state.playTimer = null;
-  }
-
-  function renderSteps() {
-    if (!state.result) return;
-    var steps = state.result.steps || [];
-    var filtered = steps.filter(function (step) {
-      if (state.filter === 'all') return true;
-      if ((state.result.module_id === 'yolo' || state.result.module_id === 'unet') && state.filter === state.result.module_id) return true;
-      return String(step.id || '').indexOf(state.filter + '_') === 0;
-    });
-    if (!filtered.length) {
-      el.steps.innerHTML = '<div class="empty-card">当前筛选没有步骤。</div>';
-      return;
-    }
-    el.steps.innerHTML = filtered.map(function (step, index) {
-      var realIndex = steps.indexOf(step);
-      return '<button class="step-card" type="button" data-index="' + realIndex + '">' +
-        '<div class="media">' + (step.image_base64 ? '<img src="data:image/png;base64,' + step.image_base64 + '" alt="' + esc(step.name || step.id || 'step') + '">' : '<span class="empty-card">无图像</span>') + '</div>' +
-        '<div class="body"><strong>' + esc((index + 1) + '. ' + (step.name || step.id || '步骤')) + '</strong>' +
-        '<p>' + esc(step.explanation || '') + '</p>' +
-        (step.formula ? '<code class="step-formula">' + esc(step.formula) + '</code>' : '') +
-        renderMiniData(step.data) + '</div></button>';
+    el.objectList.innerHTML = objects.map(function (obj, index) {
+      return '<button class="object-card" type="button" data-index="' + index + '">' +
+        '<header><strong>' + esc(obj.title) + '</strong><span>' + esc(obj.badge) + '</span></header>' +
+        '<p>' + esc(obj.text) + '</p><div class="bars"><div class="mini-bar"><i style="--w:' +
+        Math.max(3, Math.min(100, obj.score * 100)).toFixed(1) + '%"></i></div></div></button>';
     }).join('');
-    if (window.renderLatexIn) window.renderLatexIn(el.steps);
-    Array.prototype.forEach.call(el.steps.querySelectorAll('.step-card'), function (button) {
+    Array.prototype.forEach.call(el.objectList.querySelectorAll('.object-card'), function (button) {
       button.addEventListener('click', function () {
-        stopPlayback();
-        setView('process');
-        showStep(Number(button.dataset.index || 0));
+        updateInspectorForObject(objects[Number(button.dataset.index || 0)]);
       });
     });
   }
 
-  function renderMiniData(data) {
-    if (!data || typeof data !== 'object') return '';
-    var parts = Object.keys(data).filter(function (key) {
-      return key.indexOf('base64') < 0 && key !== 'mask';
-    }).slice(0, 4).map(function (key) {
-      var value = data[key];
-      if (Array.isArray(value)) return key + ': ' + value.length;
-      if (value && typeof value === 'object') return key + ': ' + Object.keys(value).length + '项';
-      return key + ': ' + formatMetric(value);
+  function stepTeachingHtml(step) {
+    var parts = [];
+    if (step.problem_statement) parts.push(['解决的问题', step.problem_statement]);
+    if (step.plain_explanation || step.teaching_summary) parts.push(['这一步', step.plain_explanation || step.teaching_summary]);
+    if (step.watch_for) parts.push(['观察重点', step.watch_for]);
+    if (
+      step.explanation &&
+      step.explanation !== step.plain_explanation &&
+      (!step.problem_statement || step.explanation.indexOf(step.problem_statement) !== 0)
+    ) {
+      parts.push(['严谨说明', step.explanation]);
+    }
+    return parts.map(function (part) {
+      return '<p class="step-note"><b>' + esc(part[0]) + '</b>' + esc(part[1]) + '</p>';
+    }).join('');
+  }
+
+  function renderSteps() {
+    var steps = ((state.result && state.result.steps) || []).filter(function (step) {
+      if (state.filter === 'all') return true;
+      return String(step.id || '').indexOf(state.filter + '_') === 0 || String(step.id || '').indexOf(state.filter) >= 0;
     });
-    return parts.length ? '<div class="data-mini">' + esc(parts.join(' · ')) + '</div>' : '';
+    if (!steps.length) {
+      el.steps.innerHTML = '<div class="empty-card">暂无可展示步骤。</div>';
+      return;
+    }
+    el.steps.innerHTML = steps.map(function (step, index) {
+      var img = step.chart
+        ? '<canvas class="step-chart-thumb" data-step-chart="' + index + '" aria-label="' + esc(step.name || step.id || 'chart') + '"></canvas>'
+        : (step.image_base64 ? '<img src="data:image/png;base64,' + step.image_base64 + '" alt="' + esc(step.name || step.id || 'step') + '">' : '<div class="empty-card">无图</div>');
+      return '<article class="step-card">' +
+        '<div class="step-img">' + img + '</div><div class="step-copy">' +
+        '<span>' + String(index + 1).padStart(2, '0') + '</span><h3>' + esc(step.name || step.id || '步骤') + '</h3>' +
+        stepTeachingHtml(step) +
+        (step.formula ? '<code class="formula">' + esc(step.formula) + '</code>' : '') +
+        '</div></article>';
+    }).join('');
+    drawStepCharts(steps);
+    if (window.renderLatexIn) window.renderLatexIn(el.steps);
+  }
+
+  function drawStepCharts(steps) {
+    var helper = window.InteractiveTeachingStage && window.InteractiveTeachingStage.helpers && window.InteractiveTeachingStage.helpers.drawMiniChart;
+    if (!helper) return;
+    Array.prototype.forEach.call(el.steps.querySelectorAll('[data-step-chart]'), function (canvas) {
+      var step = steps[Number(canvas.dataset.stepChart || 0)];
+      if (step && step.chart) helper(canvas, step.chart);
+    });
   }
 
   function renderModelStrip() {
-    if (!state.models) return;
-    var ids = [];
-    ['detection', 'semantic', 'instance'].forEach(function (task) {
-      var id = state.models.defaults && state.models.defaults[task];
-      if (id) ids.push(id);
-    });
-    if (state.task !== 'all' && state.model && ids.indexOf(state.model) < 0) ids.unshift(state.model);
-    var html = ids.map(function (id) {
+    if (!state.models || !el.modelStrip) return;
+    var ids = Object.keys(state.models.models || {});
+    el.modelStrip.innerHTML = ids.map(function (id) {
       var model = state.models.models[id];
-      if (!model) return '';
-      return '<article class="model-card"><strong>' + esc(model.name) + '</strong><span>' +
-        esc(taskName(model.task) + ' · ' + (model.cached ? '权重已缓存' : '首次运行会下载')) + '</span><p>' +
-        esc(model.description || '') + '</p><p>准备命令：<code>' + esc(model.download_command || '') + '</code></p></article>';
+      return '<article class="model-card"><strong>' + esc(model.name || id) + '</strong>' +
+        '<span>' + esc(model.task || '') + ' · ' + esc(model.cached ? '已缓存' : '待下载') + '</span>' +
+        '<p>' + esc(model.description || '') + '</p><code>' + esc(model.download_command || '') + '</code></article>';
     }).join('');
-    html += '<article class="model-card"><strong>YOLO范式机制版</strong><span>本地机制 · 非官方权重</span><p>用后端真实计算解释单阶段网格检测，不冒充预训练 YOLO。</p></article>';
-    html += '<article class="model-card"><strong>U-Net机制版</strong><span>本地机制 · 非训练权重</span><p>用后端真实计算解释编码器、解码器和跳跃连接如何形成 mask。</p></article>';
-    el.modelStrip.innerHTML = html;
   }
 
   function updateInspectorForTask(task) {
-    var map = {
-      detection: {
-        title: '目标检测：有什么，在哪里',
-        text: '检测模型输出矩形框、类别和置信度。点击某个框，可以把结构化数据和图像位置对应起来。',
-        formula: 'D={(box_i, class_i, score_i)}'
-      },
-      semantic: {
-        title: '语义分割：每个像素属于哪一类',
-        text: '语义分割把整张图变成类别地图。点击类别条目，可以看到该类在图中占多少像素。',
-        formula: 'label(x,y)=argmax_c p(c|x,y,I)'
-      },
-      instance: {
-        title: '实例分割：同类目标逐个分开',
-        text: '实例分割在检测框基础上为每个目标生成独立 mask，因此同类物体不会混在一起。',
-        formula: 'M_i(x,y)=1[P_i(x,y)>=tau_m]'
-      },
-      yolo: {
-        title: 'YOLO范式：一次前向完成检测',
-        text: '后端把图像划为网格，计算目标性和候选框，展示单阶段检测为什么快。',
-        formula: 'box, obj, class = head(grid(I))'
-      },
-      unet: {
-        title: 'U-Net机制：语义和边界汇合',
-        text: '编码器负责语义，解码器恢复分辨率，跳跃连接把浅层边界细节送回高分辨率输出。',
-        formula: 'D_l=concat(up(D_{l+1}), E_l)'
-      }
-    };
-    var item = map[task] || map.detection;
-    el.inspectTitle.textContent = item.title;
-    el.inspectText.textContent = item.text;
-    setFormula(item.formula);
-    renderData({
-      task: TASK_TEXT[task] || task,
-      model: modelForTask(task),
-      threshold: value01(el.score),
-      mask_threshold: value01(el.mask)
-    });
+    var guide = TASK_GUIDE[task] || TASK_GUIDE.detection;
+    el.inspectTitle.textContent = guide.title;
+    el.inspectText.textContent = guide.text;
+    if (window.renderLatex) window.renderLatex(el.formula, guide.formula, { display: true });
+    else el.formula.textContent = guide.formula;
+    el.inspectData.innerHTML = '<dt>当前任务</dt><dd>' + esc(TASK_TEXT[task] || task) + '</dd><dt>解决问题</dt><dd>' + esc(guide.output) + '</dd><dt>来源</dt><dd>后端真实推理/计算输出</dd>';
   }
 
   function updateInspectorForObject(obj) {
     if (!obj) return;
-    el.inspectTitle.textContent = obj.title;
-    el.inspectText.textContent = obj.data && obj.data.focus_note
-      ? obj.text + ' ' + obj.data.focus_note
-      : obj.text;
-    setFormula(obj.task === 'semantic'
-      ? 'area_c = sum_{x,y} 1[label(x,y)=c]'
-      : obj.task === 'instance'
-        ? 'instance_i=(box_i, class_i, score_i, mask_i)'
-        : 'det_i=(box_i, class_i, score_i)');
-    renderData(obj.data || {});
-  }
-
-  function updateInspectorForStep(step) {
-    el.inspectTitle.textContent = step.name || step.id || '过程步骤';
-    el.inspectText.textContent = step.explanation || '该步骤来自后端真实计算。';
-    setFormula(step.formula || 'Y=f(X)');
-    renderData(step.data || {});
-  }
-
-  function renderData(data) {
-    var keys = Object.keys(data || {}).filter(function (key) {
-      return key.indexOf('base64') < 0 && key !== 'mask';
-    }).slice(0, 8);
-    if (!keys.length) {
-      el.inspectData.innerHTML = '<dt>数据</dt><dd>暂无结构化数据</dd>';
-      return;
-    }
+    el.inspectTitle.textContent = obj.title || '对象详情';
+    el.inspectText.textContent = (obj.data && obj.data.focus_note)
+      ? obj.data.focus_note
+      : '该对象来自后端返回的结构化输出。前端只负责选择和解释，不会生成假的检测框或 mask。';
+    if (window.renderLatex) window.renderLatex(el.formula, 'object = backend_output', { display: true });
+    var data = obj.data || {};
+    var keys = Object.keys(data).filter(function (key) { return !/image|base64|mask/i.test(key); }).slice(0, 8);
     el.inspectData.innerHTML = keys.map(function (key) {
       return '<dt>' + esc(key) + '</dt><dd>' + esc(formatValue(data[key])) + '</dd>';
-    }).join('');
-  }
-
-  function setFormula(value) {
-    if (!el.formula) return;
-    if (window.renderLatex) window.renderLatex(el.formula, value, { display: true });
-    else el.formula.textContent = value;
+    }).join('') || '<dt>数据</dt><dd>暂无结构化字段</dd>';
   }
 
   function getOutput(task, key) {
-    return (((state.result || {}).outputs || {})[task] || {})[key] || [];
+    var outputs = (state.result && state.result.outputs) || {};
+    return ((outputs[task] || {})[key]) || [];
   }
 
   function extractStepData(stepId, key) {
-    var steps = (state.result || {}).steps || [];
-    var step = steps.find(function (item) { return item.id === stepId; });
-    return ((step || {}).data || {})[key] || [];
+    var steps = (state.result && state.result.steps) || [];
+    for (var i = 0; i < steps.length; i += 1) {
+      if (steps[i].id === stepId && steps[i].data && Array.isArray(steps[i].data[key])) return steps[i].data[key];
+    }
+    return [];
   }
 
   function findStepImage(ids) {
-    var steps = (state.result || {}).steps || [];
+    var steps = (state.result && state.result.steps) || [];
     for (var i = 0; i < ids.length; i += 1) {
-      var hit = steps.find(function (step) { return step.id === ids[i] && step.image_base64; });
-      if (hit) return hit.image_base64;
+      for (var j = 0; j < steps.length; j += 1) {
+        if (steps[j].id === ids[i] && steps[j].image_base64) return steps[j].image_base64;
+      }
     }
-    return '';
-  }
-
-  function modelForTask(task) {
-    if (task === 'yolo' || task === 'unet') return 'local mechanism';
-    var alg = (state.result && state.result.algorithms || {})[task];
-    if (alg) return alg.model_name || alg.model_id || '';
-    if (state.models && state.models.defaults) return state.models.defaults[task] || '';
     return '';
   }
 
@@ -831,9 +491,9 @@
     el.uploadBtn.disabled = flag;
   }
 
-  function showError(message) {
+  function showError(msg) {
     el.error.hidden = false;
-    el.error.textContent = String(message || '未知错误');
+    el.error.textContent = String(msg || '未知错误');
   }
 
   function clearError() {
@@ -842,45 +502,43 @@
   }
 
   function value01(input) {
-    return (Number(input.value) / 100).toFixed(2);
-  }
-
-  function taskName(task) {
-    return TASK_TEXT[task] || task;
+    return (Number(input.value || 0) / 100).toFixed(2);
   }
 
   function formatNumber(value) {
-    var n = Number(value || 0);
-    return n >= 10 ? n.toFixed(1) : n.toFixed(3);
+    var n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(3) : '-';
   }
 
   function formatBox(box) {
-    if (!Array.isArray(box)) return '';
-    return '[' + box.map(function (v) { return Math.round(Number(v)); }).join(', ') + ']';
-  }
-
-  function formatMetric(value) {
-    if (typeof value === 'number') return formatNumber(value);
-    if (value == null) return '';
-    if (typeof value === 'object') return JSON.stringify(value).slice(0, 90);
-    return String(value);
+    return Array.isArray(box) ? '[' + box.map(function (v) { return Math.round(Number(v)); }).join(', ') + ']' : '-';
   }
 
   function formatValue(value) {
-    if (Array.isArray(value)) {
-      if (value.length > 8) return 'len=' + value.length + ' · ' + JSON.stringify(value.slice(0, 3));
-      return JSON.stringify(value);
-    }
+    var mapped = displayValue(value);
+    if (mapped !== null) return mapped;
+    if (Array.isArray(value)) return value.length > 8 ? 'len=' + value.length + ' ' + JSON.stringify(value.slice(0, 4)) : JSON.stringify(value);
     if (value && typeof value === 'object') return JSON.stringify(value).slice(0, 180);
+    if (typeof value === 'number') return Math.round(value * 10000) / 10000;
     return value == null ? '' : String(value);
   }
 
-  function hexToRgba(hex, alpha) {
-    var clean = hex.replace('#', '');
-    var r = parseInt(clean.slice(0, 2), 16);
-    var g = parseInt(clean.slice(2, 4), 16);
-    var b = parseInt(clean.slice(4, 6), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  function displayValue(value) {
+    if (typeof value !== 'string') return null;
+    var map = {
+      local_mechanism: '本地机制实现',
+      local_teaching_fallback: '本地教学兜底',
+      pretrained_model: '真实预训练模型',
+      partial_error: '部分结果可用',
+      unavailable: '暂不可用',
+      torchvision: 'torchvision 真实推理',
+      'NumPy/PIL': 'NumPy/Pillow 本地计算',
+      'NumPy/Pillow': 'NumPy/Pillow 本地计算',
+      local_edge_objectness_detector: '本地边缘目标性检测器',
+      local_color_spatial_segmentation: '本地颜色-空间语义分割',
+      local_proposal_mask_segmenter: '本地候选框实例分割'
+    };
+    return Object.prototype.hasOwnProperty.call(map, value) ? map[value] : null;
   }
 
   function esc(value) {

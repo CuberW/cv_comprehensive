@@ -46,6 +46,9 @@ def _assert_explainable_steps(payload, module_id):
         assert step.get('id'), module_id
         assert step.get('name'), f'{module_id}:{step.get("id")}'
         assert step.get('explanation'), f'{module_id}:{step.get("id")}'
+        assert step.get('problem_statement'), f'{module_id}:{step.get("id")}:problem_statement'
+        assert step.get('plain_explanation'), f'{module_id}:{step.get("id")}:plain_explanation'
+        assert step.get('watch_for'), f'{module_id}:{step.get("id")}:watch_for'
         assert step.get('formula'), f'{module_id}:{step.get("id")}'
         assert step.get('image_base64'), f'{module_id}:{step.get("id")}'
 
@@ -443,6 +446,269 @@ def test_ai_eye_legacy_detection_semantic_instance_endpoints_use_unified_contrac
             assert payload['steps'], module_id
 
 
+def test_ai_eye_step_names_do_not_repeat_selected_task_prefix():
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.post(
+        '/api/demo/ai_eye?task=detection',
+        data={'file': (_fixture_png_bytes(), 'ai-eye-prefix.png'), 'score_threshold': '0.95'},
+        content_type='multipart/form-data',
+    )
+    payload = resp.get_json()
+    assert resp.status_code in {200, 503}
+    if resp.status_code != 200:
+        return
+
+    forbidden = ('目标检测：', '语义分割：', '实例分割：')
+    for step in payload['steps']:
+        assert not str(step['name']).startswith(forbidden), step['name']
+
+
+def test_chart_frames_do_not_gain_implicit_overlays_from_data_boxes():
+    from app.routes import _ensure_interactive_payload
+
+    resp = {
+        'steps': [
+            {
+                'id': 'scores',
+                'name': '分数图',
+                'image_base64': 'AA==',
+                'visual_kind': 'chart',
+                'overlay_scope': 'none',
+                'chart': {'type': 'bar', 'items': [{'label': '候选', 'value': 0.8}]},
+                'data': {'box': [0, 0, 1, 1], 'score': 0.8},
+                'explanation': '图表步骤。',
+                'formula': 's',
+            }
+        ],
+        'metrics': {},
+    }
+
+    out = _ensure_interactive_payload(resp, {}, 'detection')
+    frame = out['frames'][0]
+    assert frame['visual_kind'] == 'chart'
+    assert frame['overlay_scope'] == 'none'
+    assert not frame.get('overlays')
+
+
+def test_interactive_payload_preserves_frontend_diagrams():
+    from app.routes import _ensure_interactive_payload
+
+    resp = {
+        'steps': [
+            {
+                'id': 'residual_block',
+                'name': '残差块',
+                'image_base64': 'AA==',
+                'visual_kind': 'architecture',
+                'overlay_scope': 'none',
+                'diagram': {
+                    'title': '残差连接',
+                    'nodes': [{'id': 'x', 'label': '输入'}, {'id': 'y', 'label': '输出'}],
+                    'edges': [{'from': 'x', 'to': 'y', 'label': 'shortcut'}],
+                },
+                'explanation': '结构图由前端渲染。',
+                'formula': 'y=F(x)+x',
+            }
+        ],
+        'metrics': {},
+    }
+
+    out = _ensure_interactive_payload(resp, {}, 'resnet')
+    frame = out['frames'][0]
+    assert frame['visual_kind'] == 'architecture'
+    assert frame['overlay_scope'] == 'none'
+    assert frame['diagram']['nodes'][0]['label'] == '输入'
+
+
+def test_structured_visuals_keep_frontend_visual_kind_after_normalization():
+    from app.routes import _step_to_dict
+
+    chart_step = _step_to_dict({
+        'id': 'scores',
+        'name': 'scores',
+        'image': 'AA==',
+        'visual_kind': 'image',
+        'chart': {'type': 'bar', 'items': [{'label': 'A', 'value': 0.7}]},
+    }, module_id='resnet')
+    diagram_step = _step_to_dict({
+        'id': 'block',
+        'name': 'block',
+        'image': 'AA==',
+        'visual_kind': 'image',
+        'diagram': {'nodes': [{'id': 'x', 'label': 'x'}]},
+    }, module_id='resnet')
+
+    assert chart_step['visual_kind'] == 'chart'
+    assert diagram_step['visual_kind'] == 'architecture'
+
+
+def test_gan_uses_structured_scatter_charts_for_sample_distribution():
+    from app.modules.phase4_deep_learning.gan.algorithm import build_pipeline
+
+    payload = build_pipeline(iterations=80)
+    chart_steps = {step['id']: step for step in payload['steps'] if step.get('chart')}
+    assert chart_steps['real_distribution']['chart']['type'] == 'scatter'
+    assert chart_steps['initial_generator']['chart']['type'] == 'scatter'
+    assert chart_steps['trained_generator']['chart']['type'] == 'scatter'
+    assert 'plain_explanation' in chart_steps['trained_generator']
+
+
+def test_diffusion_visualizes_reverse_generation_and_nonzero_prediction_error():
+    from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline
+
+    payload = build_pipeline(num_steps=20)
+    steps = {step['id']: step for step in payload['steps']}
+
+    for step_id in [
+        'generation_start_noise',
+        'denoise_prediction_high_t',
+        'denoise_update_high_t',
+        'denoise_mid',
+        'denoise_final',
+    ]:
+        assert step_id in steps
+        assert steps[step_id].get('plain_explanation')
+
+    assert steps['reverse_oracle']['data']['oracle'] is True
+    assert '开卷答案' in steps['reverse_oracle']['plain_explanation']
+    assert steps['error']['data']['prediction_mse'] > 0
+    error_image = np.asarray(steps['error']['image'])
+    assert int(error_image.max()) > int(error_image.min())
+
+    oracle_image = np.asarray(steps['oracle_zero_error']['image'])
+    assert int(oracle_image.max()) == int(oracle_image.min()) == 0
+    assert '不是显示异常' in steps['oracle_zero_error']['explanation']
+
+
+def test_gan_visualizes_image_generation_process_and_uses_structured_surfaces():
+    from app.modules.phase4_deep_learning.gan.algorithm import build_pipeline
+
+    payload = build_pipeline(iterations=80)
+    steps = {step['id']: step for step in payload['steps']}
+
+    assert steps['generation_flow']['visual_kind'] == 'architecture'
+    assert steps['generation_flow']['diagram']['nodes'][0]['label'] == '随机噪声 z'
+    assert steps['image_samples_before']['data']['sample_grid'] is True
+    assert steps['image_samples_after']['data']['sample_grid'] is True
+    assert '四个模式' in steps['image_samples_after']['data']['legend']['shape']
+    assert 'G_theta(z)' in steps['image_samples_after']['data']['formula_terms']
+    assert np.asarray(steps['image_samples_after']['image']).std() > 0
+
+    assert steps['discriminator_surface']['visual_kind'] == 'chart'
+    assert steps['discriminator_surface']['chart']['type'] == 'matrix'
+    matrix = np.asarray(steps['discriminator_surface']['chart']['matrix'])
+    assert float(matrix.max()) > float(matrix.min())
+
+    assert steps['training_timeline']['visual_kind'] == 'chart'
+    assert steps['training_timeline']['chart']['type'] == 'flow'
+
+
+def test_diffusion_formula_terms_explain_prediction_symbols():
+    from app.modules.phase4_deep_learning.diffusion.processor import build_pipeline
+
+    payload = build_pipeline(num_steps=20)
+    steps = {step['id']: step for step in payload['steps']}
+
+    prediction_terms = steps['denoise_prediction_high_t']['data']['formula_terms']
+    assert prediction_terms['x_t'] == '当前带噪图像状态'
+    assert '应该去掉的噪声' in prediction_terms['epsilon_theta']
+
+    update_terms = steps['denoise_update_high_t']['data']['formula_terms']
+    assert '噪声更少一点' in update_terms['x_{t-1}']
+
+    error_terms = steps['error']['data']['formula_terms']
+    assert '真实加入的噪声' in error_terms['epsilon']
+
+
+def test_originality_guarantee_states_local_steps_and_third_party_weights():
+    doc = open('docs/原创性与第三方依赖保证书.md', encoding='utf-8').read()
+
+    assert '算法流程的各个步骤' in doc
+    assert '不是简单调用一个成品库函数后直接展示结果' in doc
+    assert 'torchvision 官方预训练模型' in doc
+    assert '不把这些公开模型结构、论文成果或预训练权重声明为从零自研' in doc
+    assert '代码不是由大模型生成' in doc
+
+
+def test_yolo_and_unet_architectures_are_frontend_diagrams():
+    from app.modules.phase4_deep_learning.unet.algorithm import build_pipeline as build_unet
+    from app.modules.phase4_deep_learning.yolo.algorithm import build_pipeline as build_yolo
+
+    unet_steps = {step['id']: step for step in build_unet()['steps']}
+    yolo_steps = {step['id']: step for step in build_yolo()['steps']}
+
+    unet_arch = unet_steps['architecture']
+    assert unet_arch['visual_kind'] == 'architecture'
+    assert unet_arch['overlay_scope'] == 'none'
+    assert unet_arch.get('image') is not None
+    assert unet_arch['diagram']['nodes'][0]['label'] == '输入图像'
+    assert any(edge.get('skip') for edge in unet_arch['diagram']['edges'])
+
+    yolo_arch = yolo_steps['architecture']
+    assert yolo_arch['visual_kind'] == 'architecture'
+    assert yolo_arch['overlay_scope'] == 'none'
+    assert yolo_arch.get('image') is not None
+    assert yolo_arch['diagram']['nodes'][0]['label'] == '输入图像'
+    assert yolo_arch['data']['formula_terms']['NMS'] == '去掉重叠重复框'
+
+
+def test_ai_eye_text_heavy_steps_prefer_frontend_diagrams():
+    from app.modules.phase4_deep_learning.ai_eye import processor
+
+    spec = processor.MODEL_SPECS['fasterrcnn_resnet50_fpn']
+    info = {
+        'input_shape': [72, 96, 3],
+        'weights': 'demo-weights',
+        'categories': 91,
+        'transform': 'ObjectDetection',
+    }
+
+    preprocess = processor._preprocess_diagram(info, spec)
+    fpn = processor._feature_pyramid_diagram(spec)
+    semantic = processor._semantic_context_diagram(
+        processor.MODEL_SPECS['deeplabv3_resnet50'],
+        [21, 32, 48],
+    )
+
+    for diagram in [preprocess, fpn, semantic]:
+        assert diagram['title']
+        assert diagram['subtitle']
+        assert len(diagram['nodes']) >= 5
+        assert len(diagram['edges']) >= 4
+
+    assert preprocess['nodes'][0]['label'] == 'RGB 图片'
+    assert any(node['label'] == 'FPN' for node in fpn['nodes'])
+    assert any('logits' in node['label'].lower() for node in semantic['nodes'])
+
+
+def test_ai_eye_response_marks_text_heavy_steps_as_architecture_when_available():
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.post(
+        '/api/demo/ai_eye?task=detection',
+        data={
+            'file': (_fixture_png_bytes(), 'ai-eye-diagram-detection.png'),
+            'score_threshold': '0.95',
+        },
+        content_type='multipart/form-data',
+    )
+    payload = resp.get_json()
+    assert resp.status_code in {200, 503}
+    if resp.status_code != 200:
+        assert payload.get('error')
+        return
+
+    steps = {step['id']: step for step in payload['steps']}
+    assert steps['detection_input']['visual_kind'] in {'image', 'overlay_image'}
+    for step_id in ['detection_preprocess', 'detection_backbone_fpn']:
+        assert steps[step_id]['visual_kind'] == 'architecture'
+        assert steps[step_id]['overlay_scope'] == 'none'
+        assert steps[step_id]['diagram']['nodes']
+
+
 def test_ai_eye_real_outputs_include_clickable_focus_views_when_available():
     app = create_app()
     client = app.test_client()
@@ -517,6 +783,9 @@ try:
             assert step.get('id')
             assert step.get('name')
             assert step.get('explanation')
+            assert step.get('problem_statement')
+            assert step.get('plain_explanation')
+            assert step.get('watch_for')
             assert step.get('formula')
             assert step.get('image_base64')
 finally:
@@ -716,6 +985,38 @@ def test_noise_model_returns_distinct_models_and_statistics():
     assert payload['metrics']['gaussian_psnr_db'] > 0
 
 
+def test_teaching_explanations_are_specific_to_the_current_step():
+    app = create_app()
+    client = app.test_client()
+
+    histogram = client.post('/api/demo/histogram', data={}, content_type='multipart/form-data').get_json()
+    hist_steps = {step['id']: step for step in histogram['steps']}
+    assert '0 到 255' in hist_steps['histogram']['plain_explanation']
+    assert '亮度' in hist_steps['histogram']['plain_explanation']
+    assert '颜色压成亮度' not in hist_steps['histogram']['plain_explanation']
+    assert 'CDF' in hist_steps['cdf']['plain_explanation']
+    assert '映射表' in hist_steps['mapping']['plain_explanation']
+    assert '新灰度' in hist_steps['mapping']['plain_explanation']
+
+    threshold = client.post('/api/demo/threshold', data={}, content_type='multipart/form-data').get_json()
+    threshold_steps = {step['id']: step for step in threshold['steps']}
+    assert '类间方差' in threshold_steps['otsu_score']['plain_explanation']
+    assert '前景' in threshold_steps['decision_rule']['plain_explanation']
+
+    smoothing = client.post('/api/demo/smoothing', data={}, content_type='multipart/form-data').get_json()
+    gaussian_steps = {step['id']: step for step in smoothing['algorithms']['gaussian']['steps']}
+    median_steps = {step['id']: step for step in smoothing['algorithms']['median']['steps']}
+    bilateral_steps = {step['id']: step for step in smoothing['algorithms']['bilateral']['steps']}
+    assert '权重' in gaussian_steps['gaussian_kernel']['plain_explanation']
+    assert '中位数' in median_steps['median_sort']['watch_for']
+    assert '边缘' in bilateral_steps['bilateral_combined_weights']['watch_for']
+
+    sobel = client.post('/api/demo/sobel', data={}, content_type='multipart/form-data').get_json()
+    sobel_steps = {step['id']: step for step in sobel['steps']}
+    assert '竖直边缘' in sobel_steps['gx']['watch_for']
+    assert '水平边缘' in sobel_steps['gy']['watch_for']
+
+
 def test_smoothing_demo_unifies_gaussian_median_and_bilateral():
     app = create_app()
     client = app.test_client()
@@ -739,6 +1040,9 @@ def test_smoothing_demo_unifies_gaussian_median_and_bilateral():
             assert step['id']
             assert step['name']
             assert step['explanation']
+            assert step['problem_statement']
+            assert step['plain_explanation']
+            assert step['watch_for']
             assert step['formula']
             assert step['image_base64']
 

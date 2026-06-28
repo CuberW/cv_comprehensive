@@ -71,6 +71,8 @@ html.light #bar button:hover{color:var(--accent)}
 #modal-right table.rels .c1{color:var(--text-muted);font-size:13px;text-align:center;padding-left:0;padding-right:4px}
 #modal-right table.rels .c2{font-weight:600;color:var(--text);white-space:nowrap;border-right:2px solid var(--border)}
 #modal-right table.rels .c3{color:var(--text-dim);font-size:12px}
+#modal-right .doc-link{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(102,242,194,.32);background:rgba(102,242,194,.1);color:var(--accent);border-radius:8px;padding:8px 12px;margin:0 0 16px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+#modal-right .doc-link:hover{border-color:var(--accent);background:rgba(102,242,194,.16)}
 #modal .btn-close{position:absolute;top:12px;right:16px;z-index:5;background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #modal .btn-close:hover{color:var(--text);border-color:var(--text-dim)}
 </style>
@@ -347,6 +349,20 @@ const E=[
 ];
 
 const nm={};N.forEach(n=>nm[n.id]=n);
+const DOC_ID_MAP={
+  conv:'convolution',
+  canny:'edge',
+  harris:'corner',
+  hogsvm:'hog_svm',
+  optflow:'optical_flow',
+  cnn:'cnn_basics',
+  faster_rcnn:'detection',
+  fcn:'semantic',
+  mask_rcnn:'instance',
+  sd:'stable_diffusion',
+  stitching:'match'
+};
+function docAnchorFor(id){return 'algo-'+(DOC_ID_MAP[id]||id);}
 // Build adjacency for focus mode
 const outEdges={},inEdges={};N.forEach(n=>{outEdges[n.id]=[];inEdges[n.id]=[];});
 E.forEach(e=>{outEdges[e.f].push(e);inEdges[e.t].push(e);});
@@ -583,12 +599,18 @@ function showModal(n){
     <h2>${n.n}</h2><div class="en">${n.en}</div>
     <span class="tag" style="background:${C[n.p]}">${phNames[n.p]}</span>
     <div class="desc">${n.d||''}</div>
+    <button type="button" class="doc-link" data-doc-anchor="${docAnchorFor(n.id)}">查看原理章节</button>
     <div class="rtitle">关联关系（${total} 条）</div>
     ${rh}`;
   $modal.className='on';$modalBg.className='on';
 }
 function hideModal(){selectedNode=null;$modal.className='';$modalBg.className='';}
 document.getElementById('btn-close').addEventListener('click',hideModal);
+$modalRight.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-doc-anchor]');
+  if(!btn)return;
+  window.parent.postMessage({type:'openPrinciples',payload:{anchor:btn.dataset.docAnchor}},'*');
+});
 $modalBg.addEventListener('click',hideModal);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&selectedNode)hideModal();});
 

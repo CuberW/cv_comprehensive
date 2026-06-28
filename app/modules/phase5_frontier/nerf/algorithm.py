@@ -91,7 +91,7 @@ def _view_strip(rendered):
         pil = Image.fromarray(_u8(img)).resize((150, 150), Image.BILINEAR)
         canvas = Image.new('RGB', (150, 176), (248, 250, 252))
         canvas.paste(pil, (0, 26))
-        ImageDraw.Draw(canvas).text((8, 6), f'view {az} deg', fill=(15, 23, 42))
+        ImageDraw.Draw(canvas).text((8, 6), f'视角 {az} 度', fill=(15, 23, 42))
         thumbs.append(canvas)
     out = Image.new('RGB', (sum(t.width for t in thumbs) + 10 * (len(thumbs) - 1), 176), (248, 250, 252))
     x = 0
@@ -116,7 +116,7 @@ def _ray_diagram(width=520, height=300):
             x = int((1 - t) * (cam[0] + 18) + t * end[0])
             y = int((1 - t) * cam[1] + t * end[1])
             draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(225, 29, 72))
-    draw.text((20, 18), 'Camera rays sample 3D points, then accumulate density and color.', fill=(15, 23, 42))
+    draw.text((20, 18), '相机射线采样 3D 点，再累积密度与颜色。', fill=(15, 23, 42))
     return np.array(img)
 
 
@@ -132,7 +132,7 @@ def _density_curve(depths, weights, width=520, height=260):
     draw.line(list(zip(xs.astype(int), ys.astype(int))), fill=(225, 29, 72), width=3)
     for x, y in zip(xs[::8].astype(int), ys[::8].astype(int)):
         draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(37, 99, 235))
-    draw.text((16, 5), 'Per-sample contribution along one center ray', fill=(15, 23, 42))
+    draw.text((16, 5), '中心射线上每个采样点的贡献', fill=(15, 23, 42))
     return np.array(img)
 
 
@@ -143,7 +143,7 @@ def _positional_encoding_chart(samples, levels=6, width=520, height=260):
     matrix = (encoded + 1.0) / 2.0
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((16, 8), 'Positional encoding: sin/cos bands sampled on one ray', fill=(15, 23, 42))
+    draw.text((16, 8), '位置编码：一条射线上的 sin/cos 频带', fill=(15, 23, 42))
     x0, y0 = 52, 44
     cell_w = max(8, (width - x0 - 20) // matrix.shape[1])
     cell_h = max(12, (height - y0 - 28) // matrix.shape[0])
@@ -198,6 +198,9 @@ def build_pipeline(image_path=None, **kwargs):
                 'id': 'sample_points',
                 'name': '沿射线采样 3D 点',
                 'image': _density_curve(depths, weights),
+                'visual_kind': 'chart',
+                'overlay_scope': 'none',
+                'chart': _density_curve_data(depths, weights),
                 'explanation': '后端沿中心射线均匀采样多个 3D 点，并计算每个点对最终像素颜色的贡献权重。',
                 'formula': 'p_i=o+t_i d',
                 'data': {'center_ray_samples': np.round(center_ray, 4).tolist()},
@@ -206,6 +209,9 @@ def build_pipeline(image_path=None, **kwargs):
                 'id': 'positional_encoding',
                 'name': '位置编码',
                 'image': _positional_encoding_chart(center_ray),
+                'visual_kind': 'chart',
+                'overlay_scope': 'none',
+                'chart': _positional_encoding_chart_data(center_ray),
                 'explanation': '3D 坐标会被映射成多频 sin/cos 特征，让场函数能够表达更细的几何和纹理变化。',
                 'formula': 'gamma(p)=[sin(2^k p), cos(2^k p)]',
             },
@@ -255,4 +261,32 @@ def build_pipeline(image_path=None, **kwargs):
             'samples_per_ray': samples,
             'note': '本页展示真实射线采样和体渲染机制，不是训练好的真实场景 NeRF 权重。',
         },
+    }
+
+
+def _density_curve_data(depths, weights):
+    center_weights = weights[weights.shape[0] // 2, weights.shape[1] // 2]
+    vals = center_weights / max(float(center_weights.max()), 1e-8)
+    return {
+        'type': 'line',
+        'title': '中心射线采样贡献',
+        'xLabel': '深度',
+        'yLabel': '贡献权重',
+        'min': 0,
+        'max': 1,
+        'series': [{'name': '权重', 'color': '#e11d48', 'values': [round(float(v), 6) for v in vals.tolist()]}],
+    }
+
+
+def _positional_encoding_chart_data(samples, levels=6):
+    vals = np.asarray(samples[:, 0], dtype=np.float64)
+    freqs = 2.0 ** np.arange(levels, dtype=np.float64)
+    encoded = np.concatenate([np.sin(vals[:, None] * freqs[None, :]), np.cos(vals[:, None] * freqs[None, :])], axis=1)
+    matrix = ((encoded + 1.0) / 2.0).round(6).tolist()
+    return {
+        'type': 'matrix',
+        'title': '位置编码频带',
+        'values': matrix,
+        'min': 0,
+        'max': 1,
     }

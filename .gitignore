@@ -41,3 +41,7 @@ update_nn_pages.py
 
 # 临时 prompt 文件
 *_prompt.md
+
+# Local video/editor project files
+*.prproj
+Adobe Premiere Pro Auto-Save/

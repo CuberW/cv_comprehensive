@@ -13,7 +13,7 @@ from typing import Any, Callable
 import numpy as np
 
 from app.modules.offline_teaching import _load_or_fixture
-from app.utils.image_utils import ensure_gray, load_image_u8, to_base64
+from app.utils.image_utils import ensure_gray, load_chinese_font, load_image_u8, to_base64
 
 
 _MODEL_CACHE: dict[str, tuple[Any, Any, Any]] = {}
@@ -201,6 +201,13 @@ TASK_LABELS = {
 }
 
 
+TASK_PROBLEMS = {
+    'detection': '目标检测要解决的问题很直接：一张图里有哪些重要物体，它们大概在什么位置。它输出的是“框”，适合计数、定位和粗粒度场景理解。',
+    'semantic': '语义分割要解决的是“每一个像素属于什么类别”。它不关心同类物体有几个，而是把整张图涂成一张类别地图，适合理解道路、天空、人体、车辆等区域分布。',
+    'instance': '实例分割要解决的是“同一类物体里，哪个是哪个”。它既要找到物体，又要给每个物体自己的 mask，因此能把两个人、两辆车分开。',
+}
+
+
 def list_models() -> dict[str, Any]:
     """Return model manifest with local cache status."""
     cache_dir = _torch_cache_dir()
@@ -265,7 +272,7 @@ def build_pipeline(
     algorithms = {}
     flat_steps = [{'id': 'shared_input', 'name': '统一输入图像', 'image': img_u8,
                    'formula': 'I in R^{H x W x 3}',
-                   'explanation': '同一张输入图像会被送入目标检测、语义分割和实例分割模型，方便比较三种视觉任务的输出差异。',
+                   'explanation': '先固定同一张图，后面三条路线才有可比性：目标检测回答“有哪些物体、在哪里”，语义分割回答“每个像素是什么类别”，实例分割回答“同类物体中每一个个体分别是谁”。这一页不是换三张示意图，而是让同一张真实输入被后端模型从三种角度理解。',
                    'data': {'height': int(img_u8.shape[0]), 'width': int(img_u8.shape[1]), 'channels': 3}}]
     outputs = {}
     errors = {}
@@ -366,8 +373,11 @@ def _run_task(task: str, model_id: str, img_u8: np.ndarray, score_th: float, mas
         'id': 'preprocess',
         'name': '模型预处理',
         'image': _preprocess_card(img_u8, preprocess_info, spec),
+        'visual_kind': 'architecture',
+        'overlay_scope': 'none',
+        'diagram': _preprocess_diagram(preprocess_info, spec),
         'formula': 'x = normalize(resize(I), mean, std)',
-        'explanation': '上传图像被转换为模型需要的张量。不同权重会携带自己的 resize、归一化和类别表配置。',
+        'explanation': '模型不能直接读取网页里的图片文件，它需要固定格式的数字张量。这里会把 RGB 图像缩放到模型习惯的尺寸，把像素值归一化，并套用这套预训练权重自己的类别表。你可以把它理解成“把图片翻译成模型听得懂的数字语言”。',
         'data': preprocess_info,
     })
     payload['steps'].insert(0, {
@@ -375,7 +385,7 @@ def _run_task(task: str, model_id: str, img_u8: np.ndarray, score_th: float, mas
         'name': '输入图像',
         'image': img_u8,
         'formula': 'I(x,y)=[R,G,B]',
-        'explanation': f'{TASK_LABELS[task]} 使用同一张 RGB 输入图像，后续步骤全部来自该图像的真实模型推理。',
+        'explanation': f'{TASK_PROBLEMS[task]} 本步骤只是把真实输入摆在起点，后面所有框、类别图、mask 都必须由这张图经过后端模型计算得到。',
         'data': {'height': int(img_u8.shape[0]), 'width': int(img_u8.shape[1])},
     })
     payload['elapsed_ms'] = round((time.perf_counter() - started) * 1000, 1)
@@ -418,28 +428,40 @@ def _run_detection(model, weights, device, img_u8, score_th, spec):
     objectness = _objectness_heatmap(img_u8, boxes, scores)
     proposal_vis = _draw_boxes(img_u8, _top_raw_detections(boxes, labels, scores, categories, limit=18), show_scores=False)
     result_vis = _draw_boxes(img_u8, detections)
-    score_chart = _score_chart(detections, 'Detection confidence')
+    score_chart = _score_chart(detections, '检测置信度')
+    score_chart_data = _score_chart_data(detections, '候选框置信度', threshold=score_th)
     return {
         'steps': [
             {'id': 'backbone_fpn', 'name': 'Backbone + FPN 特征金字塔', 'image': _feature_pyramid_card(img_u8, spec),
+             'visual_kind': 'architecture',
+             'overlay_scope': 'none',
+             'diagram': _feature_pyramid_diagram(spec),
              'formula': 'P_l = FPN(C_l), l in {2,3,4,5}',
-             'explanation': 'FPN 将不同尺度的卷积特征整理成金字塔，让大物体和小物体都能被检测头看到。',
+             'explanation': '检测的第一个难点是：物体有大有小，直接看原图很难同时兼顾。Backbone 先把像素变成边缘、纹理、部件等特征，FPN 再把不同清晰度的特征整理成“多倍率地图”。看图时可以把它理解成模型同时拿着远景地图和放大镜找物体。',
              'data': {'family': spec.family}},
             {'id': 'raw_predictions', 'name': '候选框 / 原始预测', 'image': proposal_vis,
+             'visual_kind': 'overlay_image',
+             'overlays': {'boxes': _top_raw_detections(boxes, labels, scores, categories, limit=18)},
              'formula': 'B_raw = head(P_l)',
-             'explanation': '检测头在特征图上产生大量候选框或密集预测；这里展示分数最高的一批原始框。',
+             'explanation': '模型先宁可多猜一点：哪里可能有车、人、动物，就先画出一批候选框。这一步的重点不是“最终答案”，而是展示模型从特征图上提出了哪些可能位置；后面还会用分数过滤掉不可靠的猜测。',
              'data': {'raw_predictions': raw_count, 'shown': min(raw_count, 18)}},
             {'id': 'objectness', 'name': '目标性热力图', 'image': objectness,
+             'visual_kind': 'image',
              'formula': 'H(x,y)=sum_i score_i * 1[(x,y) in box_i]',
-             'explanation': '把模型预测框的置信度投影回图像平面，越亮代表越多高分候选认为这里有目标。',
+             'explanation': '为了让候选框不只是线框，这里把每个候选框的置信度投回原图。越亮的位置，说明越多高分预测都认为“这里像一个物体”。它帮助观众直观看到模型注意力集中在哪些区域。',
              'data': {'max_score': round(float(scores.max()), 4) if raw_count else 0}},
             {'id': 'score_filter', 'name': '置信度过滤', 'image': score_chart,
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': score_chart_data,
              'formula': 'keep_i = 1[score_i >= tau]',
-             'explanation': f'只保留置信度不低于 {score_th:.2f} 的预测，降低背景框和低可信框的干扰。',
+             'explanation': f'每个框都有一个“模型有多相信它”的分数。阈值设为 {score_th:.2f} 时，低于这个分数的框会被当作不够可靠而隐藏。拖动阈值时，你看到的变化不是前端伪造，而是对后端真实输出做筛选。',
              'data': {'threshold': score_th, 'kept': len(detections), 'raw': raw_count}},
             {'id': 'detections', 'name': '最终检测框', 'image': result_vis,
+             'visual_kind': 'overlay_image',
+             'overlays': {'boxes': detections},
              'formula': 'D={(box_i, class_i, score_i)}',
-             'explanation': '最终输出是物体级结构：类别、置信度和边界框。它回答“是什么、在哪里”。',
+             'explanation': '最终保留下来的每个结果都包含三件事：类别名称、置信度、边界框。目标检测到这里就完成了，它适合回答“图里有几个人、车在哪里”，但它不会告诉你物体的精确轮廓。',
              'data': {'detections': detections}},
         ],
         'metrics': {
@@ -473,32 +495,44 @@ def _run_semantic(model, weights, device, img_u8, spec):
     labels = _label_summary(seg_resized, categories)
     labels = _attach_semantic_focus_images(img_u8, seg_resized, labels)
     logits_chart = _semantic_chart(labels)
+    semantic_chart_data = _semantic_chart_data(labels)
     boundary = _semantic_boundaries(img_u8, seg_resized)
     return {
         'steps': [
             {'id': 'encoder_context', 'name': '编码器与上下文特征', 'image': _semantic_context_card(img_u8, spec),
+             'visual_kind': 'architecture',
+             'overlay_scope': 'none',
+             'diagram': _semantic_context_diagram(spec, logits.shape),
              'formula': 'F = Encoder(I), logits = Head(F)',
-             'explanation': '语义分割把整张图转成密集特征，再用分割头为每个像素预测类别分数。',
+             'explanation': '语义分割不是先找框，而是要给每个像素贴类别。模型先把整张图编码成一张密集特征网格，让每个位置既知道自己附近的纹理，也能参考更大范围的上下文。比如一个灰色块到底是道路、墙还是车身，要结合周围环境判断。',
              'data': {'family': spec.family, 'logit_shape': list(logits.shape)}},
             {'id': 'logits_summary', 'name': '类别 logits 摘要', 'image': logits_chart,
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': semantic_chart_data,
              'formula': 'p_c(x,y)=softmax(z_c(x,y))',
-             'explanation': '每个像素都有一组类别分数；图中汇总面积最大的类别，展示模型认为画面主要由哪些语义组成。',
+             'explanation': '对每个像素，模型都会给所有类别打分：它像不像天空、道路、车、人等。这里把整张图里占比最大的类别汇总出来，让你先知道模型认为画面主要由哪些“语义材料”组成。',
              'data': {'labels': labels}},
             {'id': 'label_map', 'name': '像素 argmax 标签图', 'image': color,
+             'visual_kind': 'image',
              'formula': 'label(x,y)=argmax_c p_c(x,y)',
-             'explanation': '对每个像素取概率最大的类别，得到语义标签图。同类区域会被合并成同一种颜色。',
+             'explanation': '每个像素只保留分数最高的类别，于是整张图变成一张彩色类别地图。同一种颜色表示同一个语义类别，所以同类区域会连成一片；这也说明语义分割不会区分“第一辆车”和“第二辆车”。',
              'data': {'classes_present': len(labels)}},
             {'id': 'confidence', 'name': '像素置信度热力图', 'image': conf_vis,
+             'visual_kind': 'image',
              'formula': 'conf(x,y)=max_c p_c(x,y)',
-             'explanation': '越亮的位置代表模型对该像素类别越确定；边界或困难区域通常置信度较低。',
+             'explanation': '颜色分类不是每个地方都一样有把握。越亮表示模型越确定，越暗表示模型犹豫。通常物体边界、遮挡处、远处小物体会更暗，因为这些位置本来就更难判断。',
              'data': {'mean_confidence': round(float(conf_resized.mean()), 4)}},
             {'id': 'boundaries', 'name': '语义边界叠加', 'image': boundary,
+             'visual_kind': 'image',
              'formula': 'edge(label)=1[label(x,y)!=label(neighbor)]',
-             'explanation': '标签变化的位置形成语义边界，用来观察分割区域是否贴合图像结构。',
+             'explanation': '相邻像素类别发生变化的地方就是语义边界。把边界叠回原图，可以检查模型分出来的区域是否贴着真实物体边缘，还是把背景和物体混在了一起。',
              'data': {'boundary_pixels': int(_label_edges(seg_resized).sum())}},
             {'id': 'overlay', 'name': '语义分割叠加结果', 'image': overlay,
+             'visual_kind': 'overlay_image',
+             'overlays': {'labels': labels},
              'formula': 'Y = (1-alpha)I + alpha Color(label)',
-             'explanation': '最终语义分割结果覆盖整张图，回答“每个像素属于什么类别”。',
+             'explanation': '最终结果把类别颜色半透明盖到原图上。它适合解释“图像由哪些区域构成”，例如道路在哪里、天空在哪里、车身在哪里；但如果有两个同类物体，它们会被看成同一类区域。',
              'data': {'labels': labels}},
         ],
         'metrics': {
@@ -549,27 +583,43 @@ def _run_instance(model, weights, device, img_u8, score_th, mask_th, spec):
     mask_vis = _overlay_masks(img_u8, instances)
     strip = _instance_strip(img_u8, instances)
     public_instances = _public_instances_with_focus(img_u8, instances)
+    instance_chart_data = _instance_chart_data(public_instances)
+    instance_chart = _score_chart(public_instances, '实例置信度与面积')
     return {
         'steps': [
             {'id': 'detector_stage', 'name': '检测分支：候选实例框', 'image': box_vis,
+             'visual_kind': 'overlay_image',
+             'overlays': {'boxes': public_instances},
              'formula': 'RoI_i = proposal_i(P_l)',
-             'explanation': 'Mask R-CNN 先像目标检测一样找到可能存在实例的位置，每个框后续都会进入 mask 分支。',
+             'explanation': '实例分割要先知道“有哪些独立物体”。Mask R-CNN 的第一步和目标检测很像：先找出可能包含一个物体的框。每个框后面都会单独进入 mask 分支，所以它能把同类目标分开处理。',
              'data': {'instances': public_instances}},
             {'id': 'mask_logits', 'name': 'Mask 概率图', 'image': mask_prob_vis,
+             'visual_kind': 'image',
              'formula': 'P_i(x,y)=sigmoid(mask_head(RoI_i))',
-             'explanation': 'mask 分支为每个候选实例预测前景概率图；亮的地方更可能属于该实例。',
+             'explanation': '有了框还不够，因为框里通常包含背景。mask 分支会在每个框内部预测一张概率图：亮的像素更可能属于这个实例，暗的像素更可能是背景或别的物体。',
              'data': {'mask_threshold': mask_th}},
             {'id': 'mask_threshold', 'name': 'Mask 阈值化', 'image': _mask_binary_mosaic(instances, img_u8.shape[:2]),
+             'visual_kind': 'image',
              'formula': 'M_i(x,y)=1[P_i(x,y)>=tau_m]',
-             'explanation': f'概率图经过 {mask_th:.2f} 阈值变成二值实例掩码，每个实例拥有自己的独立 mask。',
+             'explanation': f'概率图还不是最终轮廓，需要用 mask 阈值把“可能属于实例”的像素变成确定的前景/背景。当前阈值是 {mask_th:.2f}：提高阈值会让 mask 更保守，降低阈值会让 mask 覆盖更大。',
              'data': {'mask_threshold': mask_th, 'areas': [inst['area'] for inst in instances]}},
+            {'id': 'instance_summary', 'name': '实例分数与面积', 'image': instance_chart,
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': instance_chart_data,
+             'formula': 'score_i, area_i = mask_i.sum()',
+             'explanation': '这一步把每个实例的置信度和 mask 面积整理成结构化数据。柱状图由前端高清绘制，框和 mask 不会叠到图表上。',
+             'data': {'instances': public_instances}},
             {'id': 'masks', 'name': '实例分割叠加结果', 'image': mask_vis,
+             'visual_kind': 'overlay_image',
+             'overlays': {'boxes': public_instances, 'masks': public_instances},
              'formula': 'Y_i = I overlaid with M_i',
-             'explanation': '不同颜色代表不同实例。即使两个目标类别相同，也会被分配不同的实例编号。',
+             'explanation': '最终每个实例用不同颜色叠加到原图上。这里的关键不是“这是人/车”，而是“这一块属于第一个人，那一块属于第二个人”。这就是实例分割比语义分割更精细的地方。',
              'data': {'instances': public_instances}},
             {'id': 'instance_crops', 'name': '实例裁剪与个体检查', 'image': strip,
+             'visual_kind': 'image',
              'formula': 'crop_i = I[box_i] * M_i',
-             'explanation': '把每个实例单独裁出，方便观察实例分割是否把独立物体分清楚。',
+             'explanation': '把每个实例单独裁出来，是为了检查结果是否真的把个体分干净：mask 有没有漏掉身体、有没有把背景吃进去、同类物体有没有互相粘连。',
              'data': {'count': len(public_instances)}},
         ],
         'metrics': {
@@ -719,10 +769,20 @@ def _error_result(message, status, **extra):
 
 def _prefix_steps(task: str, steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
+    problem = TASK_PROBLEMS.get(task, '')
     for step in steps:
         item = dict(step)
         item['id'] = f'{task}_{item.get("id", "step")}'
-        item['name'] = f'{TASK_LABELS.get(task, task)}：{item.get("name", item["id"])}'
+        item['name'] = item.get("name", item["id"])
+        item.setdefault('problem_statement', problem)
+        if item.get('explanation'):
+            text = str(item['explanation']).strip()
+            if problem and text.startswith(problem):
+                text = text[len(problem):].strip()
+            if text.startswith('这一步：'):
+                text = text[len('这一步：'):].strip()
+            item['plain_explanation'] = text
+            item['explanation'] = text
         out.append(item)
     return out
 
@@ -735,6 +795,72 @@ def _preprocess_summary(img, weights) -> dict[str, Any]:
         'weights': str(weights),
         'categories': len(meta.get('categories', [])),
         'transform': transform.__class__.__name__,
+    }
+
+
+def _preprocess_diagram(info, spec) -> dict[str, Any]:
+    h, w, c = info.get('input_shape', [0, 0, 3])
+    return {
+        'title': '预处理：把图片变成模型可计算的张量',
+        'subtitle': f'{spec.name} 使用 {info.get("transform", "weights transform")}，类别表来自对应预训练权重。',
+        'nodes': [
+            {'id': 'rgb', 'label': 'RGB 图片', 'detail': f'{w} x {h} x {c}，人眼看到的原始输入', 'tone': 'input'},
+            {'id': 'resize', 'label': 'Resize / Crop', 'detail': '按权重要求调整尺寸，统一输入尺度', 'tone': 'block'},
+            {'id': 'tensor', 'label': 'Tensor', 'detail': '把像素转成 C x H x W 数字矩阵', 'tone': 'block'},
+            {'id': 'norm', 'label': 'Normalize', 'detail': '用 mean/std 归一化，让数值分布贴近训练时', 'tone': 'block'},
+            {'id': 'batch', 'label': 'Batch 输入', 'detail': f'送入 {spec.family}，类别数 {info.get("categories", 0)}', 'tone': 'output'},
+        ],
+        'edges': [
+            {'from': 'rgb', 'to': 'resize', 'label': '统一尺寸'},
+            {'from': 'resize', 'to': 'tensor', 'label': '转数字'},
+            {'from': 'tensor', 'to': 'norm', 'label': '数值校准'},
+            {'from': 'norm', 'to': 'batch', 'label': '开始推理'},
+        ],
+    }
+
+
+def _feature_pyramid_diagram(spec) -> dict[str, Any]:
+    return {
+        'title': '目标检测骨干：从一张图生成多尺度特征地图',
+        'subtitle': '小物体需要细节，大物体需要全局视野；FPN 把不同层级的特征接成一套“多倍率地图”。',
+        'nodes': [
+            {'id': 'input', 'label': '输入图像', 'detail': '街景、物体或上传图片', 'tone': 'input'},
+            {'id': 'backbone', 'label': 'Backbone', 'detail': '提取边缘、纹理、部件和语义线索', 'tone': 'block'},
+            {'id': 'c2c5', 'label': 'C2 - C5', 'detail': '从细节层到语义层的特征阶梯', 'tone': 'block'},
+            {'id': 'fpn', 'label': 'FPN', 'detail': '横向连接 + 自顶向下融合，兼顾大小目标', 'tone': 'skip'},
+            {'id': 'head', 'label': '检测头', 'detail': '预测候选框、类别和置信度', 'tone': 'block'},
+            {'id': 'boxes', 'label': '结果框', 'detail': f'{spec.name} 输出可筛选的目标位置', 'tone': 'output'},
+        ],
+        'edges': [
+            {'from': 'input', 'to': 'backbone', 'label': '看图'},
+            {'from': 'backbone', 'to': 'c2c5', 'label': '分层特征'},
+            {'from': 'c2c5', 'to': 'fpn', 'label': '多尺度融合'},
+            {'from': 'fpn', 'to': 'head', 'label': '逐层预测'},
+            {'from': 'head', 'to': 'boxes', 'label': '过滤后显示'},
+        ],
+    }
+
+
+def _semantic_context_diagram(spec, logits_shape) -> dict[str, Any]:
+    shape_text = ' x '.join(str(int(v)) for v in logits_shape)
+    return {
+        'title': '语义分割网络：给每个像素做分类',
+        'subtitle': '它不先画框，而是把整张图变成密集网格；每个位置都预测“这个像素最像哪一类”。',
+        'nodes': [
+            {'id': 'input', 'label': '输入图像', 'detail': '完整画面，不切成单个物体', 'tone': 'input'},
+            {'id': 'encoder', 'label': 'Encoder', 'detail': '把局部纹理和高层语义编码进特征图', 'tone': 'block'},
+            {'id': 'context', 'label': 'ASPP / 上下文', 'detail': '扩大感受野，让像素参考周围环境', 'tone': 'skip'},
+            {'id': 'logits', 'label': '类别 logits', 'detail': f'每类一张分数图：{shape_text}', 'tone': 'block'},
+            {'id': 'softmax', 'label': 'Softmax + Argmax', 'detail': '把分数变成概率，再选最高类别', 'tone': 'block'},
+            {'id': 'map', 'label': '像素类别图', 'detail': f'{spec.name} 输出整图语义地图', 'tone': 'output'},
+        ],
+        'edges': [
+            {'from': 'input', 'to': 'encoder', 'label': '编码'},
+            {'from': 'encoder', 'to': 'context', 'label': '补上下文'},
+            {'from': 'context', 'to': 'logits', 'label': '逐类打分'},
+            {'from': 'logits', 'to': 'softmax', 'label': '概率化'},
+            {'from': 'softmax', 'to': 'map', 'label': '逐像素取最高分'},
+        ],
     }
 
 
@@ -798,7 +924,7 @@ def _attach_detection_focus_images(img, detections, limit=16):
         item = dict(det)
         if idx < limit:
             item['focus_image_base64'] = to_base64(_draw_boxes(img, [det]))
-            item['focus_note'] = '该图只高亮当前检测框，便于把类别、置信度和图像位置对应起来。'
+            item['focus_note'] = '该图只高亮当前检测框。看它时重点核对三件事：类别是不是说对了，框是否包住目标主体，置信度是否足够高。'
         out.append(item)
     return out
 
@@ -865,7 +991,64 @@ def _score_chart(rows, title, width=720, height=320):
 
 def _semantic_chart(labels, width=720, height=320):
     rows = [{'label': item['label'], 'score': item['ratio']} for item in labels[:10]]
-    return _score_chart(rows, 'Semantic pixel area ratio')
+    return _score_chart(rows, '语义像素面积占比')
+
+
+def _score_chart_data(rows, title, threshold=None):
+    return {
+        'type': 'bar',
+        'title': title,
+        'xLabel': '候选结果',
+        'yLabel': '分数',
+        'threshold': threshold,
+        'valueFormat': 'score',
+        'items': [
+            {
+                'label': item.get('label', f'候选 {idx + 1}'),
+                'value': round(float(item.get('score', 0)), 4),
+                'kept': threshold is None or float(item.get('score', 0)) >= float(threshold),
+            }
+            for idx, item in enumerate((rows or [])[:12])
+        ],
+    }
+
+
+def _semantic_chart_data(labels):
+    return {
+        'type': 'probability',
+        'title': '语义像素面积占比',
+        'xLabel': '类别',
+        'yLabel': '像素占比',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': item.get('label', f'类别 {idx + 1}'),
+                'value': round(float(item.get('ratio', 0)), 4),
+                'pixels': item.get('pixels'),
+            }
+            for idx, item in enumerate((labels or [])[:10])
+        ],
+    }
+
+
+def _instance_chart_data(instances):
+    return {
+        'type': 'bar',
+        'title': '实例置信度与面积',
+        'subtitle': '柱长表示模型对该实例的置信度，数据里保留 mask 像素面积。',
+        'xLabel': '实例',
+        'yLabel': '置信度',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': item.get('label', f'实例 {idx + 1}'),
+                'value': round(float(item.get('score', 0)), 4),
+                'area': item.get('area'),
+                'mask_mean_probability': item.get('mask_mean_probability'),
+            }
+            for idx, item in enumerate((instances or [])[:12])
+        ],
+    }
 
 
 def _colorize(seg):
@@ -907,7 +1090,7 @@ def _attach_semantic_focus_images(img, seg, labels):
         label_id = int(item['label_id'])
         focus = _semantic_label_focus(img, seg, label_id)
         item['focus_image_base64'] = to_base64(focus)
-        item['focus_note'] = '该图只保留当前语义类别的像素区域，灰暗部分是其他类别。'
+        item['focus_note'] = '该图只保留当前语义类别的像素区域。亮起的部分表示模型认为这些像素属于同一类，灰暗部分则是其他类别。'
         out.append(item)
     return out
 
@@ -956,12 +1139,14 @@ def _public_instances_with_focus(img, instances, limit=16):
     colors = _colors()
     for idx, inst in enumerate(instances):
         item = {k: v for k, v in inst.items() if k != 'mask'}
+        mask = np.asarray(inst['mask'], dtype=bool)
+        item['mask_base64'] = to_base64((mask.astype(np.uint8) * 255))
+        item['color'] = [int(v) for v in colors[idx % len(colors)]]
         if idx < limit:
-            mask = np.asarray(inst['mask'], dtype=bool)
             color = tuple(int(v) for v in colors[idx % len(colors)])
             focus = _overlay_mask_focus(img, mask, inst['box'], color=color)
             item['focus_image_base64'] = to_base64(focus)
-            item['focus_note'] = '该图只高亮当前实例 mask；同类物体仍按独立个体显示。'
+            item['focus_note'] = '该图只高亮当前实例 mask。看它时重点检查轮廓是否贴合这个个体，以及有没有和同类物体粘在一起。'
         out.append(item)
     return out
 
@@ -1039,11 +1224,13 @@ def _tile_images(images, thumb_h=140):
 
 def _preprocess_card(img, info, spec):
     from PIL import Image, ImageDraw
-    canvas = Image.new('RGB', (720, 320), (15, 23, 42))
+    canvas = Image.new('RGB', (900, 380), (15, 23, 42))
     draw = ImageDraw.Draw(canvas)
-    thumb = Image.fromarray(img).resize((210, 210), Image.BILINEAR)
-    canvas.paste(thumb, (24, 72))
-    draw.text((24, 28), 'Preprocess', fill=(226, 232, 240))
+    font_title = load_chinese_font(28)
+    font_body = load_chinese_font(22)
+    thumb = Image.fromarray(img).resize((240, 240), Image.BILINEAR)
+    canvas.paste(thumb, (28, 92))
+    draw.text((28, 32), '预处理', fill=(226, 232, 240), font=font_title)
     lines = [
         spec.name,
         f"input: {info['input_shape'][1]} x {info['input_shape'][0]} x 3",
@@ -1051,46 +1238,50 @@ def _preprocess_card(img, info, spec):
         f"categories: {info['categories']}",
         'RGB image -> tensor -> normalized batch',
     ]
-    y = 74
+    y = 90
     for line in lines:
-        draw.text((270, y), line[:58], fill=(203, 213, 225))
-        y += 34
+        draw.text((310, y), line[:62], fill=(203, 213, 225), font=font_body)
+        y += 46
     return np.array(canvas)
 
 
 def _feature_pyramid_card(img, spec):
     from PIL import Image, ImageDraw
-    canvas = Image.new('RGB', (720, 320), (15, 23, 42))
+    canvas = Image.new('RGB', (900, 380), (15, 23, 42))
     draw = ImageDraw.Draw(canvas)
+    font_title = load_chinese_font(28)
+    font_body = load_chinese_font(20)
     gray = ensure_gray(img)
     edge = _gradient_vis(gray)
-    thumb = Image.fromarray(edge).resize((220, 220), Image.BILINEAR)
-    canvas.paste(thumb, (24, 62))
-    draw.text((24, 26), 'Backbone feature evidence', fill=(226, 232, 240))
-    x = 300
+    thumb = Image.fromarray(edge).resize((250, 250), Image.BILINEAR)
+    canvas.paste(thumb, (28, 82))
+    draw.text((28, 30), 'Backbone + FPN', fill=(226, 232, 240), font=font_title)
+    x = 350
     for i, scale in enumerate([1.0, 0.72, 0.50, 0.34]):
-        w = int(230 * scale)
-        h = int(130 * scale)
-        y = 50 + i * 55
+        w = int(270 * scale)
+        h = int(150 * scale)
+        y = 58 + i * 66
         draw.rectangle((x, y, x + w, y + h), outline=(56, 189, 248), width=2)
-        draw.text((x + w + 12, y + 6), f'P{i + 2}', fill=(125, 211, 252))
-    draw.text((300, 270), spec.description[:62], fill=(148, 163, 184))
+        draw.text((x + w + 14, y + 8), f'P{i + 2}', fill=(125, 211, 252), font=font_body)
+    draw.text((350, 320), '多尺度特征用于寻找大小不同的目标', fill=(148, 163, 184), font=font_body)
     return np.array(canvas)
 
 
 def _semantic_context_card(img, spec):
     from PIL import Image, ImageDraw
-    canvas = Image.new('RGB', (720, 320), (15, 23, 42))
+    canvas = Image.new('RGB', (900, 380), (15, 23, 42))
     draw = ImageDraw.Draw(canvas)
-    small = Image.fromarray(img).resize((180, 180), Image.BILINEAR)
-    canvas.paste(small, (26, 70))
-    for i, radius in enumerate([35, 62, 92]):
-        draw.ellipse((330 - radius, 160 - radius, 330 + radius, 160 + radius), outline=[56, 189, 248, 168, 85, 247, 34, 197, 94][i % 3], width=3)
-    draw.text((26, 28), 'Dense context', fill=(226, 232, 240))
-    draw.text((450, 72), spec.name, fill=(226, 232, 240))
-    draw.text((450, 110), '每个像素都有类别概率', fill=(203, 213, 225))
-    draw.text((450, 146), '上下文决定区域语义', fill=(203, 213, 225))
-    draw.text((450, 182), '输出尺寸再对齐原图', fill=(203, 213, 225))
+    font_title = load_chinese_font(28)
+    font_body = load_chinese_font(22)
+    small = Image.fromarray(img).resize((220, 220), Image.BILINEAR)
+    canvas.paste(small, (30, 92))
+    for i, radius in enumerate([42, 74, 108]):
+        draw.ellipse((390 - radius, 190 - radius, 390 + radius, 190 + radius), outline=[56, 189, 248, 168, 85, 247, 34, 197, 94][i % 3], width=4)
+    draw.text((30, 32), '密集上下文', fill=(226, 232, 240), font=font_title)
+    draw.text((540, 88), spec.name, fill=(226, 232, 240), font=font_body)
+    draw.text((540, 140), '每个像素都有类别概率', fill=(203, 213, 225), font=font_body)
+    draw.text((540, 190), '上下文帮助判断区域语义', fill=(203, 213, 225), font=font_body)
+    draw.text((540, 240), '最终对齐回原图尺寸', fill=(203, 213, 225), font=font_body)
     return np.array(canvas)
 
 

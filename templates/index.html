@@ -41,13 +41,13 @@
     <div class="gallery-hero">
       <div class="hero-text">
         <h2>探索计算机视觉的世界</h2>
-        <p class="sub">从像素到特征，从几何到深度学习，从基础模型到前沿感知——<strong>77 个算法</strong>，五个认知阶段，零黑盒调用。每个算法都从直觉出发，以可交互的流水线展开。</p>
+        <p class="sub">从像素到特征，从几何到深度学习，从基础模型到前沿感知。每个算法都从直觉出发，以可交互的流水线展开。</p>
       </div>
       <div class="hero-stats">
         <div class="hero-stat"><number id="stat-total">--</number><label>算法模块</label></div>
-        <div class="hero-stat"><number>5</number><label>认知阶段</label></div>
+        <div class="hero-stat"><number>4</number><label>认知阶段</label></div>
         <div class="hero-stat"><number id="stat-ready">--</number><label>已可体验</label></div>
-        <div class="hero-stat"><number>0</number><label>黑盒调用</label></div>
+        <div class="hero-stat"><number>0</number><label>外部 API</label></div>
       </div>
     </div>
 
@@ -57,14 +57,29 @@
         <div class="quick-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="5" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="8" y1="5" x2="16" y2="5"/><line x1="5" y1="8" x2="5" y2="16"/><line x1="19" y1="8" x2="19" y2="16"/><line x1="16" y1="19" x2="8" y2="19"/><line x1="8" y1="5" x2="16" y2="19"/><line x1="16" y1="5" x2="8" y2="19"/></svg>
         </div>
-        <div><div class="quick-name">算法关系网络</div><div class="quick-desc">77 个算法的依赖、改进、启发关系全景图</div></div>
+        <div><div class="quick-name">算法关系网络</div><div class="quick-desc"></div></div>
+      </div>
+      <div class="quick-card principles-card" id="btn-principles">
+        <div class="quick-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V5a2 2 0 0 1 2-2h11a3 3 0 0 1 3 3v13a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+        </div>
+        <div><div class="quick-name">算法原理文档</div><div class="quick-desc">文字、公式与 Mermaid 架构图</div></div>
+      </div>
+      <div class="quick-card taxonomy-card" id="btn-vision-taxonomy">
+        <div class="quick-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h5"/><path d="M15 6h5"/><path d="M9 6a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3"/><path d="M12 9v4"/><path d="M6 18h12"/><path d="M8 13h8v5H8z"/></svg>
+        </div>
+        <div><div class="quick-name">检测与分割谱系</div><div class="quick-desc">R-CNN、YOLO、FCN、U-Net、Mask R-CNN</div></div>
       </div>
     </div>
 
 
 
-    <!-- Phase Metro Lines (algorithms grouped into topic cards) -->
-    <div class="phase-metro" id="phase-metro"></div>
+    <div class="gallery-shell">
+      <aside class="algo-index" id="algo-index" aria-label="算法索引"></aside>
+      <!-- Phase Metro Lines (algorithms grouped into topic cards) -->
+      <div class="phase-metro" id="phase-metro"></div>
+    </div>
   </section>
 
   <!-- ====== DETAIL OVERLAY ====== -->

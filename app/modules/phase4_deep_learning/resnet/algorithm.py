@@ -125,6 +125,9 @@ def build_pipeline(image_path=None, target_rank=1, **kwargs):
                 'name': '输入图像',
                 'image': display_img,
                 'formula': 'I in R^{H x W x 3}',
+                'problem_statement': 'ResNet 要解决的问题是：判断一张照片里最可能是什么，并解释模型主要看了哪里。',
+                'plain_explanation': '先确认要识别的原始照片。后面的分类分数和热力图都必须能回到这张图上解释。',
+                'watch_for': '重点看照片里的主体、背景和容易混淆的区域，后面的热力图是否真的落在主体上。',
                 'explanation': 'ResNet 接收 RGB 图像，先按 ImageNet 训练配置做缩放、中心裁剪和归一化。',
             },
             {
@@ -132,13 +135,22 @@ def build_pipeline(image_path=None, target_rank=1, **kwargs):
                 'name': 'ImageNet 预处理 224x224',
                 'image': model_view,
                 'formula': 'x=(resize_crop(I)/255 - mean) / std',
+                'problem_statement': 'ResNet 要解决的问题是：判断一张照片里最可能是什么，并解释模型主要看了哪里。',
+                'plain_explanation': '把人看的图片整理成模型固定需要的尺寸和数字范围。它不是在改答案，只是在统一输入格式。',
+                'watch_for': '看裁剪后主体是否还在画面内；如果主体被裁掉，分类自然会变差。',
                 'explanation': '真实模型输入是 224x224 张量。这个步骤说明任意上传图像如何进入固定结构的分类网络。',
             },
             {
                 'id': 'residual_block',
                 'name': '残差块机制',
-                'image': _residual_card(),
+                'image': _blank(280, 640),
+                'visual_kind': 'architecture',
+                'overlay_scope': 'none',
+                'diagram': _residual_diagram(),
                 'formula': 'y = F(x) + x',
+                'problem_statement': 'ResNet 要解决的问题是：网络很深时仍然能稳定学习，而不是越叠越难训练。',
+                'plain_explanation': '残差块像一条有旁路的加工线：主路学习“需要改多少”，旁路把原信息直接送到后面，两者相加得到输出。',
+                'watch_for': '重点看 shortcut 这条旁路。它让网络不必每层都从零重建信息，只需要学修正量。',
                 'explanation': '残差连接让网络学习“修正量”F(x)，同时保留输入 x 的捷径路径，缓解深层网络越深越难训练的问题。',
             },
             {
@@ -146,13 +158,22 @@ def build_pipeline(image_path=None, target_rank=1, **kwargs):
                 'name': '最后卷积层特征响应',
                 'image': feature_heat,
                 'formula': 'A = layer4(x)',
+                'problem_statement': 'ResNet 要解决的问题是：不仅给出分类，还告诉我们判断依据大概来自哪里。',
+                'plain_explanation': '这里显示模型深层看到的“有用线索”强弱。亮的地方通常是模型认为更有辨识度的区域。',
+                'watch_for': '看高响应区域是否围绕物体主体，而不是只盯着背景、边框或水印。',
                 'explanation': 'Grad-CAM 使用最后一组残差块的卷积特征图。亮处表示深层语义特征响应更强的位置。',
             },
             {
                 'id': 'predictions',
                 'name': f'Top-5 分类结果（当前解释第 {rank} 名）',
                 'image': result_img,
+                'visual_kind': 'chart',
+                'overlay_scope': 'none',
+                'chart': _top5_chart_data(top5, active_rank=rank),
                 'formula': 'p_c = softmax(logits)_c',
+                'problem_statement': 'ResNet 要解决的问题是：从很多候选类别里选出最像照片内容的几个答案。',
+                'plain_explanation': '柱越长，模型越相信这个类别。选择不同名次后，后端会重新计算该类别对应的 Grad-CAM。',
+                'watch_for': '看第一名是否符合照片主体，也看第二、第三名是否是相近或容易混淆的类别。',
                 'explanation': f'真实 ImageNet 分类结果已经算出。你可以点击页面上的 Top-5 类别，让后端重新对该类别做 Grad-CAM 反向传播。',
                 'data': {'top5': top5, 'target_rank': rank, 'target_class': target_label},
             },
@@ -161,6 +182,9 @@ def build_pipeline(image_path=None, target_rank=1, **kwargs):
                 'name': f'Grad-CAM：模型为何认为是 {target_label}',
                 'image': overlay,
                 'formula': 'L^c = ReLU(sum_k alpha_k^c A^k), alpha_k^c = mean(dy^c/dA^k)',
+                'problem_statement': 'ResNet 要解决的问题是：把“模型说它是什么”变成可检查的视觉证据。',
+                'plain_explanation': '热力图把模型判断这个类别时最依赖的区域盖回原图。红黄区域越强，说明该类别越依赖那里。',
+                'watch_for': '如果热力图集中在真实主体上，解释更可信；如果集中在背景上，说明模型可能在用错误线索。',
                 'explanation': 'Grad-CAM 对目标类别分数反向传播，用梯度给最后卷积特征图加权。红黄区域表示该类别判断更依赖的视觉证据。',
                 'data': {'target_rank': rank, 'target_label': target_label},
             },
@@ -169,6 +193,9 @@ def build_pipeline(image_path=None, target_rank=1, **kwargs):
                 'name': '原始 Grad-CAM 热力图',
                 'image': heat,
                 'formula': 'CAM -> resize(H,W)',
+                'problem_statement': 'ResNet 要解决的问题是：分离出模型证据本身，方便和原图对照。',
+                'plain_explanation': '这里去掉原图，只看热力图形状。这样更容易判断模型注意力是不是成片、是否偏离主体。',
+                'watch_for': '看热区是否连贯，是否覆盖关键部件，而不是零散噪声点。',
                 'explanation': '这一步单独展示热力图本身，方便和叠加结果对照。它是后端真实梯度计算得到的，不是前端涂色。',
             },
         ],
@@ -237,6 +264,43 @@ def _prediction_overlay(img, top5, rank):
         color = (250, 204, 21) if i + 1 == rank else (226, 232, 240)
         draw.text((18, y), f"{i + 1}. {item['label'][:32]}  {item['probability']:.3f}", fill=color)
     return np.array(canvas)
+
+
+def _top5_chart_data(top5, active_rank=1):
+    return {
+        'type': 'probability',
+        'title': 'ImageNet Top-5 概率',
+        'xLabel': '类别',
+        'yLabel': '概率',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': item.get('label', f'类别 {idx + 1}'),
+                'value': round(float(item.get('probability', 0)), 6),
+                'kept': idx + 1 == int(active_rank),
+            }
+            for idx, item in enumerate(top5[:5])
+        ],
+    }
+
+
+def _residual_diagram():
+    return {
+        'title': '残差块：主路学习修正，旁路保留原信号',
+        'subtitle': '深层网络不必每层都重新发明特征，只需要学习 F(x)，再和 x 相加。',
+        'nodes': [
+            {'id': 'x', 'label': '输入 x', 'detail': '上一层传来的特征', 'tone': 'input'},
+            {'id': 'fx', 'label': '主路 F(x)', 'detail': '卷积、归一化、激活学习修正量', 'tone': 'block'},
+            {'id': 'add', 'label': '相加', 'detail': '修正量 + 原信号', 'tone': 'skip'},
+            {'id': 'y', 'label': '输出 y', 'detail': 'y = F(x) + x', 'tone': 'output'},
+        ],
+        'edges': [
+            {'from': 'x', 'to': 'fx', 'label': '主路计算'},
+            {'from': 'fx', 'to': 'add', 'label': '修正量'},
+            {'from': 'x', 'to': 'add', 'label': 'shortcut', 'skip': True},
+            {'from': 'add', 'to': 'y', 'label': '输出'},
+        ],
+    }
 
 
 def _residual_card(width=640, height=280):

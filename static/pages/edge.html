@@ -100,7 +100,7 @@
     .threshold-value { text-align: right; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 
     .thresholds-pair {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 12px;
     }
     .actions-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
 
@@ -108,9 +108,10 @@
     .anim-canvas-wrap {
         position: relative; border-radius: 10px; overflow: hidden;
         background: #1a1a2e; display: grid; place-items: center;
-        min-height: 240px; min-width: 0; width: 100%;
+        min-height: 240px; min-width: 0; width: 100%; aspect-ratio: 16 / 10;
+        max-height: min(58vh, 520px);
     }
-    .anim-canvas-wrap canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .anim-canvas-wrap canvas { position:absolute; inset:0; display: block; width: 100%; height: 100%; object-fit: contain; }
     .anim-canvas-wrap .empty-hint {
         position: absolute; color: rgba(255,255,255,0.45);
         font-size: 0.9rem; text-align: center; pointer-events: none;
@@ -212,11 +213,12 @@
     .step-image-frame {
         display: grid; place-items: center; border: 1px solid rgba(15,23,42,0.1);
         border-radius: 8px; background: rgba(248,250,252,0.9); overflow: hidden;
-        padding: 8px; box-sizing: border-box;
+        padding: 8px; box-sizing: border-box; width: 100%; aspect-ratio: 4 / 3;
+        min-height: 168px; max-height: 260px;
     }
     .step-image-frame img {
-        display: none; width: 100%; height: auto;
-        max-width: 100%; max-height: none; object-fit: contain; image-rendering: auto;
+        display: none; width: 100%; height: 100%;
+        max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: auto;
     }
     .step-empty { color: rgba(15,31,61,0.5); font-size: 0.84rem; text-align: center; padding: 0 10px; }
     .step-tags, .card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -543,12 +545,12 @@
 
     function setupCanvas(canvas, cssW, cssH) {
         var dpr = window.devicePixelRatio || 1;
-        canvas.width = cssW * dpr;
-        canvas.height = cssH * dpr;
-        canvas.style.width = cssW + 'px';
-        canvas.style.height = cssH + 'px';
+        var pixelW = Math.max(1, Math.round(cssW * dpr));
+        var pixelH = Math.max(1, Math.round(cssH * dpr));
+        if (canvas.width !== pixelW) canvas.width = pixelW;
+        if (canvas.height !== pixelH) canvas.height = pixelH;
         var ctx = canvas.getContext('2d');
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         return { ctx: ctx, w: cssW, h: cssH };
     }
 

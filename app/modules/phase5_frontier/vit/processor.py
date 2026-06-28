@@ -71,6 +71,7 @@ def build_pipeline(image_path=None, layer=12, head_idx=1, selected_patch=0, **kw
             'id': 'pos_embed',
             'name': '位置编码相似度',
             'image': pos_heatmap,
+            'visual_kind': 'image',
             'formula': 'z_i = E x_p^i + e_pos^i',
             'explanation': 'Transformer 本身不知道 token 在图像中的位置，因此 ViT 给每个 patch token 加上位置编码。图中展示位置编码之间的余弦相似度。',
         },
@@ -101,6 +102,9 @@ def build_pipeline(image_path=None, layer=12, head_idx=1, selected_patch=0, **kw
             'id': 'predictions',
             'name': f'ImageNet Top-5 分类：{preds[0]["label"] if preds else "N/A"}',
             'image': _prediction_chart(preds),
+            'visual_kind': 'chart',
+            'overlay_scope': 'none',
+            'chart': _prediction_chart_data(preds),
             'formula': 'p_c = softmax(logits)_c',
             'explanation': '最终分类来自真实 ViT 预训练模型的 logits。注意力只是解释线索，真正的类别概率来自分类头。',
             'data': {'top5': preds},
@@ -181,7 +185,7 @@ def _prediction_chart(preds, width=640, height=300):
 
     canvas = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(canvas)
-    draw.text((18, 14), 'ViT ImageNet Top-5 probabilities', fill=(15, 23, 42))
+    draw.text((18, 14), 'ViT ImageNet Top-5 概率', fill=(15, 23, 42))
     if not preds:
         return np.array(canvas)
     for i, pred in enumerate(preds[:5]):
@@ -192,3 +196,20 @@ def _prediction_chart(preds, width=640, height=300):
         draw.rectangle((260, y, 260 + int((width - 294) * p), y + 18), fill=(37, 99, 235))
         draw.text((width - 92, y + 2), f'{p * 100:.1f}%', fill=(15, 23, 42))
     return np.array(canvas)
+
+
+def _prediction_chart_data(preds):
+    return {
+        'type': 'probability',
+        'title': 'ImageNet Top-5 概率',
+        'xLabel': '类别',
+        'yLabel': '概率',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': pred.get('label', f'类别 {idx + 1}'),
+                'value': round(float(pred.get('probability', 0)), 6),
+            }
+            for idx, pred in enumerate((preds or [])[:5])
+        ],
+    }

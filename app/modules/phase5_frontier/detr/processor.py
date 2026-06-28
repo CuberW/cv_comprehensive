@@ -71,6 +71,9 @@ def build_pipeline(image_path=None, threshold=0.5, query_idx=0, head_idx=0, **kw
             'id': 'query_scores',
             'name': 'Query 分数过滤',
             'image': _query_score_chart(queries, threshold=th),
+            'visual_kind': 'chart',
+            'overlay_scope': 'none',
+            'chart': _query_score_chart_data(queries, threshold=th),
             'formula': 'score_i=(1-p_i(no-object)) max_c p_i(c)',
             'explanation': '大部分 query 会学成 no-object。阈值越高，留下的 query 越少，但通常更可靠。',
             'data': {'threshold': th, 'top_queries': queries},
@@ -92,6 +95,8 @@ def build_pipeline(image_path=None, threshold=0.5, query_idx=0, head_idx=0, **kw
             'id': 'detections',
             'name': f'阈值后检测结果（{len(detections)} 个）',
             'image': _draw_detection_boxes(img_u8, detections),
+            'visual_kind': 'overlay_image',
+            'overlays': {'boxes': detections[:20]},
             'formula': 'keep_i = score_i >= tau',
             'explanation': f'保留置信度不低于 {th:.2f} 的真实 DETR 输出，并把类别、分数和边界框叠加到原图。',
             'data': {'detections': detections[:20]},
@@ -195,9 +200,9 @@ def _query_score_chart(query_predictions, threshold=0.5, width=640, height=300):
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Top object-query scores before filtering', fill=(15, 23, 42))
+    draw.text((18, 12), 'Object Query 过滤前分数', fill=(15, 23, 42))
     if not query_predictions:
-        draw.text((18, 60), 'No query data returned.', fill=(100, 116, 139))
+        draw.text((18, 60), '没有返回 query 数据。', fill=(100, 116, 139))
         return np.array(img)
     max_score = max(float(q.get('score', 0)) for q in query_predictions) or 1.0
     bar_h = 17
@@ -212,8 +217,26 @@ def _query_score_chart(query_predictions, threshold=0.5, width=640, height=300):
     tx = 160 + int((threshold / max(max_score, 1e-8)) * (width - 250))
     tx = max(160, min(width - 90, tx))
     draw.line((tx, 44, tx, height - 28), fill=(239, 68, 68), width=2)
-    draw.text((tx + 4, height - 24), f'tau={threshold:.2f}', fill=(239, 68, 68))
+    draw.text((tx + 4, height - 24), f'阈值={threshold:.2f}', fill=(239, 68, 68))
     return np.array(img)
+
+
+def _query_score_chart_data(query_predictions, threshold=0.5):
+    return {
+        'type': 'bar',
+        'title': 'Object Query 分数过滤',
+        'xLabel': 'Query',
+        'yLabel': '分数',
+        'threshold': round(float(threshold), 4),
+        'items': [
+            {
+                'label': f"q{q.get('query')} {str(q.get('label', '目标'))[:10]}",
+                'value': round(float(q.get('score', 0)), 4),
+                'kept': float(q.get('score', 0)) >= float(threshold),
+            }
+            for q in (query_predictions or [])[:12]
+        ],
+    }
 
 
 def _overlay_heatmap_on_image(img, heatmap_2d):
@@ -235,7 +258,7 @@ def _matching_card(queries, detections, width=640, height=300):
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Set prediction: query slots -> final objects', fill=(15, 23, 42))
+    draw.text((18, 12), '集合预测：query 槽位 -> 最终目标', fill=(15, 23, 42))
     left_x, right_x = 88, 470
     shown_q = queries[:8]
     shown_d = detections[:8]

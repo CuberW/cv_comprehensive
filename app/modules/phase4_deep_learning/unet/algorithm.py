@@ -63,15 +63,18 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '输入图像',
                 'image': img,
                 'formula': 'I in R^{H x W x 3}',
-                'explanation': 'U-Net 处理的是整张图像到整张 mask 的映射。这里用上传图像或内置样例作为真实输入。',
+                'explanation': 'U-Net 要解决的问题是“既要理解整块区域，又要保住细边界”。它常用于医学图像、遥感、工业缺陷等需要像素级 mask 的任务。本页用真实后端计算展示 U 形数据流；它不是训练好的通用 U-Net 权重。',
                 'data': {'height': int(h), 'width': int(w), 'channels': 3},
             },
             {
                 'id': 'architecture',
                 'name': 'U 形编解码结构',
                 'image': arch,
+                'visual_kind': 'architecture',
+                'overlay_scope': 'none',
+                'diagram': _architecture_diagram(h, w, enc1.shape, enc2.shape, bottleneck.shape),
                 'formula': 'D_l = concat(up(D_{l+1}), E_l)',
-                'explanation': '左侧编码器不断压缩空间尺寸以获得上下文，右侧解码器逐层恢复尺寸；同尺度跳跃连接把浅层边界细节送回解码器。',
+                'explanation': 'U 形结构可以理解成先“缩小看全局”，再“放大画回原图”。左边编码器负责理解大致区域，右边解码器负责恢复分辨率，中间的跳跃连接把早期保留下来的边缘细节送回去，避免结果变得一团糊。',
                 'data': {
                     'encoder_l1': list(map(int, enc1.shape)),
                     'encoder_l2': list(map(int, enc2.shape)),
@@ -83,7 +86,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '编码器浅层：边界与局部纹理',
                 'image': _gray_rgb(enc1),
                 'formula': 'E_1 = concat(|grad(G*Y)|, |Y-G_rho*Y|)',
-                'explanation': '浅层特征保留边缘、纹理和局部对比度。真实 U-Net 会用卷积学习这些特征；这里用可解释的梯度和局部对比计算得到。',
+                'explanation': '浅层特征像是在看图像表面的细节：哪里有边、哪里有纹理、哪里颜色突然变化。真实 U-Net 用卷积学习这些线索；这里用梯度和局部对比度真实计算，方便你看到“边界信息”从哪里来。',
                 'data': {
                     'edge_mean': round(float(edge.mean()), 4),
                     'contrast_mean': round(float(local_contrast.mean()), 4),
@@ -94,7 +97,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '瓶颈层：低分辨率上下文',
                 'image': _resize_nearest_rgb(_gray_rgb(bottleneck), (h, w)),
                 'formula': 'B = down(down(E_1))',
-                'explanation': '连续下采样让每个位置看到更大范围的图像结构，语义更强但空间细节更少。',
+                'explanation': '瓶颈层把图像压得更小，让一个位置能看到更大范围。好处是更容易判断“这一大块像前景还是背景”，坏处是精确边界被压模糊了。它负责全局判断，不负责细轮廓。',
                 'data': {'downsample_ratio': 4, 'bottleneck_shape': list(map(int, bottleneck.shape))},
             },
             {
@@ -102,7 +105,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '仅上采样解码：边界容易变粗',
                 'image': _gray_rgb(no_skip),
                 'formula': 'D_1 = up(up(B))',
-                'explanation': '如果只把瓶颈层放大回原图，区域结构能回来，但边界会更粗、更模糊。这正是 U-Net 需要跳跃连接的原因。',
+                'explanation': '只靠放大低分辨率结果，能找回大概区域，但边界会像被拉伸过一样变粗。这一步故意展示“没有跳跃连接会怎样”，让后面的改进更直观。',
                 'data': {'mean_response': round(float(no_skip.mean()), 4)},
             },
             {
@@ -110,7 +113,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '跳跃连接融合细节',
                 'image': _gray_rgb(skip_fusion),
                 'formula': 'P = sigmoid(w_d D_1 + w_e E_1 + w_c C)',
-                'explanation': '解码器的上下文响应与编码器浅层细节融合，既知道大致区域，也尽量贴住局部边界。',
+                'explanation': '跳跃连接把“全局判断”和“浅层边界”合在一起：解码器知道哪里大概是目标，浅层细节提醒它边界应该贴在哪里。这就是 U-Net 适合精细分割的关键。',
                 'data': {'decoder_weight': 0.56, 'encoder_weight': 0.30, 'contrast_weight': 0.14},
             },
             {
@@ -118,7 +121,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '前景概率图',
                 'image': _heatmap(probability),
                 'formula': 'p(x,y)=sigmoid(P(x,y))',
-                'explanation': '概率图越亮的位置越可能被分成前景。它是阈值化之前的连续中间结果。',
+                'explanation': '概率图不是最终黑白 mask，而是每个像素“属于前景的可能性”。越亮越像前景，越暗越像背景。保留这个连续结果能让用户理解阈值为什么会改变最终 mask 大小。',
                 'data': {
                     'threshold': round(tau, 4),
                     'mean_probability': round(float(probability.mean()), 4),
@@ -129,7 +132,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '二值 mask 与结果叠加',
                 'image': overlay,
                 'formula': 'M(x,y)=1[p(x,y)>=tau]',
-                'explanation': '按阈值把概率图变成二值 mask，再叠加到原图上。该结果来自本地机制计算，不是训练好的医学或通用 U-Net 权重。',
+                'explanation': '这一步把概率图切成明确的前景/背景：高于阈值的像素进入 mask，低于阈值的像素丢掉。叠回原图后，可以直接看到模型机制认为哪些区域应被保留。',
                 'data': {
                     'foreground_ratio': round(float(mask.mean()), 4),
                     'foreground_pixels': int(mask.sum()),
@@ -140,7 +143,7 @@ def build_pipeline(image_path=None, threshold='otsu', **kwargs):
                 'name': '跳跃连接前后对比',
                 'image': comparison,
                 'formula': 'mask_skip vs mask_no_skip',
-                'explanation': '左边只用瓶颈上下文，右边加入跳跃连接。对比展示 U-Net 为什么能在恢复分辨率时保留边界。',
+                'explanation': '这张对比图是 U-Net 的核心教学点：左边只知道大概区域，右边加入浅层细节后边界更贴图像结构。它说明跳跃连接不是装饰，而是在恢复分辨率时补回丢失的细节。',
                 'data': {
                     'no_skip_foreground_ratio': round(float(no_skip_mask.mean()), 4),
                     'skip_foreground_ratio': round(float(mask.mean()), 4),
@@ -292,6 +295,31 @@ def _side_by_side(items):
         draw.rectangle((x, 220, x + 300, 252), fill=(15, 23, 42))
         draw.text((x + 12, 230), labels[i], fill=(226, 232, 240))
     return np.array(canvas)
+
+
+def _architecture_diagram(h, w, enc1_shape, enc2_shape, bottleneck_shape):
+    return {
+        'title': 'U-Net 前端结构图',
+        'subtitle': '先压缩获得全局上下文，再上采样恢复分辨率；跳跃连接把浅层边界细节直接送回解码器。',
+        'nodes': [
+            {'id': 'input', 'label': '输入图像', 'detail': f'{h}x{w} RGB', 'tone': 'input'},
+            {'id': 'enc1', 'label': '编码器浅层', 'detail': f'边缘/纹理 {enc1_shape[0]}x{enc1_shape[1]}', 'tone': 'block'},
+            {'id': 'enc2', 'label': '编码器下采样', 'detail': f'更大感受野 {enc2_shape[0]}x{enc2_shape[1]}', 'tone': 'block'},
+            {'id': 'bottleneck', 'label': '瓶颈层', 'detail': f'低分辨率上下文 {bottleneck_shape[0]}x{bottleneck_shape[1]}', 'tone': 'block'},
+            {'id': 'dec2', 'label': '解码器上采样', 'detail': '把上下文放大回去', 'tone': 'block'},
+            {'id': 'skip', 'label': '跳跃连接', 'detail': '补回浅层边界细节', 'tone': 'skip'},
+            {'id': 'mask', 'label': '输出 mask', 'detail': '逐像素前景概率', 'tone': 'output'},
+        ],
+        'edges': [
+            {'from': 'input', 'to': 'enc1', 'label': '提取细节'},
+            {'from': 'enc1', 'to': 'enc2', 'label': '下采样'},
+            {'from': 'enc2', 'to': 'bottleneck', 'label': '压缩上下文'},
+            {'from': 'bottleneck', 'to': 'dec2', 'label': '上采样'},
+            {'from': 'enc1', 'to': 'skip', 'label': '保留边界', 'skip': True},
+            {'from': 'skip', 'to': 'dec2', 'label': '融合细节', 'skip': True},
+            {'from': 'dec2', 'to': 'mask', 'label': '逐像素预测'},
+        ],
+    }
 
 
 def _architecture_card(h, w, enc1_shape, enc2_shape, bottleneck_shape):

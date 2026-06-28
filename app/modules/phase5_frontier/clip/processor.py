@@ -62,6 +62,9 @@ def build_pipeline(image_path=None, class_set='animals', custom_classes='', **kw
             'id': 'similarity_chart',
             'name': '图文余弦相似度',
             'image': _render_similarity_chart(preds),
+            'visual_kind': 'chart',
+            'overlay_scope': 'none',
+            'chart': _similarity_chart_data(preds),
             'formula': 'sim(I,T_i)=<v_I,v_T_i>',
             'explanation': f'每条候选文本都和图像向量计算余弦相似度。当前候选集合里，最高分文本是“{top1_label}”。',
             'data': {'predictions': preds},
@@ -84,6 +87,9 @@ def build_pipeline(image_path=None, class_set='animals', custom_classes='', **kw
             'id': 'softmax_result',
             'name': f'零样本分类结果：{top1_label}',
             'image': _render_similarity_chart(preds),
+            'visual_kind': 'chart',
+            'overlay_scope': 'none',
+            'chart': _similarity_chart_data(preds, title='候选文本归一化概率'),
             'formula': 'p_i = softmax(100 * sim(I,T_i))',
             'explanation': f'最终概率只在当前候选文本集合内部归一化。Top-1 为 {top1_label}，概率 {top1_prob}。',
             'data': {'predictions': preds},
@@ -114,7 +120,7 @@ def _render_prompt_list(prompts, width=640, height=270):
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Text prompts sent to the CLIP text encoder', fill=(15, 23, 42))
+    draw.text((18, 12), '送入 CLIP 文本编码器的候选提示', fill=(15, 23, 42))
     for i, prompt in enumerate(prompts[:10]):
         y = 48 + i * 21
         draw.rectangle((18, y - 3, width - 18, y + 16), fill=(241, 245, 249), outline=(203, 213, 225))
@@ -127,11 +133,11 @@ def _render_embedding_summary(image_embedding, text_embeddings, labels, width=64
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Sampled normalized embedding values', fill=(15, 23, 42))
+    draw.text((18, 12), '归一化 embedding 采样值', fill=(15, 23, 42))
     image_embedding = np.asarray(image_embedding or [], dtype=np.float64)
     text_embeddings = np.asarray(text_embeddings or [], dtype=np.float64)
     if image_embedding.size == 0 or text_embeddings.size == 0:
-        draw.text((18, 60), 'No embedding data returned.', fill=(100, 116, 139))
+        draw.text((18, 60), '没有返回 embedding 数据。', fill=(100, 116, 139))
         return np.array(img)
 
     sample_idx = np.linspace(0, image_embedding.size - 1, 48).astype(int)
@@ -156,7 +162,7 @@ def _render_similarity_chart(predictions, width=640, height=320):
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Image-text cosine similarity and normalized probability', fill=(15, 23, 42))
+    draw.text((18, 12), '图文余弦相似度与归一化概率', fill=(15, 23, 42))
     if not predictions:
         return np.array(img)
     max_sim = max(p['similarity'] for p in predictions)
@@ -173,12 +179,30 @@ def _render_similarity_chart(predictions, width=640, height=320):
     return np.array(img)
 
 
+def _similarity_chart_data(predictions, title='图文余弦相似度'):
+    return {
+        'type': 'probability',
+        'title': title,
+        'xLabel': '候选文本',
+        'yLabel': '概率',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': p.get('label', f'候选 {idx + 1}'),
+                'value': round(float(p.get('probability', 0)), 6),
+                'similarity': round(float(p.get('similarity', 0)), 6),
+            }
+            for idx, p in enumerate((predictions or [])[:12])
+        ],
+    }
+
+
 def _render_semantic_space(image_embedding, text_embeddings, predictions, width=520, height=360):
     from PIL import Image, ImageDraw
 
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((18, 12), 'Image and text embeddings projected to 2D', fill=(15, 23, 42))
+    draw.text((18, 12), '图像与文本 embedding 的二维投影', fill=(15, 23, 42))
     image_embedding = np.asarray(image_embedding or [], dtype=np.float64)
     text_embeddings = np.asarray(text_embeddings or [], dtype=np.float64)
     if image_embedding.size == 0 or text_embeddings.size == 0:
@@ -192,7 +216,7 @@ def _render_semantic_space(image_embedding, text_embeddings, predictions, width=
     pts = np.column_stack([60 + norm[:, 0] * (width - 120), height - 56 - norm[:, 1] * (height - 112)])
     image_pt = pts[0]
     draw.ellipse((image_pt[0] - 10, image_pt[1] - 10, image_pt[0] + 10, image_pt[1] + 10), fill=(225, 29, 72))
-    draw.text((image_pt[0] + 12, image_pt[1] - 8), 'image', fill=(225, 29, 72))
+    draw.text((image_pt[0] + 12, image_pt[1] - 8), '图像', fill=(225, 29, 72))
     for i, pred in enumerate(predictions):
         if i + 1 >= len(pts):
             continue
@@ -221,7 +245,7 @@ def _render_similarity_matrix(predictions, matrix=None, size=340):
     height = n * cell + 52
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
-    draw.text((12, 8), 'Text-text similarity', fill=(15, 23, 42))
+    draw.text((12, 8), '候选文本之间的相似度', fill=(15, 23, 42))
     for i in range(n):
         for j in range(n):
             x = 86 + j * cell

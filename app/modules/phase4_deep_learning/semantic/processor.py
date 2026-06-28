@@ -70,16 +70,26 @@ def build_pipeline(image_path=None, **kwargs):
     overlay = _overlay(img_u8, color)
     conf_vis = _confidence_heatmap(conf_resized)
     label_summary = _label_summary(seg_resized, categories)
+    label_chart = _label_chart(label_summary, img_u8.shape[0] * img_u8.shape[1])
     return {
         'steps': [
-            {'id': 'original', 'name': 'Input image', 'image': img_u8,
-             'explanation': 'Image sent to torchvision FCN ResNet50 semantic segmentation weights.'},
-            {'id': 'segmentation', 'name': 'Real pixel class map', 'image': color,
-             'explanation': 'Each pixel color comes from the argmax class after FCN softmax.'},
-            {'id': 'confidence', 'name': 'Pixel confidence heatmap', 'image': conf_vis,
-             'explanation': 'Brighter pixels have higher maximum class probability.'},
-            {'id': 'overlay', 'name': 'Segmentation overlay', 'image': overlay,
-             'explanation': 'Predicted semantic classes are blended onto the input image.'},
+            {'id': 'original', 'name': '输入图像', 'image': img_u8,
+             'visual_kind': 'image',
+             'explanation': '图像送入 torchvision 的 FCN ResNet50 语义分割预训练权重。'},
+            {'id': 'segmentation', 'name': '像素类别图', 'image': color,
+             'visual_kind': 'image',
+             'explanation': '每个像素的颜色来自 FCN softmax 后概率最高的类别。'},
+            {'id': 'confidence', 'name': '像素置信度热力图', 'image': conf_vis,
+             'visual_kind': 'image',
+             'explanation': '越亮的位置表示该像素最大类别概率越高。'},
+            {'id': 'label_summary', 'name': '类别面积占比', 'image': _label_chart_image(label_chart),
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': label_chart,
+             'explanation': '柱状图展示各语义类别覆盖的像素比例，由前端根据结构化数据高清绘制。'},
+            {'id': 'overlay', 'name': '叠加到原图', 'image': overlay,
+             'visual_kind': 'image',
+             'explanation': '预测出的语义类别以半透明颜色叠加到输入图像上，方便对照原始内容。'},
         ],
         'metrics': {
             'status': 'pretrained_model',
@@ -103,16 +113,26 @@ def _build_local_pipeline(image_path=None, **kwargs):
     overlay = _overlay(img_u8, color)
     conf_vis = _confidence_heatmap(conf)
     labels = _local_labels(seg, centers)
+    label_chart = _label_chart(labels, img_u8.shape[0] * img_u8.shape[1])
     return {
         'steps': [
-            {'id': 'input', 'name': 'Input image', 'image': img_u8,
-             'explanation': 'Local semantic segmentation treats each pixel as color plus position features.'},
-            {'id': 'segmentation', 'name': 'Pixel groups / semantic regions', 'image': color,
-             'explanation': 'Pixels assigned to the same region share similar color and nearby spatial location.'},
-            {'id': 'confidence', 'name': 'Region confidence', 'image': conf_vis,
-             'explanation': 'Confidence is higher when a pixel is clearly closer to its region center than to alternatives.'},
-            {'id': 'overlay', 'name': 'Overlay on input', 'image': overlay,
-             'explanation': 'The colored mask shows how a dense prediction covers every pixel, unlike object detection boxes.'},
+            {'id': 'input', 'name': '输入图像', 'image': img_u8,
+             'visual_kind': 'image',
+             'explanation': '本地语义分割把每个像素表示成颜色和位置特征，再寻找相似区域。'},
+            {'id': 'segmentation', 'name': '像素分组区域', 'image': color,
+             'visual_kind': 'image',
+             'explanation': '同一区域里的像素颜色相近、位置也相邻，用来模拟“每个像素都有类别”的密集预测。'},
+            {'id': 'confidence', 'name': '区域置信度', 'image': conf_vis,
+             'visual_kind': 'image',
+             'explanation': '当像素明显更接近自己的区域中心，而不是其他区域中心时，置信度更高。'},
+            {'id': 'label_summary', 'name': '区域面积占比', 'image': _label_chart_image(label_chart),
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': label_chart,
+             'explanation': '柱状图展示每个区域覆盖了多少像素，前端会基于真实统计数据重绘。'},
+            {'id': 'overlay', 'name': '叠加到原图', 'image': overlay,
+             'visual_kind': 'image',
+             'explanation': '彩色掩码覆盖整张图，展示语义分割和只画框的目标检测之间的差别。'},
         ],
         'metrics': {
             'status': 'local_teaching_fallback',
@@ -176,12 +196,51 @@ def _label_summary(seg, categories):
 def _color_name(rgb):
     r, g, b = rgb
     if max(rgb) - min(rgb) < 0.12:
-        return 'neutral region'
+        return '中性区域'
     if r >= g and r >= b:
-        return 'warm/red region'
+        return '暖色区域'
     if g >= r and g >= b:
-        return 'green region'
-    return 'blue/cool region'
+        return '绿色区域'
+    return '冷色区域'
+
+
+def _label_chart(labels, total_pixels):
+    total = max(1, int(total_pixels))
+    return {
+        'type': 'bar',
+        'title': '语义类别面积占比',
+        'subtitle': '每根柱子表示一个类别或区域覆盖的像素比例。',
+        'xLabel': '类别/区域',
+        'yLabel': '像素占比',
+        'valueFormat': 'percent',
+        'items': [
+            {
+                'label': item.get('label', f"类别 {item.get('label_id', idx)}"),
+                'value': round(float(item.get('pixels', 0)) / total, 4),
+                'pixels': int(item.get('pixels', 0)),
+                'label_id': item.get('label_id'),
+            }
+            for idx, item in enumerate(labels[:8])
+        ],
+    }
+
+
+def _label_chart_image(chart, width=640, height=300):
+    from PIL import Image, ImageDraw
+    canvas = Image.new('RGB', (width, height), (15, 23, 42))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((20, 16), chart.get('title', '语义类别面积占比'), fill=(226, 232, 240))
+    items = chart.get('items', [])[:8]
+    if not items:
+        draw.text((20, height // 2), '暂无类别统计', fill=(148, 163, 184))
+        return np.array(canvas)
+    bar_h = max(18, (height - 70) // len(items) - 8)
+    for idx, item in enumerate(items):
+        y = 54 + idx * (bar_h + 8)
+        value = float(item.get('value', 0))
+        draw.text((18, y + 2), str(item.get('label', f'类别 {idx + 1}'))[:18], fill=(226, 232, 240))
+        draw.rectangle((190, y, 190 + int(value * (width - 230)), y + bar_h), fill=(20, 184, 166))
+    return np.array(canvas)
 
 
 def _pil_image(arr):

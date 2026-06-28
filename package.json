@@ -3,6 +3,6 @@
     "@fontsource/noto-sans-sc": "^5.2.9"
   },
   "scripts": {
-    "postinstall": "node -e \"var f=require('fs');var p=require('path');var s='node_modules/@fontsource/noto-sans-sc/files';var d='static/fonts';f.mkdirSync(d,{recursive:true});f.readdirSync(s).filter(x=>x.includes('chinese-simplified')&&x.endsWith('.woff2')).forEach(x=>f.copyFileSync(p.join(s,x),p.join(d,x)));console.log('Fonts copied: '+d)\""
+    "postinstall": "node scripts/sync-vendor-assets.js"
   }
 }

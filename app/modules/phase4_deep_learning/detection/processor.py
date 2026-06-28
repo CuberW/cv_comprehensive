@@ -82,15 +82,25 @@ def build_pipeline(image_path=None, score_threshold=0.5, **kwargs):
         })
 
     result_vis = _draw_boxes(img_u8, detections)
-    score_chart = _score_chart(detections)
+    score_chart = _score_chart(detections, title='检测置信度')
+    score_chart_data = _score_chart_data(detections, title='检测置信度', threshold=threshold)
+    overlay_boxes = _public_boxes(detections)
     return {
         'steps': [
-            {'id': 'original', 'name': 'Input image', 'image': img_u8,
-             'explanation': 'Image sent to torchvision Faster R-CNN ResNet50-FPN COCO weights.'},
-            {'id': 'detections', 'name': f'Real detections ({len(detections)})', 'image': result_vis,
-             'explanation': f'Kept model boxes with score >= {threshold:.2f}; no synthetic boxes are injected.'},
-            {'id': 'scores', 'name': 'Detection confidence', 'image': score_chart,
-             'explanation': 'Confidence chart sorted by model output score.'},
+            {'id': 'original', 'name': '输入图像', 'image': img_u8,
+             'visual_kind': 'image',
+             'explanation': '图像送入 torchvision 的 Faster R-CNN ResNet50-FPN COCO 预训练权重。'},
+            {'id': 'detections', 'name': f'真实检测结果（{len(detections)} 个）', 'image': result_vis,
+             'visual_kind': 'overlay_image',
+             'overlay_scope': 'frame',
+             'overlays': {'boxes': overlay_boxes},
+             'data': {'detections': overlay_boxes},
+             'explanation': f'保留模型置信度不低于 {threshold:.2f} 的框；这里不会注入合成检测结果。'},
+            {'id': 'scores', 'name': '置信度排序', 'image': score_chart,
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': score_chart_data,
+             'explanation': '柱状图来自模型输出分数，前端会用结构化数据重新绘制高清图表。'},
         ],
         'metrics': {
             'status': 'pretrained_model',
@@ -112,18 +122,29 @@ def _build_local_pipeline(image_path=None, **kwargs):
     candidates, score_map = _local_candidates(gray)
     detections = [d for d in candidates if d['score'] >= threshold][:12]
     result_vis = _draw_boxes(img_u8, detections)
-    score_chart = _score_chart(detections)
+    score_chart = _score_chart(detections, title='候选区域置信度')
+    score_chart_data = _score_chart_data(detections, title='候选区域置信度', threshold=threshold)
     heat = _heatmap(score_map)
+    overlay_boxes = _public_boxes(detections)
     return {
         'steps': [
-            {'id': 'input', 'name': 'Input image', 'image': img_u8,
-             'explanation': 'Local detection demo starts from image contrast, edges, and salient regions.'},
-            {'id': 'objectness', 'name': 'Objectness heatmap', 'image': heat,
-             'explanation': 'Brighter areas have stronger edges or local contrast and become candidate object regions.'},
-            {'id': 'detections', 'name': f'Candidate boxes after NMS ({len(detections)})', 'image': result_vis,
-             'explanation': 'Candidates are sorted by score and filtered with non-maximum suppression.'},
-            {'id': 'scores', 'name': 'Candidate confidence', 'image': score_chart,
-             'explanation': 'This is an offline teaching detector. Enable pretrained demos to run real Faster R-CNN.'},
+            {'id': 'input', 'name': '输入图像', 'image': img_u8,
+             'visual_kind': 'image',
+             'explanation': '本地教学检测器从图像对比度、边缘和显著区域开始寻找候选目标。'},
+            {'id': 'objectness', 'name': '目标性热力图', 'image': heat,
+             'visual_kind': 'image',
+             'explanation': '越亮的位置说明边缘或局部对比越强，更可能成为候选目标区域。'},
+            {'id': 'detections', 'name': f'NMS 后候选框（{len(detections)} 个）', 'image': result_vis,
+             'visual_kind': 'overlay_image',
+             'overlay_scope': 'frame',
+             'overlays': {'boxes': overlay_boxes},
+             'data': {'detections': overlay_boxes},
+             'explanation': '候选框先按分数排序，再用非极大值抑制去掉高度重叠的重复框。'},
+            {'id': 'scores', 'name': '候选框置信度', 'image': score_chart,
+             'visual_kind': 'chart',
+             'overlay_scope': 'none',
+             'chart': score_chart_data,
+             'explanation': '这里是离线教学检测器的候选分数。前端用结构化数据重绘柱状图，兼容图片只作为旧页面兜底。'},
         ],
         'metrics': {
             'status': 'local_teaching_fallback',
@@ -198,22 +219,54 @@ def _draw_boxes(img, detections):
     return vis
 
 
-def _score_chart(detections, width=640, height=320):
+def _score_chart(detections, title='检测置信度', width=640, height=320):
     from PIL import Image, ImageDraw
     canvas = Image.new('RGB', (width, height), (15, 23, 42))
     draw = ImageDraw.Draw(canvas)
+    draw.text((20, 12), title, fill=(226, 232, 240))
     if not detections:
-        draw.text((20, height // 2 - 8), 'No detections above threshold', fill=(226, 232, 240))
+        draw.text((20, height // 2 - 8), '阈值以上暂无检测结果', fill=(226, 232, 240))
         return np.array(canvas)
     rows = detections[:10]
-    bar_h = max(18, (height - 40) // len(rows) - 6)
+    bar_h = max(18, (height - 64) // len(rows) - 6)
     for i, det in enumerate(rows):
-        y = 20 + i * (bar_h + 6)
+        y = 46 + i * (bar_h + 6)
         score = float(det['score'])
         bar_w = int(score * (width - 220))
         draw.rectangle((180, y, 180 + bar_w, y + bar_h), fill=(59, 130, 246))
         draw.text((12, y + 2), f"{det['label']} {score:.2f}", fill=(226, 232, 240))
     return np.array(canvas)
+
+
+def _score_chart_data(detections, title='检测置信度', threshold=None):
+    return {
+        'type': 'bar',
+        'title': title,
+        'subtitle': '按检测分数从高到低排序，红线表示当前保留阈值。',
+        'xLabel': '候选目标',
+        'yLabel': '置信度',
+        'valueFormat': 'percent',
+        'threshold': round(float(threshold), 4) if threshold is not None else None,
+        'items': [
+            {
+                'label': det.get('label', f'目标 {idx + 1}'),
+                'value': round(float(det.get('score', 0)), 4),
+                'box': [round(float(v), 1) for v in det.get('box', [])[:4]],
+            }
+            for idx, det in enumerate(detections[:12])
+        ],
+    }
+
+
+def _public_boxes(detections):
+    return [
+        {
+            'box': [round(float(v), 1) for v in det.get('box', [])[:4]],
+            'label': det.get('label', '目标'),
+            'score': round(float(det.get('score', 0)), 4),
+        }
+        for det in detections
+    ]
 
 
 def _heatmap(score):

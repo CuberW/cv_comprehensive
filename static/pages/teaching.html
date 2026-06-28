@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -9,11 +9,9 @@
 <title>算法讲解 - Cvtoolkits</title>
 <link rel="stylesheet" href="../css/style.css?v=2">
 <link rel="stylesheet" href="../css/teaching-page.css?v=2">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../css/iframe-theme.css">
 <script src="../js/theme-sync.js?v=2"></script>
 <script src="../js/page-utils.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 </head>
 <body>
 <main class="teach-page">
@@ -26,6 +24,7 @@
       </div>
       <h1 class="teach-title" data-title></h1>
       <p class="teach-subtitle"><span data-english></span> · <span data-tagline></span></p>
+      <div class="teach-problem" id="problemStatement"></div>
       <div class="teach-core" id="coreGrid"></div>
     </div>
 
@@ -35,10 +34,6 @@
         <input id="fileInput" type="file" accept="image/*">
         <span><strong>选择或拖入图片</strong><span id="filename">未选择文件</span></span>
       </label>
-      <div class="teach-live-preview" id="livePreviewWrap" style="display:none">
-        <canvas id="livePreview" width="560" height="420" style="width:100%;height:auto;cursor:crosshair;border-radius:8px;"></canvas>
-        <span class="teach-preview-hint" id="previewHint"></span>
-      </div>
       <div class="teach-controls" id="controls"></div>
       <div class="teach-actions">
         <button class="teach-button" id="runButton" type="button" disabled>运行算法</button>
@@ -51,7 +46,7 @@
   <section class="teach-section">
     <div class="teach-section-head">
       <h2>原理说明</h2>
-      <p>先建立直觉，再看公式和中间图。</p>
+      <p>先建立直觉，再看公式和真实后端步骤。</p>
     </div>
     <div class="teach-principle-grid">
       <div class="teach-copy" id="principles"></div>
@@ -62,7 +57,7 @@
   <section class="teach-section teach-visual-section" id="visualStorySection">
     <div class="teach-section-head">
       <h2>直观图解</h2>
-      <p id="visualStoryIntro">用图形先看懂像素和参数发生了什么。</p>
+      <p id="visualStoryIntro">用图形先看懂像素、参数和中间表示如何变化。</p>
     </div>
     <div class="teach-visual-grid" id="visualStory"></div>
   </section>
@@ -78,22 +73,24 @@
   <section class="teach-section">
     <div class="teach-section-head">
       <h2>算法流水线</h2>
-      <p>对应 ARCHITECTURE.md 第六部分的学习路径。</p>
+      <p>把抽象概念拆成可观察、可运行的步骤。</p>
     </div>
     <div class="teach-pipeline" id="pipeline"></div>
   </section>
 
   <section class="teach-section">
     <div class="teach-section-head">
-      <h2>运行结果</h2>
+      <h2>后端交互舞台</h2>
       <div class="teach-metrics" id="metrics"></div>
     </div>
+    <div class="panel interactive-stage-panel"><div id="interactiveStageRoot"></div></div>
     <div class="teach-result-grid" id="results"></div>
   </section>
 </main>
 <script src="../js/algorithm-content.js?v=2"></script>
 <script src="../js/card-anims.js?v=2"></script>
 <script src="../js/semantic-anims.js?v=2"></script>
+<script src="../js/interactive-teaching-stage.js"></script>
 <script src="../js/teaching-page.js?v=2"></script>
 </body>
 </html>

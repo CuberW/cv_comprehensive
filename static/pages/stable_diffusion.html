@@ -1,31 +1,64 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stable Diffusion — CV 通识教育</title>
-<link rel="stylesheet" href="../css/iframe-theme.css"><script src="../js/theme-sync.js"></script><script src="../js/model-page-status.js" defer></script>
-<script src="../js/page-utils.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;color:#e2e8f0;background:#0f172a;min-height:100vh}
-.page{max-width:1100px;margin:0 auto;padding:20px 24px 40px}h1{font-size:1.6rem;font-weight:700}
-.subtitle{color:#94a3b8;font-size:0.9rem}.status{display:inline-block;padding:3px 12px;border-radius:12px;font-size:0.75rem;font-weight:600;margin:6px 0;background:#065f46;color:#6ee7b7}
-.panel{background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.15);border-radius:16px;padding:18px 20px;margin-bottom:16px}.panel h3{font-size:1rem;margin-bottom:12px}
-.params-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}.param-item label{display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:4px}.param-item input[type=range]{width:100%;accent-color:#f9a8d4}.param-item input[type=text]{width:100%;padding:6px 10px;background:rgba(30,41,59,0.8);color:#e2e8f0;border:1px solid rgba(148,163,184,0.2);border-radius:8px;font-size:0.85rem}.param-item .val{font-size:0.85rem;color:#f9a8d4;font-weight:600}
-.btn-row{display:flex;gap:10px;margin-top:12px}.btn-primary{padding:10px 28px;background:#f9a8d4;color:#1e293b;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer}.btn-primary:hover{background:#f472b6}
-.metrics-bar{display:flex;flex-wrap:wrap;gap:16px;padding:12px 16px;background:rgba(249,168,212,0.08);border:1px solid rgba(249,168,212,0.2);border-radius:12px;margin-bottom:16px}.metric-item .metric-label{font-size:0.7rem;color:#94a3b8;text-transform:uppercase}.metric-item .metric-value{font-size:1rem;font-weight:700;color:#f9a8d4}
-.steps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.step-card{background:rgba(30,41,59,0.6);border:1px solid rgba(148,163,184,0.12);border-radius:12px;overflow:hidden}.step-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.3);transform:translateY(-2px)}.step-card.step-input{border-left:3px solid #3B82F6}.step-card.step-process{border-left:3px solid #f9a8d4}.step-card.step-output{border-left:3px solid #10B981}
-.step-card .img-area{background:rgba(15,23,42,0.5);min-height:140px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(148,163,184,0.1);overflow:hidden}.step-card .img-area img{width:100%;display:block}.step-card .info{padding:12px 14px}.step-card .info .step-title{font-weight:700;font-size:0.9rem}.step-card .info .step-desc{font-size:0.8rem;color:#94a3b8;margin-top:4px;line-height:1.5}
-.loading{text-align:center;padding:32px;color:#94a3b8;display:none}.loading.visible{display:block}.spinner{display:inline-block;width:36px;height:36px;border:3px solid rgba(148,163,184,0.2);border-top-color:#f9a8d4;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-.error-box{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px 20px;color:#fca5a5;font-size:0.88rem;margin-top:16px;display:none}.error-box.visible{display:block}.empty-hint{text-align:center;padding:36px 20px;color:#64748b;font-size:0.92rem}.results-section{display:none}.results-section.visible{display:block}
-</style></head><body>
-<main class="page"><h1>🎨 Stable Diffusion</h1><p class="subtitle">Stable Diffusion — 潜空间扩散 + 文本条件生成</p><span class="status">模型就绪 (SD v1.5)</span>
-<span id="backendHint" style="display:none;margin-left:8px;font-size:0.75rem;color:#94a3b8"></span>
-<p style="color:#94a3b8;font-size:0.88rem;margin-top:8px;">使用 runwayml/stable-diffusion-v1-5 预训练模型。首次运行需下载 ~4GB 模型。</p>
-<div class="panel"><h3>📝 文本提示</h3>
-<div class="params-grid"><div class="param-item"><label>提示词 (Prompt)</label><input type="text" id="prompt" value="a cat sitting on a chair" style="width:100%"></div>
-<div class="param-item"><label>推理步数</label><input type="range" id="numSteps" min="10" max="30" value="20" step="5"><span class="val" id="numStepsVal">20</span></div>
-<div class="param-item"><label>CFG 引导强度</label><input type="range" id="guidance" min="10" max="150" value="75" step="5"><span class="val" id="guidanceVal">7.5</span></div></div>
-<div class="btn-row"><button class="btn-primary" id="runBtn">▶ 生成图像</button></div></div>
-<div class="loading" id="loading"><div class="spinner"></div><p style="margin-top:12px;">Stable Diffusion 推理中 (首次加载需下载模型~4GB, 推理 30-60 秒)...</p></div><div class="error-box" id="errorBox"></div><div class="empty-hint" id="emptyHint">👆 输入文本提示词，观察 Stable Diffusion 如何从随机噪声逐步去噪生成图像。</div>
-<div class="results-section" id="resultsSection"><div class="metrics-bar" id="metricsBar"></div><div class="panel" style="margin-top:16px;"><h3>🔬 扩散生成流水线</h3><div class="steps-grid" id="stepsGrid"></div></div></div></main>
-<script>(function(){var e=document.getElementById('errorBox'),f=document.getElementById('resultsSection'),g=document.getElementById('metricsBar'),h=document.getElementById('stepsGrid'),i=document.getElementById('emptyHint'),j=document.getElementById('loading'),k=document.getElementById('runBtn'),n='stable_diffusion';k.addEventListener('click',q);var o=document.getElementById('numSteps'),p=document.getElementById('guidance');o.addEventListener('input',function(){document.getElementById('numStepsVal').textContent=this.value});p.addEventListener('input',function(){document.getElementById('guidanceVal').textContent=(this.value/10).toFixed(1)});function q(){j.classList.add('visible');e.classList.remove('visible');f.classList.remove('visible');i.style.display='none';k.disabled=true;var t=new FormData();t.append('prompt',document.getElementById('prompt').value);t.append('num_steps',o.value);t.append('guidance',p.value/10);fetch('/api/demo/'+n,{method:'POST',body:t}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(r){j.classList.remove('visible');k.disabled=false;if(r.error){e.textContent=r.error;e.classList.add('visible');return}var s=r.metrics||{},u='';Object.keys(s).forEach(function(v){var w=s[v];if(typeof w==='number')w=Math.round(w*100)/100;u+='<div class="metric-item"><div class="metric-label">'+v+'</div><div class="metric-value">'+w+'</div></div>'});g.innerHTML=u;var x=r.steps||[],y='';x.forEach(function(v,w){var z=(w===0)?'step-input':(w===x.length-1)?'step-output':'step-process';y+='<div class="step-card '+z+'"><div class="img-area">';if(v.image_base64)y+='<img src="data:image/png;base64,'+v.image_base64+'" alt="'+v.name+'">';else y+='<span style="color:#64748b">(无图像)</span>';y+='</div><div class="info"><div class="step-title">'+v.name+'</div>';if(v.explanation)y+='<div class="step-desc">'+v.explanation+'</div>';if(v.formula)y+='<code class="step-formula">'+v.formula+'</code>';y+='</div></div>'});h.innerHTML=y;f.classList.add('visible')}).catch(function(r){j.classList.remove('visible');k.disabled=false;e.textContent='请求失败: '+r.message;e.classList.add('visible')})}})();</script></body></html>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stable Diffusion - CV 通识教育</title>
+  <link rel="stylesheet" href="../css/iframe-theme.css">
+  <link rel="stylesheet" href="../css/model-demo-page.css">
+  <script src="../js/theme-sync.js"></script>
+  <script src="../js/page-utils.js"></script>
+</head>
+<body>
+<main class="page">
+  <section class="hero">
+    <div class="hero-main">
+      <div class="eyebrow">生成模型 / 文本条件扩散</div>
+      <h1 id="pageTitle">Stable Diffusion</h1>
+      <p class="subtitle" id="subtitle"></p>
+      <p class="intro" id="introText"></p>
+      <div class="problem-statement" id="problemStatement"></div>
+      <span class="status" id="statusPill"></span>
+    </div>
+    <aside class="panel controls">
+      <h2>运行真实后端</h2>
+      <div class="control-row">
+        <button id="sampleBtn" type="button">重置提示词</button>
+        <button id="runBtn" class="primary" type="button">生成图像</button>
+      </div>
+      <div class="file-line" id="fileName">Stable Diffusion 使用文本提示词和模型缓存</div>
+      <div id="paramsPanel" class="params"></div>
+    </aside>
+  </section>
+  <section class="info-grid">
+    <div class="panel"><h2>算法流程</h2><ul id="pipelineList"></ul></div>
+    <div class="panel"><h2>应用场景</h2><ul id="applicationsList"></ul></div>
+    <div class="panel"><h2>局限说明</h2><ul id="limitationsList"></ul></div>
+  </section>
+  <div id="loading" class="loading" hidden>后端正在运行 Stable Diffusion；首次加载可能需要下载或读取较大的权重...</div>
+  <div id="errorBox" class="error" hidden></div>
+  <section id="metricsGrid" class="metrics"></section>
+  <section class="panel"><h2>后端步骤证据</h2><div id="stepsGrid" class="steps"></div></section>
+</main>
+<script>
+window.ModelDemoConfig = {
+  moduleId: 'stable_diffusion',
+  title: 'Stable Diffusion',
+  subtitle: '输入一句描述，让模型从噪声中逐步生成符合描述的图像。',
+  intro: 'Stable Diffusion 适合解释文生图产品背后的直观流程：文字先变成条件，噪声图在条件引导下逐步变清晰。本页会调用后端 Stable Diffusion 管线；若本机没有权重，会显示明确下载路径和配置提示，不用前端假图冒充推理。',
+  problemStatement: 'Stable Diffusion 解决的是“如何按文字要求生成图像”的问题。它在压缩后的潜空间里反复去噪，并用文本条件控制图像内容。',
+  status: '真实模型推理或清晰权重提示',
+  params: [
+    { name: 'prompt', label: '提示词', type: 'text', value: 'a cat sitting on a chair' },
+    { name: 'num_steps', label: '推理步数', type: 'range', min: 10, max: 30, step: 5, value: 20 },
+    { name: 'guidance', label: 'CFG 强度', type: 'range', min: 10, max: 150, step: 5, value: 75, scale: 10, fixed: 1 }
+  ],
+  pipeline: ['输入文字提示词', '把文字编码成条件向量', '从随机潜变量噪声开始', 'U-Net 预测每一步该去掉的噪声', '用 CFG 强化提示词方向', 'VAE 解码得到最终图像'],
+  applications: ['文本生成图像', '图像创意草图和概念设计', '解释潜空间扩散', '理解提示词和 CFG 的作用'],
+  limitations: ['权重体积较大，不应塞进仓库', 'CPU 推理很慢', '输出受模型版本、提示词和随机种子影响']
+};
+</script>
+<script src="../js/interactive-teaching-stage.js"></script>
+<script src="../js/model-demo-page.js"></script>
+</body>
+</html>

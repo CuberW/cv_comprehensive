@@ -13,7 +13,7 @@ from typing import Any, Callable
 import numpy as np
 
 from app.modules.offline_teaching import _load_or_fixture
-from app.utils.image_utils import ensure_gray, load_image_u8
+from app.utils.image_utils import ensure_gray, load_image_u8, to_base64
 
 
 _MODEL_CACHE: dict[str, tuple[Any, Any, Any]] = {}
@@ -339,7 +339,7 @@ def download_model(model_id: str) -> dict[str, Any]:
     if model_id not in MODEL_SPECS:
         raise ValueError(f'Unknown AI Eye model: {model_id}')
     spec = MODEL_SPECS[model_id]
-    model, weights, device = _get_model(spec)
+    model, weights, device = _get_model(spec, allow_download=True)
     return {
         'model': model_id,
         'weights': str(weights),
@@ -413,6 +413,7 @@ def _run_detection(model, weights, device, img_u8, score_th, spec):
             'label': categories[label_idx] if label_idx < len(categories) else str(label_idx),
             'score': round(float(scores[idx]), 4),
         })
+    detections = _attach_detection_focus_images(img_u8, detections)
 
     objectness = _objectness_heatmap(img_u8, boxes, scores)
     proposal_vis = _draw_boxes(img_u8, _top_raw_detections(boxes, labels, scores, categories, limit=18), show_scores=False)
@@ -470,6 +471,7 @@ def _run_semantic(model, weights, device, img_u8, spec):
     overlay = _overlay(img_u8, color, alpha=0.46)
     conf_vis = _confidence_heatmap(conf_resized)
     labels = _label_summary(seg_resized, categories)
+    labels = _attach_semantic_focus_images(img_u8, seg_resized, labels)
     logits_chart = _semantic_chart(labels)
     boundary = _semantic_boundaries(img_u8, seg_resized)
     return {
@@ -546,7 +548,7 @@ def _run_instance(model, weights, device, img_u8, score_th, mask_th, spec):
     mask_prob_vis = _mask_probability_mosaic(masks_np[keep], instances, img_u8.shape[:2])
     mask_vis = _overlay_masks(img_u8, instances)
     strip = _instance_strip(img_u8, instances)
-    public_instances = [{k: v for k, v in inst.items() if k != 'mask'} for inst in instances]
+    public_instances = _public_instances_with_focus(img_u8, instances)
     return {
         'steps': [
             {'id': 'detector_stage', 'name': '检测分支：候选实例框', 'image': box_vis,
@@ -581,7 +583,11 @@ def _run_instance(model, weights, device, img_u8, score_th, mask_th, spec):
     }
 
 
-def _get_model(spec: ModelSpec):
+def _allow_model_download():
+    return os.environ.get('CV_ALLOW_MODEL_DOWNLOAD', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _get_model(spec: ModelSpec, allow_download=False):
     global _TORCH_AVAILABLE
     if spec.id in _MODEL_CACHE:
         return _MODEL_CACHE[spec.id]
@@ -597,6 +603,8 @@ def _get_model(spec: ModelSpec):
     builder = getattr(module, spec.builder_name)
     weights_cls = getattr(module, spec.weights_name)
     weights = weights_cls.DEFAULT
+    if not (allow_download or _allow_model_download()) and not _is_weight_cached(weights):
+        raise RuntimeError(_missing_weight_message(spec))
     try:
         model = builder(weights=weights)
     except Exception as exc:
@@ -626,6 +634,11 @@ def _weight_filename(weights) -> str:
     return url.rsplit('/', 1)[-1] if url else ''
 
 
+def _is_weight_cached(weights) -> bool:
+    filename = _weight_filename(weights)
+    return bool(filename and os.path.exists(os.path.join(_torch_cache_dir(), filename)))
+
+
 def _torch_cache_dir() -> str:
     try:
         import torch
@@ -642,9 +655,17 @@ def _download_error_message(spec: ModelSpec, exc: Exception) -> str:
     )
 
 
+def _missing_weight_message(spec: ModelSpec) -> str:
+    return (
+        f'{spec.name} 权重尚未缓存到本机。为避免网页请求卡住，/api/demo/ai_eye 默认不会自动下载大权重。'
+        f'请先运行 python prepare_ai_eye_assets.py --model {spec.id}，'
+        f'或设置 CV_ALLOW_MODEL_DOWNLOAD=1 后显式预热；缓存目录：{_torch_cache_dir()}'
+    )
+
+
 def _load_ai_eye_image(image_path):
     if image_path:
-        return load_image_u8(image_path, mode='rgb', max_side=768)
+        return load_image_u8(image_path, mode='rgb', max_side=512)
     return _load_or_fixture(image_path=image_path)
 
 
@@ -678,7 +699,6 @@ def _public_algorithm_summary(result: dict[str, Any]) -> dict[str, Any]:
         'family': result.get('family'),
         'elapsed_ms': result.get('elapsed_ms'),
         'metrics': result.get('metrics', {}),
-        'output': result.get('output', {}),
         'step_ids': [step.get('id') for step in result.get('steps', [])],
     }
 
@@ -770,6 +790,17 @@ def _draw_boxes(img, detections, show_scores=True):
             draw.rectangle((x1, y_text, x1 + tw, y_text + 20), fill=col)
             draw.text((x1 + 5, y_text + 3), text[:34], fill=(255, 255, 255))
     return np.array(canvas)
+
+
+def _attach_detection_focus_images(img, detections, limit=16):
+    out = []
+    for idx, det in enumerate(detections):
+        item = dict(det)
+        if idx < limit:
+            item['focus_image_base64'] = to_base64(_draw_boxes(img, [det]))
+            item['focus_note'] = '该图只高亮当前检测框，便于把类别、置信度和图像位置对应起来。'
+        out.append(item)
+    return out
 
 
 def _top_raw_detections(boxes, labels, scores, categories, limit=18):
@@ -869,11 +900,38 @@ def _label_summary(seg, categories):
     ]
 
 
+def _attach_semantic_focus_images(img, seg, labels):
+    out = []
+    for label in labels:
+        item = dict(label)
+        label_id = int(item['label_id'])
+        focus = _semantic_label_focus(img, seg, label_id)
+        item['focus_image_base64'] = to_base64(focus)
+        item['focus_note'] = '该图只保留当前语义类别的像素区域，灰暗部分是其他类别。'
+        out.append(item)
+    return out
+
+
+def _semantic_label_focus(img, seg, label_id):
+    mask = np.asarray(seg == label_id, dtype=bool)
+    out = (img.astype(np.float32) * 0.24).astype(np.uint8)
+    palette = _colors()
+    color = palette[int(label_id) % len(palette)].astype(np.float32)
+    out[mask] = np.clip(img[mask].astype(np.float32) * 0.48 + color * 0.52, 0, 255)
+    edge = _mask_edges(mask)
+    out[edge] = [250, 204, 21]
+    return out.astype(np.uint8)
+
+
 def _label_edges(seg):
     edge = np.zeros(seg.shape, dtype=bool)
     edge[1:, :] |= seg[1:, :] != seg[:-1, :]
     edge[:, 1:] |= seg[:, 1:] != seg[:, :-1]
     return edge
+
+
+def _mask_edges(mask):
+    return _label_edges(np.asarray(mask, dtype=np.uint8))
 
 
 def _semantic_boundaries(img, seg):
@@ -891,6 +949,35 @@ def _overlay_masks(img, instances):
         col = colors[i % len(colors)]
         out[mask] = out[mask] * 0.45 + col * 0.55
     return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _public_instances_with_focus(img, instances, limit=16):
+    out = []
+    colors = _colors()
+    for idx, inst in enumerate(instances):
+        item = {k: v for k, v in inst.items() if k != 'mask'}
+        if idx < limit:
+            mask = np.asarray(inst['mask'], dtype=bool)
+            color = tuple(int(v) for v in colors[idx % len(colors)])
+            focus = _overlay_mask_focus(img, mask, inst['box'], color=color)
+            item['focus_image_base64'] = to_base64(focus)
+            item['focus_note'] = '该图只高亮当前实例 mask；同类物体仍按独立个体显示。'
+        out.append(item)
+    return out
+
+
+def _overlay_mask_focus(img, mask, box, color=(34, 197, 94)):
+    from PIL import Image, ImageDraw
+    out = (img.astype(np.float32) * 0.25).astype(np.uint8)
+    col = np.array(color, dtype=np.float32)
+    out[mask] = np.clip(img[mask].astype(np.float32) * 0.38 + col * 0.62, 0, 255)
+    edge = _mask_edges(mask)
+    out[edge] = [250, 204, 21]
+    canvas = Image.fromarray(out)
+    draw = ImageDraw.Draw(canvas)
+    x1, y1, x2, y2 = [int(round(v)) for v in box]
+    draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+    return np.array(canvas)
 
 
 def _mask_probability_mosaic(mask_probs, instances, shape_hw):

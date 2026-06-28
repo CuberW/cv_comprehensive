@@ -3,6 +3,8 @@
 Uses HuggingFace transformers DetrForObjectDetection for end-to-end
 object detection with Transformer encoder-decoder and object queries.
 """
+import os
+
 import numpy as np
 import torch
 from PIL import Image
@@ -13,13 +15,39 @@ _PROCESSOR = None
 _MODEL_NAME = "facebook/detr-resnet-50"
 
 
+def _allow_model_download():
+    return os.environ.get('CV_ALLOW_MODEL_DOWNLOAD', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _model_load_error(exc):
+    return (
+        f'{_MODEL_NAME} 权重未在本地缓存中找到或加载失败：{type(exc).__name__}: {exc}. '
+        '为避免网页请求卡住，默认不会在 /api/demo/detr 中自动联网下载。'
+        '请先在命令行设置 CV_ALLOW_MODEL_DOWNLOAD=1 后预热模型，或手动将 HuggingFace 缓存准备好。'
+    )
+
+
+def _offline_model_load_kwargs(local_only):
+    os.environ.setdefault('DISABLE_SAFETENSORS_CONVERSION', '1')
+    if local_only:
+        os.environ.setdefault('HF_HUB_OFFLINE', '1')
+        os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
+    return {
+        'local_files_only': local_only,
+    }
+
+
 def _get_model():
     global _MODEL, _PROCESSOR
     if _MODEL is None:
         from transformers import DetrForObjectDetection, DetrImageProcessor
-        _PROCESSOR = DetrImageProcessor.from_pretrained(_MODEL_NAME)
-        _MODEL = DetrForObjectDetection.from_pretrained(
-            _MODEL_NAME, output_attentions=True)
+        local_only = not _allow_model_download()
+        try:
+            _PROCESSOR = DetrImageProcessor.from_pretrained(_MODEL_NAME, local_files_only=local_only)
+            _MODEL = DetrForObjectDetection.from_pretrained(
+                _MODEL_NAME, output_attentions=True, **_offline_model_load_kwargs(local_only))
+        except Exception as exc:
+            raise RuntimeError(_model_load_error(exc)) from exc
         _MODEL.eval()
     return _MODEL, _PROCESSOR
 

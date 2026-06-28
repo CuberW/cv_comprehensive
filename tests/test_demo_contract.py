@@ -1,5 +1,6 @@
 import io
 import os
+import base64
 import subprocess
 import sys
 import tempfile
@@ -7,6 +8,7 @@ import time
 
 import numpy as np
 from imageio.v3 import imwrite
+from PIL import Image, ImageDraw
 
 from app import create_app
 from app.modules.offline_teaching import (
@@ -16,6 +18,7 @@ from app.modules.offline_teaching import (
     LOCAL_TEACHING_MODEL_MODULES,
     OFFLINE_TEACHING_MODULES,
 )
+from app.utils.image_utils import load_chinese_font, to_base64
 
 
 def _fixture_image():
@@ -47,6 +50,27 @@ def _assert_explainable_steps(payload, module_id):
         assert step.get('image_base64'), f'{module_id}:{step.get("id")}'
 
 
+def _find_inline_image_keys(value, path='data'):
+    hits = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key).lower()
+            item_path = f'{path}.{key}'
+            if 'base64' in key_text or key_text in {'image', 'img', 'mask'}:
+                hits.append(item_path)
+            hits.extend(_find_inline_image_keys(item, item_path))
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            hits.extend(_find_inline_image_keys(item, f'{path}[{index}]'))
+    return hits
+
+
+def _assert_step_data_has_no_inline_images(payload, module_id):
+    for step in payload.get('steps', []):
+        hits = _find_inline_image_keys(step.get('data'))
+        assert not hits, f'{module_id}:{step.get("id")} contains inline image data at {hits[:3]}'
+
+
 def test_demo_endpoint_returns_steps_and_metrics():
     app = create_app()
     client = app.test_client()
@@ -66,6 +90,21 @@ def test_demo_endpoint_returns_steps_and_metrics():
         assert all('id' in s and 'name' in s for s in payload['steps'])
     finally:
         os.remove(path)
+
+
+def test_api_base64_images_are_not_downscaled_by_wrapper():
+    img = np.zeros((80, 160, 3), dtype=np.uint8)
+    encoded = to_base64(img, max_side=32)
+    decoded = Image.open(io.BytesIO(base64.b64decode(encoded)))
+    assert decoded.size == (160, 80)
+
+
+def test_generated_visuals_can_draw_chinese_text():
+    font = load_chinese_font(18)
+    canvas = Image.new('RGB', (240, 72), (255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((8, 8), '中文公式说明', fill=(0, 0, 0), font=font)
+    assert np.asarray(canvas).min() < 255
 
 
 def test_modules_report_real_implementation_status():
@@ -139,6 +178,49 @@ def test_demo_without_upload_uses_builtin_fixture_for_upload_modules():
         else:
             assert resp.status_code in {400, 503}, module_id
             assert payload.get('error'), module_id
+
+
+def test_sam_accepts_real_interactive_prompts_and_returns_teaching_payload():
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.post(
+        '/api/demo/sam',
+        data={
+            'points': '[[30, 30], [46, 46]]',
+            'labels': '[1, 0]',
+            'box': '[12, 12, 58, 58]',
+            'selected_mask': '1',
+        },
+        content_type='multipart/form-data',
+    )
+    payload = resp.get_json()
+
+    assert resp.status_code in {200, 503}
+    assert payload is not None
+    assert payload['module_id'] == 'sam'
+    assert 'interactions' in payload
+    assert 'overlays' in payload
+    assert 'outputs' in payload
+    assert 'frames' in payload
+
+    current_prompt = payload['interactions']['current_prompt']
+    assert current_prompt['points'][0]['label'] == 1
+    assert current_prompt['points'][1]['label'] == 0
+    assert current_prompt['box'] == [12, 12, 58, 58]
+
+    if resp.status_code == 200:
+        assert [s['id'] for s in payload['steps']] == [
+            'input', 'prompt_overlay', 'image_encoder', 'prompt_encoder',
+            'candidate_masks', 'selected_mask',
+        ]
+        assert payload['metrics']['prompt_type'] == 'points+box'
+        assert len(payload['outputs']['candidate_masks']) >= 1
+        assert payload['outputs']['selected_idx'] == 1
+        assert len(payload['frames']) >= 5
+    else:
+        assert payload['metrics']['status'] == 'model_not_available'
+        assert payload.get('error')
 
 
 def test_sample_button_modules_run_without_frontend_upload():
@@ -239,6 +321,28 @@ def test_ai_eye_model_catalog_reports_weight_status_and_defaults():
         assert 'cache_dir' in payload['models'][model_id]
 
 
+def test_huggingface_frontier_loaders_default_to_offline_mode(monkeypatch):
+    from app.modules.phase5_frontier.clip import algorithm as clip_algorithm
+    from app.modules.phase5_frontier.detr import algorithm as detr_algorithm
+    from app.modules.phase5_frontier.vit import algorithm as vit_algorithm
+
+    for key in [
+        'CV_ALLOW_MODEL_DOWNLOAD',
+        'DISABLE_SAFETENSORS_CONVERSION',
+        'HF_HUB_OFFLINE',
+        'TRANSFORMERS_OFFLINE',
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    for algorithm in [vit_algorithm, detr_algorithm, clip_algorithm]:
+        assert algorithm._allow_model_download() is False
+        kwargs = algorithm._offline_model_load_kwargs(local_only=True)
+        assert kwargs == {'local_files_only': True}
+        assert os.environ['DISABLE_SAFETENSORS_CONVERSION'] == '1'
+        assert os.environ['HF_HUB_OFFLINE'] == '1'
+        assert os.environ['TRANSFORMERS_OFFLINE'] == '1'
+
+
 def test_ai_eye_unified_endpoint_returns_real_steps_outputs_and_models():
     app = create_app()
     client = app.test_client()
@@ -273,6 +377,42 @@ def test_ai_eye_unified_endpoint_returns_real_steps_outputs_and_models():
         assert 'detections' in payload['outputs']['detection']
 
 
+def test_ai_eye_all_response_is_fetch_safe_when_models_are_available():
+    app = create_app()
+    client = app.test_client()
+
+    resp = client.post(
+        '/api/demo/ai_eye?task=all',
+        data={
+            'file': (_fixture_png_bytes(), 'ai-eye-all.png'),
+            'score_threshold': '0.95',
+        },
+        content_type='multipart/form-data',
+    )
+    payload = resp.get_json()
+
+    assert resp.status_code in {200, 503}
+    assert payload is not None
+    assert payload['module_id'] == 'ai_eye'
+    assert payload['implementation']['category'] == 'pretrained_model'
+    assert payload['implementation']['real_model'] is True
+    if resp.status_code != 200:
+        assert payload.get('error')
+        assert payload['metrics']['status'] == 'model_not_available'
+        return
+
+    assert len(resp.get_data()) < 15_000_000
+    assert payload['metrics']['status'] in {'pretrained_model', 'partial_error'}
+    assert set(payload['outputs']).issubset({'detection', 'semantic', 'instance'})
+    assert payload['outputs']
+    _assert_step_data_has_no_inline_images(payload, 'ai_eye')
+    for task, summary in payload['algorithms'].items():
+        assert task in {'detection', 'semantic', 'instance'}
+        assert 'output' not in summary
+        assert 'steps' not in summary
+        assert summary.get('step_ids') is not None
+
+
 def test_ai_eye_legacy_detection_semantic_instance_endpoints_use_unified_contract():
     app = create_app()
     client = app.test_client()
@@ -301,6 +441,34 @@ def test_ai_eye_legacy_detection_semantic_instance_endpoints_use_unified_contrac
             assert module_id in payload['outputs'], module_id
             assert output_key in payload['outputs'][module_id], module_id
             assert payload['steps'], module_id
+
+
+def test_ai_eye_real_outputs_include_clickable_focus_views_when_available():
+    app = create_app()
+    client = app.test_client()
+
+    expectations = {
+        'detection': ('detection', 'detections'),
+        'semantic': ('semantic', 'labels'),
+        'instance': ('instance', 'instances'),
+    }
+    for task, (output_task, output_key) in expectations.items():
+        resp = client.post(
+            f'/api/demo/ai_eye?task={task}',
+            data={
+                'file': (_fixture_png_bytes(), f'ai-eye-{task}.png'),
+                'score_threshold': '0.95',
+            },
+            content_type='multipart/form-data',
+        )
+        payload = resp.get_json()
+        assert resp.status_code in {200, 503}, task
+        if resp.status_code != 200:
+            assert payload.get('error'), task
+            continue
+        rows = payload['outputs'].get(output_task, {}).get(output_key, [])
+        if rows:
+            assert rows[0].get('focus_image_base64'), task
 
 
 def test_upload_required_modules_do_not_return_500():

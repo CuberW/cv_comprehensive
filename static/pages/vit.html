@@ -51,6 +51,11 @@ window.ModelDemoConfig = {
   subtitle: '把图像切成 Patch，再像处理单词一样送入 Transformer。',
   intro: '本页调用 HuggingFace ViT 预训练分类模型，后端返回真实分类概率、Patch 网格、位置编码相似度和注意力图。',
   status: '真实预训练推理',
+  params: [
+    { name: 'layer', label: '注意力层', type: 'range', min: 1, max: 12, step: 1, value: 12 },
+    { name: 'head_idx', label: '注意力头', type: 'range', min: 1, max: 12, step: 1, value: 1 },
+    { name: 'selected_patch', label: 'Patch编号', type: 'range', min: 0, max: 195, step: 1, value: 0 }
+  ],
   pipeline: ['输入图像', '切成 16x16 Patch', 'Patch 线性投影为 token', '加入位置编码', '多层 self-attention', 'CLS token 输出分类'],
   applications: ['图像分类', '视觉 Transformer 入门', '解释 Patch token 和注意力', '理解 CNN 与 Transformer 的差异'],
   limitations: ['首次运行需要下载权重', '注意力图只能作为解释线索', '分类类别受 ImageNet 预训练数据限制']

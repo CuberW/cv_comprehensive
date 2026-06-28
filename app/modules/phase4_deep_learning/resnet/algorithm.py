@@ -1,17 +1,23 @@
-"""ResNet-50 inference + Grad-CAM heatmap visualization."""
-import numpy as np
+"""ResNet-50 inference plus real Grad-CAM visualization."""
+from __future__ import annotations
+
 import os
+
+import numpy as np
 from app.utils.image_utils import load_image_u8
+
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 _MODEL = None
 _DEVICE = None
 
+
 def _get_model():
     global _MODEL, _DEVICE
     if _MODEL is None:
         import torch
-        from torchvision.models import resnet50, ResNet50_Weights
+        from torchvision.models import ResNet50_Weights, resnet50
+
         _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         _MODEL = resnet50(weights=ResNet50_Weights.DEFAULT)
         _MODEL.to(_DEVICE)
@@ -19,154 +25,249 @@ def _get_model():
     return _MODEL, _DEVICE
 
 
-def build_pipeline(image_path=None, **kwargs):
+def build_pipeline(image_path=None, target_rank=1, **kwargs):
     try:
         import torch
-        from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+        from PIL import Image
         from torchvision.models import ResNet50_Weights
+        from torchvision.transforms import CenterCrop, Compose, Normalize, Resize, ToTensor
     except ImportError:
-        return _error('PyTorch/torchvision 未安装', np.zeros((100,400,3),dtype=np.uint8)+240)
+        return _error('PyTorch/torchvision 未安装，无法运行 ResNet + Grad-CAM。', _blank())
 
     if not image_path:
-        import os as _os
-        demo = _os.path.join(_PROJECT_ROOT, 'bus.jpg')
-        image_path = demo if _os.path.exists(demo) else None
-    # Full-size for display; model gets 224×224 separately
-    display_img = load_image_u8(image_path, mode='rgb') if image_path else (np.ones((224,224,3),dtype=np.uint8)*128)
-    img_u8 = load_image_u8(image_path, mode='rgb', max_side=256) if image_path else display_img
+        demo = os.path.join(_PROJECT_ROOT, 'bus.jpg')
+        image_path = demo if os.path.exists(demo) else None
+
+    display_img = load_image_u8(image_path, mode='rgb') if image_path else _blank(224, 224)
+    model_img = load_image_u8(image_path, mode='rgb', max_side=320) if image_path else display_img
 
     try:
         model, device = _get_model()
-    except Exception as e:
-        return _error(f'模型加载失败: {e}', img_u8)
+    except Exception as exc:
+        return _error(f'ResNet-50 权重加载失败：{exc}', display_img)
 
-    # --- Preprocess ---
+    rank = int(kwargs.get('target_rank', target_rank))
+    rank = int(np.clip(rank, 1, 5))
+
     resize_crop = Compose([Resize(256), CenterCrop(224)])
-    preprocess = Compose([Resize(256), CenterCrop(224), ToTensor(),
-                          Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])])
-    from PIL import Image
-    pil_img = Image.fromarray(img_u8)  # 224×224 for model
+    preprocess = Compose([
+        Resize(256),
+        CenterCrop(224),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    pil_img = Image.fromarray(model_img)
     model_view = np.array(resize_crop(pil_img))
     input_tensor = preprocess(pil_img).unsqueeze(0).to(device)
 
-    # --- Classification ---
-    model.zero_grad()
-    input_tensor.requires_grad_(True)
-    logits = model(input_tensor)
-    probs = torch.softmax(logits, dim=1)[0]
-    top5_prob, top5_idx = torch.topk(probs, 5)
-
-    # --- Load class names ---
-    classes_path = os.path.join(_PROJECT_ROOT, 'static', 'data', 'imagenet_classes.txt')
-    try:
-        with open(classes_path, encoding='utf-8') as f:
-            classes = [l.strip() for l in f.readlines()]
-    except FileNotFoundError:
-        # Fallback: use torchvision metadata
-        classes = ResNet50_Weights.DEFAULT.meta.get('categories', [str(i) for i in range(1000)])
-
-    top5 = [(classes[idx], float(p)) for idx, p in zip(top5_idx.tolist(), top5_prob.tolist())]
-
-    # --- Grad-CAM ---
-    # Hook the last conv layer (layer4)
-    target_layer = model.layer4[-1].conv3  # last conv in ResNet-50
     activations = {}
     gradients = {}
+    target_layer = model.layer4[-1].conv3
 
-    def forward_hook(module, inp, out):
+    def forward_hook(_module, _inp, out):
         activations['value'] = out
 
-    def backward_hook(module, grad_in, grad_out):
+    def backward_hook(_module, _grad_in, grad_out):
         gradients['value'] = grad_out[0]
 
     fh = target_layer.register_forward_hook(forward_hook)
     bh = target_layer.register_full_backward_hook(backward_hook)
+    try:
+        model.zero_grad(set_to_none=True)
+        logits = model(input_tensor)
+        probs = torch.softmax(logits, dim=1)[0]
+        top5_prob, top5_idx = torch.topk(probs, 5)
+        classes = _imagenet_classes(ResNet50_Weights)
+        top5 = [
+            {
+                'class_id': int(idx),
+                'label': classes[int(idx)] if int(idx) < len(classes) else str(int(idx)),
+                'probability': round(float(prob), 4),
+            }
+            for idx, prob in zip(top5_idx.detach().cpu().tolist(), top5_prob.detach().cpu().tolist())
+        ]
+        target_class = top5_idx[rank - 1]
+        target_label = top5[rank - 1]['label']
+        score = logits[0, target_class]
+        score.backward()
+    finally:
+        fh.remove()
+        bh.remove()
 
-    # Forward again to get activations (need fresh forward for hook to fire)
-    _ = model(input_tensor)
-    # Backward on the top-1 class
-    top_class = top5_idx[0]
-    model.zero_grad()
-    logits = model(input_tensor)
-    score = logits[0, top_class]
-    score.backward()
+    if 'value' not in activations or 'value' not in gradients:
+        return _error('Grad-CAM hook 没有捕获到激活或梯度。', display_img)
 
-    fh.remove(); bh.remove()
-
-    # Compute Grad-CAM heatmap
-    act = activations['value'].detach()[0]       # (C, H, W)
-    grad = gradients['value'].detach()[0]         # (C, H, W)
-    weights = grad.mean(dim=(1,2), keepdim=True)  # (C, 1, 1)
-    cam = (weights * act).sum(dim=0)               # (H, W)
+    act = activations['value'].detach()[0]
+    grad = gradients['value'].detach()[0]
+    weights = grad.mean(dim=(1, 2), keepdim=True)
+    cam = (weights * act).sum(dim=0)
     cam = torch.relu(cam)
     cam = cam - cam.min()
-    if cam.max() > 0:
+    if float(cam.max()) > 0:
         cam = cam / cam.max()
-    cam = cam.cpu().numpy()
+    cam_np = cam.detach().cpu().numpy()
 
-    # Resize CAM to match input image
-    from PIL import Image as PILImage
-    # Resize CAM to match display image size (not 224×224)
-    cam_img = PILImage.fromarray((cam * 255).astype(np.uint8)).resize(
-        (display_img.shape[1], display_img.shape[0]), PILImage.BILINEAR)
-    cam_arr = np.array(cam_img, dtype=np.float32) / 255.0
+    feature = torch.relu(act).mean(dim=0)
+    feature = feature - feature.min()
+    if float(feature.max()) > 0:
+        feature = feature / feature.max()
+    feature_np = feature.detach().cpu().numpy()
 
-    # Heatmap overlay on full-size display image
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.cm as cm
-    heatmap = cm.jet(cam_arr)[:, :, :3]
-    heatmap = (heatmap * 255).astype(np.uint8)
-    overlay = (display_img.astype(np.float32) * 0.5 + heatmap.astype(np.float32) * 0.5).clip(0, 255).astype(np.uint8)
-
-    feat = torch.relu(act).mean(dim=0)
-    feat = feat - feat.min()
-    if feat.max() > 0:
-        feat = feat / feat.max()
-    feat_img = PILImage.fromarray((feat.cpu().numpy() * 255).astype(np.uint8)).resize(
-        (display_img.shape[1], display_img.shape[0]), PILImage.BILINEAR)
-    feat_arr = np.array(feat_img, dtype=np.float32) / 255.0
-    feature_map = (cm.viridis(feat_arr)[:, :, :3] * 255).astype(np.uint8)
-
-    # --- Result label overlay ---
-    from PIL import ImageDraw
-    result_img = PILImage.fromarray(display_img.copy())
-    draw = ImageDraw.Draw(result_img)
-    for i, (name, prob) in enumerate(top5):
-        draw.text((8, 8 + i*20), f'{i+1}. {name[:30]}: {prob:.3f}', fill=(34, 197, 94))
+    heat = _resize_heatmap(cam_np, display_img.shape[:2])
+    feature_heat = _resize_heatmap(feature_np, display_img.shape[:2], palette='blue')
+    overlay = _overlay_heat(display_img, heat)
+    result_img = _prediction_overlay(display_img, top5, rank)
 
     return {
         'steps': [
-            {'id': 'input', 'name': '输入图像', 'image': display_img,
-             'formula': 'I in R^{H x W x 3}',
-             'explanation': '上传的原图。ResNet 会先把图像缩放、中心裁剪，并按 ImageNet 均值方差归一化。'},
-            {'id': 'preprocess', 'name': 'ImageNet 预处理 224×224', 'image': model_view,
-             'formula': 'x=(resize_crop(I)/255 - mean) / std',
-             'explanation': '真实模型输入是 224×224 张量。这个步骤解释为什么上传任意尺寸图片也能进入固定结构的分类网络。'},
-            {'id': 'feature_map', 'name': '深层卷积特征响应', 'image': feature_map,
-             'formula': 'A = layer4(x)',
-             'explanation': '这里可视化 ResNet 最后一组残差块的平均激活。亮区表示深层语义特征响应更强的位置。'},
-            {'id': 'predictions', 'name': f'Top-5 预测 (Top-1: {top5[0][0]})', 'image': np.array(result_img),
-             'formula': 'p_c = softmax(logits)_c',
-             'explanation': f'ImageNet-1K 真实分类结果。Top-1: {top5[0][0]} ({top5[0][1]:.3f})。',
-             'data': {'top5': [{'label': n, 'probability': round(p, 4)} for n, p in top5]}},
-            {'id': 'gradcam', 'name': 'Grad-CAM 热力图', 'image': overlay,
-             'formula': 'L^c = ReLU(sum_k alpha_k^c A^k), alpha_k^c = mean(dy^c/dA^k)',
-             'explanation': f'模型判断“{top5[0][0]}”时关注的区域（红=高关注，蓝=低关注），已放大到原图尺寸。'},
-            {'id': 'heatmap', 'name': '原始热力值', 'image': heatmap,
-             'formula': 'CAM -> resize(H,W)',
-             'explanation': '这是 Grad-CAM 原始热力图的彩色版本，便于和叠加图对照查看模型证据。'},
+            {
+                'id': 'input',
+                'name': '输入图像',
+                'image': display_img,
+                'formula': 'I in R^{H x W x 3}',
+                'explanation': 'ResNet 接收 RGB 图像，先按 ImageNet 训练配置做缩放、中心裁剪和归一化。',
+            },
+            {
+                'id': 'preprocess',
+                'name': 'ImageNet 预处理 224x224',
+                'image': model_view,
+                'formula': 'x=(resize_crop(I)/255 - mean) / std',
+                'explanation': '真实模型输入是 224x224 张量。这个步骤说明任意上传图像如何进入固定结构的分类网络。',
+            },
+            {
+                'id': 'residual_block',
+                'name': '残差块机制',
+                'image': _residual_card(),
+                'formula': 'y = F(x) + x',
+                'explanation': '残差连接让网络学习“修正量”F(x)，同时保留输入 x 的捷径路径，缓解深层网络越深越难训练的问题。',
+            },
+            {
+                'id': 'feature_map',
+                'name': '最后卷积层特征响应',
+                'image': feature_heat,
+                'formula': 'A = layer4(x)',
+                'explanation': 'Grad-CAM 使用最后一组残差块的卷积特征图。亮处表示深层语义特征响应更强的位置。',
+            },
+            {
+                'id': 'predictions',
+                'name': f'Top-5 分类结果（当前解释第 {rank} 名）',
+                'image': result_img,
+                'formula': 'p_c = softmax(logits)_c',
+                'explanation': f'真实 ImageNet 分类结果已经算出。你可以点击页面上的 Top-5 类别，让后端重新对该类别做 Grad-CAM 反向传播。',
+                'data': {'top5': top5, 'target_rank': rank, 'target_class': target_label},
+            },
+            {
+                'id': 'gradcam',
+                'name': f'Grad-CAM：模型为何认为是 {target_label}',
+                'image': overlay,
+                'formula': 'L^c = ReLU(sum_k alpha_k^c A^k), alpha_k^c = mean(dy^c/dA^k)',
+                'explanation': 'Grad-CAM 对目标类别分数反向传播，用梯度给最后卷积特征图加权。红黄区域表示该类别判断更依赖的视觉证据。',
+                'data': {'target_rank': rank, 'target_label': target_label},
+            },
+            {
+                'id': 'raw_heatmap',
+                'name': '原始 Grad-CAM 热力图',
+                'image': heat,
+                'formula': 'CAM -> resize(H,W)',
+                'explanation': '这一步单独展示热力图本身，方便和叠加结果对照。它是后端真实梯度计算得到的，不是前端涂色。',
+            },
         ],
+        'outputs': {
+            'top5': top5,
+            'target_rank': rank,
+            'target_label': target_label,
+        },
         'metrics': {
-            'status': 'pretrained_model', 'model': 'resnet50', 'backend': 'torchvision',
-            'device': str(device), 'top1': top5[0][0], 'top1_conf': round(top5[0][1], 4),
-            'top5': ', '.join(f'{n}({p:.2f})' for n, p in top5),
-        }
+            'status': 'pretrained_model',
+            'model': 'resnet50',
+            'backend': 'torchvision',
+            'device': str(device),
+            'top1': top5[0]['label'],
+            'top1_conf': top5[0]['probability'],
+            'target_rank': rank,
+            'target_label': target_label,
+        },
     }
+
+
+def _imagenet_classes(weights_cls):
+    classes_path = os.path.join(_PROJECT_ROOT, 'static', 'data', 'imagenet_classes.txt')
+    try:
+        with open(classes_path, encoding='utf-8') as f:
+            return [line.strip() for line in f.readlines()]
+    except FileNotFoundError:
+        return list(weights_cls.DEFAULT.meta.get('categories', [str(i) for i in range(1000)]))
+
+
+def _blank(h=120, w=420):
+    return np.zeros((h, w, 3), dtype=np.uint8) + 240
+
+
+def _resize_heatmap(values, shape_hw, palette='hot'):
+    from PIL import Image
+
+    h, w = shape_hw
+    v = np.asarray(values, dtype=np.float32)
+    v = np.clip(v, 0, 1)
+    v = np.array(Image.fromarray((v * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR), dtype=np.float32) / 255.0
+    if palette == 'blue':
+        r = (30 + 40 * v).astype(np.uint8)
+        g = (90 + 140 * v).astype(np.uint8)
+        b = (170 + 75 * v).astype(np.uint8)
+    else:
+        r = (80 + 175 * v).astype(np.uint8)
+        g = (30 + 190 * np.clip(v - 0.12, 0, 1)).astype(np.uint8)
+        b = (160 * (1 - v)).astype(np.uint8)
+    return np.stack([r, g, b], axis=-1)
+
+
+def _overlay_heat(img, heat):
+    return np.clip(img.astype(np.float32) * 0.50 + heat.astype(np.float32) * 0.50, 0, 255).astype(np.uint8)
+
+
+def _prediction_overlay(img, top5, rank):
+    from PIL import Image, ImageDraw
+
+    canvas = Image.fromarray(img.copy())
+    draw = ImageDraw.Draw(canvas)
+    box_w = min(canvas.width - 16, 430)
+    draw.rectangle((8, 8, 8 + box_w, 128), fill=(15, 23, 42))
+    for i, item in enumerate(top5):
+        y = 16 + i * 21
+        color = (250, 204, 21) if i + 1 == rank else (226, 232, 240)
+        draw.text((18, y), f"{i + 1}. {item['label'][:32]}  {item['probability']:.3f}", fill=color)
+    return np.array(canvas)
+
+
+def _residual_card(width=640, height=280):
+    from PIL import Image, ImageDraw
+
+    img = Image.new('RGB', (width, height), (248, 250, 252))
+    draw = ImageDraw.Draw(img)
+    draw.text((18, 14), 'Residual block: learn a correction, keep a shortcut', fill=(15, 23, 42))
+    draw.rounded_rectangle((70, 100, 170, 160), radius=8, fill=(59, 130, 246))
+    draw.text((102, 122), 'x', fill=(255, 255, 255))
+    draw.rounded_rectangle((250, 80, 390, 180), radius=8, fill=(37, 99, 235))
+    draw.text((286, 118), 'F(x)', fill=(255, 255, 255))
+    draw.rounded_rectangle((470, 100, 570, 160), radius=8, fill=(34, 197, 94))
+    draw.text((502, 122), 'y', fill=(255, 255, 255))
+    draw.line((170, 130, 250, 130), fill=(71, 85, 105), width=3)
+    draw.line((390, 130, 470, 130), fill=(71, 85, 105), width=3)
+    draw.arc((128, 52, 512, 210), 185, 355, fill=(245, 158, 11), width=4)
+    draw.text((242, 218), 'y = F(x) + x', fill=(146, 64, 14))
+    return np.array(img)
 
 
 def _error(message, img):
     return {
-        'steps': [{'id': 'error', 'name': '错误', 'image': img, 'explanation': message}],
-        'metrics': {'status': 'error', 'error': message}
+        'steps': [
+            {
+                'id': 'error',
+                'name': '错误',
+                'image': img,
+                'formula': 'status=error',
+                'explanation': message,
+            }
+        ],
+        'metrics': {'status': 'error', 'error': message},
     }

@@ -1,16 +1,21 @@
-"""Pipeline builder for ViT module."""
+"""ViT teaching pipeline with real pretrained attention maps."""
+from __future__ import annotations
+
 import numpy as np
-from app.utils.image_utils import load_image_u8
+
 from app.modules.phase5_frontier.vit.algorithm import (
-    extract_attention_maps, get_patch_grid,
-    get_position_embedding_heatmap, attention_to_heatmap,
+    attention_to_heatmap,
+    extract_attention_maps,
+    get_patch_grid,
+    get_position_embedding_heatmap,
 )
+from app.utils.image_utils import load_image_u8
 
 
-def build_pipeline(image_path=None, **kwargs):
+def build_pipeline(image_path=None, layer=12, head_idx=1, selected_patch=0, **kwargs):
     if not image_path:
         return {
-            'error': 'ViT demo requires an uploaded image.',
+            'error': 'ViT 需要输入图像才能运行真实预训练模型。',
             'steps': [],
             'metrics': {'status': 'missing_input'},
         }
@@ -20,102 +25,170 @@ def build_pipeline(image_path=None, **kwargs):
         result = extract_attention_maps(img_u8)
     except Exception as exc:
         return {
-            'error': f'ViT inference failed: {exc}',
+            'error': f'ViT 推理失败：{exc}',
             'steps': [],
-            'metrics': {'status': 'model_not_available'},
+            'metrics': {'status': 'model_not_available', 'error_type': type(exc).__name__},
         }
 
-    patch_grid = get_patch_grid(img_u8)
-    pos_sim = get_position_embedding_heatmap()
-    pos_heatmap = _matrix_to_heatmap_image(pos_sim)
-    num_layers = result['num_layers']
+    num_layers = int(result['num_layers'])
+    num_heads = int(result['num_heads'])
     grid_size = int(np.sqrt(result['num_patches']))
-    shallow_attn = attention_to_heatmap(result['attentions'][0], head_idx=0, patch_grid_size=grid_size)
-    deep_attn = attention_to_heatmap(result['attentions'][-1], head_idx=0, patch_grid_size=grid_size)
-    shallow_hm = _heatmap_to_image(shallow_attn)
-    deep_hm = _heatmap_to_image(deep_attn)
-    attn_overlay = _overlay_attention_on_image(img_u8, deep_attn)
+    layer_idx = int(np.clip(int(kwargs.get('layer', layer)) - 1, 0, num_layers - 1))
+    head = int(np.clip(int(kwargs.get('head_idx', head_idx)) - 1, 0, num_heads - 1))
+    patch = int(np.clip(int(kwargs.get('selected_patch', selected_patch)), 0, result['num_patches'] - 1))
+
+    patch_grid = get_patch_grid(img_u8)
+    pos_heatmap = _matrix_to_heatmap_image(get_position_embedding_heatmap())
+    cls_attn = attention_to_heatmap(result['attentions'][layer_idx], head_idx=head, patch_grid_size=grid_size)
+    patch_attn = attention_to_heatmap(
+        result['attentions'][layer_idx],
+        head_idx=head,
+        patch_grid_size=grid_size,
+        query_patch=patch,
+    )
+    cls_overlay = _overlay_attention_on_image(img_u8, cls_attn)
+    patch_overlay = _overlay_attention_on_image(img_u8, patch_attn, selected_patch=patch, grid_size=grid_size)
     preds = result['predictions']
-    pred_text = '\n'.join([f"{p['label']}: {p['probability']*100:.1f}%" for p in preds[:5]])
 
     steps = [
-        {'id': 'original', 'name': '输入图像', 'image': img_u8,
-         'formula': 'I in R^{H x W x 3}',
-         'explanation': '原始图像。ViT 将图像分割为 16×16 的 Patch，每个 Patch 像一个"视觉单词"送入 Transformer'},
-        {'id': 'patches', 'name': 'Patch 切分 (16×16)', 'image': patch_grid,
-         'formula': 'x_p^i = flatten(patch_i)',
-         'explanation': f'图像被切分为 {grid_size}×{grid_size} = {result["num_patches"]} 个不重叠的 Patch。每个 Patch 通过线性投影变成一个向量(Token)，加上位置编码后送入 Transformer'},
-        {'id': 'pos_embed', 'name': '位置编码相似度', 'image': pos_heatmap,
-         'formula': 'z_i = E x_p^i + e_pos^i',
-         'explanation': '位置编码之间的余弦相似度矩阵。相近位置的编码更相似——这帮助 Transformer 理解 Patch 之间的空间关系，因为自注意力本身是位置无关的'},
-        {'id': 'shallow_attn', 'name': f'浅层注意力 (Layer 1)', 'image': shallow_hm,
-         'formula': 'Attention(Q,K,V)=softmax(QK^T/sqrt(d))V',
-         'explanation': f'第 1 层自注意力图 ({result["num_heads"]} 个头中的第 1 个)。浅层倾向于关注局部邻域——类似于 CNN 的浅层卷积核'},
-        {'id': 'deep_attn', 'name': f'深层注意力 (Layer {num_layers})', 'image': deep_hm,
-         'formula': 'A_l = softmax(Q_l K_l^T / sqrt(d))',
-         'explanation': f'第 {num_layers} 层注意力图。深层逐渐关注语义相关的远距离区域——这是 ViT 替代 CNN 的关键能力：长程依赖建模'},
-        {'id': 'overlay', 'name': '注意力叠加原图', 'image': attn_overlay,
-         'formula': 'p(y|I)=softmax(head(CLS))',
-         'explanation': '深层注意力热度叠加在原图上。亮区 = 模型最关注的区域。CLS Token 通过这些注意力聚合全局信息来做最终分类'},
+        {
+            'id': 'original',
+            'name': '输入图像',
+            'image': img_u8,
+            'formula': 'I in R^{H x W x 3}',
+            'explanation': 'ViT 接收整张 RGB 图像。和 CNN 不同，它马上会把图像拆成固定大小的小块，把每个小块当成视觉 token。',
+            'data': {'height': int(img_u8.shape[0]), 'width': int(img_u8.shape[1])},
+        },
+        {
+            'id': 'patches',
+            'name': 'Patch 切分',
+            'image': patch_grid,
+            'formula': 'x_p^i = flatten(patch_i)',
+            'explanation': f'图像被切成 {grid_size} x {grid_size} = {result["num_patches"]} 个 16x16 patch。每个 patch 展平后线性投影成一个 token。',
+            'data': {'grid_size': grid_size, 'patch_size': 16, 'selected_patch': patch},
+        },
+        {
+            'id': 'pos_embed',
+            'name': '位置编码相似度',
+            'image': pos_heatmap,
+            'formula': 'z_i = E x_p^i + e_pos^i',
+            'explanation': 'Transformer 本身不知道 token 在图像中的位置，因此 ViT 给每个 patch token 加上位置编码。图中展示位置编码之间的余弦相似度。',
+        },
+        {
+            'id': 'cls_attention',
+            'name': f'CLS token 注意力：第 {layer_idx + 1} 层 / 第 {head + 1} 头',
+            'image': _heatmap_to_image(cls_attn),
+            'formula': 'A = softmax(QK^T / sqrt(d))',
+            'explanation': 'CLS token 是最终分类用的全局 token。它对哪些 patch 注意力更高，通常可以作为分类证据的线索。',
+            'data': {'layer': layer_idx + 1, 'head': head + 1, 'view': 'CLS token'},
+        },
+        {
+            'id': 'patch_attention',
+            'name': f'Patch {patch} 的注意力视角',
+            'image': _heatmap_to_image(patch_attn),
+            'formula': 'A_{q,*}=softmax(q K^T / sqrt(d))',
+            'explanation': '选择某个 patch 后，可以观察这个 patch token 关注图像中哪些区域。拖动页面上的 Patch 编号会重新让后端抽取对应注意力。',
+            'data': {'selected_patch': patch, 'layer': layer_idx + 1, 'head': head + 1},
+        },
+        {
+            'id': 'overlay',
+            'name': '注意力叠加到原图',
+            'image': patch_overlay,
+            'formula': 'p(y|I)=softmax(head(CLS))',
+            'explanation': '热力图叠加到原图后，可以把 token 注意力和真实图像区域对应起来。黄色框标出当前被解释的 patch。',
+        },
+        {
+            'id': 'predictions',
+            'name': f'ImageNet Top-5 分类：{preds[0]["label"] if preds else "N/A"}',
+            'image': _prediction_chart(preds),
+            'formula': 'p_c = softmax(logits)_c',
+            'explanation': '最终分类来自真实 ViT 预训练模型的 logits。注意力只是解释线索，真正的类别概率来自分类头。',
+            'data': {'top5': preds},
+        },
     ]
 
     return {
         'steps': steps,
+        'outputs': {
+            'predictions': preds,
+            'selected_layer': layer_idx + 1,
+            'selected_head': head + 1,
+            'selected_patch': patch,
+        },
         'metrics': {
             'status': 'pretrained_model',
             'backend': 'transformers',
-            'model': 'ViT-B/16',
+            'model': 'google/vit-base-patch16-224',
             'layers': num_layers,
-            'heads': result['num_heads'],
+            'heads': num_heads,
             'patches': result['num_patches'],
+            'layer': layer_idx + 1,
+            'head_idx': head + 1,
+            'selected_patch': patch,
             'top1': preds[0]['label'] if preds else 'N/A',
-            'top1_prob': f"{preds[0]['probability']*100:.1f}%" if preds else 'N/A',
+            'top1_prob': f"{preds[0]['probability'] * 100:.1f}%" if preds else 'N/A',
         },
-        'predictions': preds,
-        'pred_text': pred_text,
     }
 
 
 def _matrix_to_heatmap_image(matrix):
-    """Convert a 2D similarity matrix to a color heatmap image."""
     m = np.asarray(matrix, dtype=np.float64)
     m = np.clip(m, 0, 1)
-    h, w = m.shape
-    # Upsample for visibility
-    scale = max(1, 400 // max(h, w))
+    scale = max(1, 420 // max(m.shape))
     big = np.kron(m, np.ones((scale, scale)))
-    # RGB heatmap: blue=cold, red=hot
-    r = (big * 255).astype(np.uint8)
-    g = ((1 - np.abs(big - 0.5) * 2) * 200).astype(np.uint8)
-    b = ((1 - big) * 255).astype(np.uint8)
-    return np.stack([r, g, b], axis=-1)
+    return _color_heat(big)
 
 
 def _heatmap_to_image(heatmap_2d):
-    """Convert a 2D attention heatmap to a color image."""
     hm = np.asarray(heatmap_2d, dtype=np.float64)
     hm = np.clip(hm, 0, 1)
-    h, w = hm.shape
-    scale = max(1, 400 // max(h, w))
-    big = np.kron(hm, np.ones((scale, scale)))
-    r = (big * 255).astype(np.uint8)
-    g = ((1 - np.abs(big - 0.5) * 2) * 200).astype(np.uint8)
-    b = ((1 - big) * 255).astype(np.uint8)
+    scale = max(1, 420 // max(hm.shape))
+    return _color_heat(np.kron(hm, np.ones((scale, scale))))
+
+
+def _color_heat(values):
+    v = np.clip(values, 0, 1)
+    r = (v * 255).astype(np.uint8)
+    g = ((1 - np.abs(v - 0.5) * 2) * 210).astype(np.uint8)
+    b = ((1 - v) * 255).astype(np.uint8)
     return np.stack([r, g, b], axis=-1)
 
 
-def _overlay_attention_on_image(img, heatmap_2d):
-    """Overlay attention heatmap on the original image."""
-    from PIL import Image
+def _overlay_attention_on_image(img, heatmap_2d, selected_patch=None, grid_size=14):
+    from PIL import Image, ImageDraw
+
     h, w = img.shape[:2]
     hm = np.asarray(heatmap_2d, dtype=np.float64)
-    hm = np.clip(hm, 0, 1)
-    # Upsample heatmap to image size
-    hm_img = np.array(Image.fromarray((hm * 255).astype(np.uint8)).resize((w, h), Image.LANCZOS))
-    # Red-yellow heat overlay
-    overlay = np.zeros((h, w, 3), dtype=np.uint8)
-    hm_f = hm_img.astype(np.float32) / 255.0
-    overlay[:,:,0] = (hm_f * 255).astype(np.uint8)
-    overlay[:,:,1] = (hm_f * 100).astype(np.uint8)
-    alpha = 0.5
-    return np.clip(img.astype(np.float32)*(1-alpha) + overlay.astype(np.float32)*alpha, 0, 255).astype(np.uint8)
+    hm_img = np.array(Image.fromarray((np.clip(hm, 0, 1) * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR))
+    heat = _color_heat(hm_img.astype(np.float32) / 255.0)
+    out = np.clip(img.astype(np.float32) * 0.52 + heat.astype(np.float32) * 0.48, 0, 255).astype(np.uint8)
+    if selected_patch is not None:
+        pil = Image.fromarray(out)
+        draw = ImageDraw.Draw(pil)
+        col = selected_patch % grid_size
+        row = selected_patch // grid_size
+        x0 = int(col * w / grid_size)
+        y0 = int(row * h / grid_size)
+        x1 = int((col + 1) * w / grid_size)
+        y1 = int((row + 1) * h / grid_size)
+        draw.rectangle((x0, y0, x1, y1), outline=(250, 204, 21), width=4)
+        out = np.array(pil)
+    return out
+
+
+def _prediction_chart(preds, width=640, height=300):
+    from PIL import Image, ImageDraw
+
+    canvas = Image.new('RGB', (width, height), (248, 250, 252))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((18, 14), 'ViT ImageNet Top-5 probabilities', fill=(15, 23, 42))
+    if not preds:
+        return np.array(canvas)
+    for i, pred in enumerate(preds[:5]):
+        y = 56 + i * 42
+        p = float(pred.get('probability', 0))
+        draw.text((18, y + 3), str(pred.get('label', 'class'))[:32], fill=(51, 65, 85))
+        draw.rectangle((260, y, width - 34, y + 18), outline=(203, 213, 225))
+        draw.rectangle((260, y, 260 + int((width - 294) * p), y + 18), fill=(37, 99, 235))
+        draw.text((width - 92, y + 2), f'{p * 100:.1f}%', fill=(15, 23, 42))
+    return np.array(canvas)

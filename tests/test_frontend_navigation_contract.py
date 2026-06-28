@@ -246,6 +246,49 @@ def test_smoothing_page_is_the_single_filter_frontend():
         assert marker in html
 
 
+def test_sam_page_is_interactive_prompt_teaching_stage():
+    html = Path('static/pages/sam.html').read_text(encoding='utf-8')
+    script = Path('static/js/sam-page.js').read_text(encoding='utf-8')
+
+    for marker in [
+        '../css/iframe-theme.css',
+        '../js/theme-sync.js',
+        '../js/page-utils.js',
+        '../js/sam-page.js',
+        'data-mode="positive"',
+        'data-mode="negative"',
+        'data-mode="box"',
+        'candidateGrid',
+        'promptCanvas',
+        'frameSlider',
+    ]:
+        assert marker in html
+
+    for marker in [
+        "/api/demo/sam",
+        "points",
+        "labels",
+        "box",
+        "selected_mask",
+        "candidate_masks",
+        "composeMask",
+    ]:
+        assert marker in script
+
+
+def test_model_demo_page_keeps_real_interaction_parameter_wiring():
+    script = Path('static/js/model-demo-page.js').read_text(encoding='utf-8')
+
+    for marker in [
+        'onStageImageClick',
+        'state.dynamicParams.selected_patch',
+        "fetch('/api/demo/' + encodeURIComponent(moduleId)",
+        'delete state.dynamicParams[p.name]',
+        '正在用真实 ViT 注意力重新计算',
+    ]:
+        assert marker in script
+
+
 def test_hidden_compat_modules_are_not_standalone_frontend_but_demos_stay_compatible():
     app = create_app()
     client = app.test_client()
@@ -310,6 +353,12 @@ def test_theme_sync_injects_final_light_mode_overrides():
 
     assert 'cv-theme-final-overrides' in script
     assert 'DOMContentLoaded' in script
+    assert '--cv-page-gutter' in script
+    assert '--cv-page-max' in script
+    assert 'html body .ai-page' in script
+    assert 'html body .sam-page' in script
+    assert 'html[data-theme="dark"] .step-card' in script
+    assert 'html[data-theme="dark"] .step-img' in script
     assert 'html[data-theme="light"] .step-card' in script
     assert 'html[data-theme="light"] .step-img' in script
     assert 'html[data-theme="light"] .teach-title-panel' in script
@@ -319,11 +368,20 @@ def test_theme_sync_injects_final_light_mode_overrides():
     assert 'html[data-theme="light"] input' in script
     assert 'var(--cv-media-bg)' in script
     assert 'var(--cv-control-bg)' in script
+    assert 'button.primary' in script
 
 
 def test_iframe_theme_has_light_safe_color_tokens():
     css = Path('static/css/iframe-theme.css').read_text(encoding='utf-8')
     light_block = css.split('[data-theme="light"] {', 1)[1].split('}', 1)[0]
+
+    for token in [
+        '--cv-page-max',
+        '--cv-page-gutter',
+        '--cv-card-gap',
+        '--cv-card-pad',
+    ]:
+        assert token in css
 
     for token in [
         '--cv-title',
@@ -339,6 +397,33 @@ def test_iframe_theme_has_light_safe_color_tokens():
 
     assert 'color: var(--cv-title)' in css
     assert 'background: var(--cv-media-bg)' in css
+    assert '.ai-page' in css
+    assert '.sam-page' in css
+    assert 'object-fit: contain !important' in css
+
+
+def test_page_specific_css_uses_shared_layout_variables():
+    css_files = [
+        Path('static/css/model-demo-page.css'),
+        Path('static/css/ai-eye-page.css'),
+        Path('static/css/sam-page.css'),
+    ]
+
+    for path in css_files:
+        css = path.read_text(encoding='utf-8')
+        assert '--cv-page-max' in css, path
+        assert '--cv-page-gutter' in css, path
+        assert 'calc(100% - 48px)' not in css, path
+        assert 'calc(100vw - 44px)' not in css, path
+
+
+def test_main_gallery_spacing_is_wider_but_not_edge_to_edge():
+    css = Path('static/css/main.css').read_text(encoding='utf-8')
+    gallery_block = css.split('.gallery{', 1)[1].split('}', 1)[0]
+
+    assert 'max-width:1580px' in gallery_block
+    assert 'clamp(20px,2.2vw,30px)' in gallery_block
+    assert 'padding:24px 32px 48px' not in gallery_block
 
 
 def test_main_light_topic_cards_override_dark_topic_backgrounds():
@@ -458,6 +543,27 @@ def test_demo_step_renderers_include_formula_output():
         if '/api/demo/' not in text or ('steps' not in text and 'image_base64' not in text):
             continue
         assert '.formula' in text or "['formula']" in text or '["formula"]' in text, path
+
+
+def test_formal_pages_load_shared_formula_renderer():
+    for page in _formal_static_pages():
+        text = page.read_text(encoding='utf-8')
+        if 'theme-sync.js' not in text:
+            continue
+        assert 'page-utils.js' in text, page
+
+
+def test_formal_pages_do_not_crop_step_images_with_cover():
+    files = _formal_static_pages() + [
+        Path('static/css/ai-eye-page.css'),
+        Path('static/css/detection-segmentation.css'),
+        Path('static/css/model-demo-page.css'),
+        Path('static/css/iframe-theme.css'),
+    ]
+    for path in files:
+        text = path.read_text(encoding='utf-8')
+        assert 'object-fit: cover' not in text
+        assert 'object-fit:cover' not in text
 
 
 def test_formal_inline_scripts_parse_with_node(tmp_path):

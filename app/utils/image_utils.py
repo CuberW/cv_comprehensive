@@ -5,7 +5,8 @@ import numpy as np
 import imageio.v3 as iio
 import base64
 import io
-from PIL import Image
+import os
+from PIL import Image, ImageFont
 from numpy.lib.stride_tricks import sliding_window_view
 
 
@@ -137,7 +138,7 @@ def ensure_3channel(arr):
     return ensure_rgb(arr)
 
 
-def to_base64(arr):
+def to_base64(arr, max_side=None):
     """NumPy 图像数组 → base64 PNG 字符串（用于 API 返回）。"""
     arr = ensure_3channel(arr)
     arr_u8 = to_uint8(arr)
@@ -145,6 +146,32 @@ def to_base64(arr):
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode('ascii')
+
+
+def load_chinese_font(size=18):
+    """Best-effort Chinese-capable font for generated teaching cards."""
+    candidates = [
+        os.environ.get('CV_FONT_PATH'),
+        r'C:\Windows\Fonts\msyh.ttc',
+        r'C:\Windows\Fonts\simhei.ttf',
+        r'C:\Windows\Fonts\simsun.ttc',
+        r'C:\Windows\Fonts\arialuni.ttf',
+        r'C:\Windows\Fonts\NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+        '/usr/share/fonts/truetype/arphic/ukai.ttc',
+    ]
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size=size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
 
 # Backward compatibility for old CV module imports
 def ensure_uint8(image_array):

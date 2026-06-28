@@ -53,6 +53,14 @@
   --cv-danger-text: #fecdd3;
   --cv-radius: 8px;
   --cv-radius-sm: 6px;
+  --cv-page-max: 1580px;
+  --cv-page-gutter: clamp(22px, 2.6vw, 44px);
+  --cv-page-pad-top: 22px;
+  --cv-page-pad-bottom: 40px;
+  --cv-section-gap: 16px;
+  --cv-card-gap: 14px;
+  --cv-card-pad: 16px;
+  --cv-card-pad-sm: 12px;
   --app-gradient:
     radial-gradient(ellipse at 30% 10%, rgba(59,130,246,.07) 0%, transparent 60%),
     radial-gradient(ellipse at 75% 85%, rgba(139,92,246,.06) 0%, transparent 60%),
@@ -125,11 +133,51 @@ body::before {
 .page,
 .match-page,
 .teach-page,
-.nn-page {
-  width: min(1540px, calc(100% - 48px)) !important;
-  max-width: 1540px !important;
-  padding-top: 24px !important;
-  padding-bottom: 36px !important;
+.nn-page,
+.ai-page,
+.sam-page {
+  width: min(var(--cv-page-max), calc(100% - var(--cv-page-gutter))) !important;
+  max-width: var(--cv-page-max) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-top: var(--cv-page-pad-top) !important;
+  padding-bottom: var(--cv-page-pad-bottom) !important;
+}
+
+.page,
+.teach-page,
+.nn-page,
+.ai-page,
+.sam-page {
+  gap: var(--cv-section-gap) !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong,
+summary,
+label,
+dt {
+  color: var(--cv-title) !important;
+}
+
+p,
+li,
+dd,
+small,
+figcaption,
+.hint,
+.note,
+.description,
+.caption,
+.muted,
+.empty,
+.no-image {
+  color: var(--cv-muted) !important;
 }
 
 .glass,
@@ -157,7 +205,23 @@ body::before {
 .settings-panel,
 .canvas-panel,
 .panel,
-.card {
+.card,
+.hero-main,
+.truth-card,
+.overview-card,
+.object-card,
+.candidate-card,
+.model-card,
+.teaching-stage,
+.stage-rail,
+.stage-main,
+.stage-explainer,
+.interaction-group,
+.control-dock,
+.timeline,
+.concept-grid article,
+.compare-table,
+details {
   border: 1px solid var(--cv-border) !important;
   border-radius: var(--cv-radius) !important;
   background:
@@ -299,7 +363,16 @@ body::before {
 .impl-status span,
 .ratio-control,
 .select-control,
-.math-card {
+.math-card,
+.control-block,
+.field,
+.task-btn,
+.view-btn,
+.filter-btn,
+.mode-btn,
+.rail-step,
+.chip,
+.score-row {
   border: 1px solid rgba(148, 163, 184, 0.16) !important;
   border-radius: 7px !important;
   background: var(--cv-soft-surface) !important;
@@ -388,7 +461,8 @@ input[type="range"] {
 .step-body .step-formula,
 .info .step-formula,
 .demo-step-card .step-formula,
-.result-card .step-formula {
+.result-card .step-formula,
+.latex-formula {
   display: block;
   margin-top: 8px;
   padding: 7px 9px;
@@ -401,6 +475,18 @@ input[type="range"] {
   line-height: 1.45;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.latex-formula mjx-container {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  color: var(--cv-text) !important;
+}
+
+.latex-formula svg {
+  max-width: 100%;
+  height: auto;
 }
 
 .metrics-bar {
@@ -419,8 +505,13 @@ input[type="range"] {
 
 .steps-grid,
 .pipeline-track,
-.history-grid {
-  gap: 14px !important;
+.history-grid,
+.overview-grid,
+.object-list,
+.candidate-grid,
+.model-strip,
+.concept-grid {
+  gap: var(--cv-card-gap) !important;
 }
 
 .step-card {
@@ -442,6 +533,13 @@ input[type="range"] {
 }
 .step-card .img-area,
 .step-img,
+.step-media,
+.stage-media-wrap,
+.sam-stage,
+.result-stage,
+.candidate-card img,
+.overview-card .media,
+.step-card .media,
 .image-panel,
 .image-frame,
 .anim-canvas-wrap,
@@ -468,8 +566,17 @@ input[type="range"] {
 .pipeline-section,
 .history-section,
 .match-stage,
-.match-result-section {
-  padding: 16px !important;
+.match-result-section,
+.overview-panel,
+.object-panel,
+.steps-panel,
+.compare-panel,
+.models-panel,
+.controls,
+.inspector,
+.explainer,
+.step-rail {
+  padding: var(--cv-card-pad) !important;
 }
 
 .step-info-bar,
@@ -551,18 +658,70 @@ pre,
 code,
 .math-panel,
 .knowledge-card,
-.formula-block {
+.formula-block,
+.compare-table th,
+.compare-table td,
+.stage-explainer code,
+.explainer code,
+.inspector code {
   color: var(--cv-text) !important;
   border-color: rgba(148, 163, 184, 0.16) !important;
   background: var(--cv-code-bg) !important;
 }
 
+thead,
+th {
+  color: var(--cv-title) !important;
+  background: var(--cv-soft-surface) !important;
+}
+
+td {
+  color: var(--cv-muted) !important;
+}
+
+img,
+canvas,
+svg,
+video {
+  max-width: 100%;
+}
+
+.step-media img,
+.stage-image,
+.sam-stage img,
+.result-stage img,
+.candidate-card img,
+.overview-card img,
+.step-card img {
+  object-fit: contain !important;
+}
+
+.stage-empty,
+.loading,
+.empty-card {
+  background: var(--cv-panel-2) !important;
+  color: var(--cv-muted) !important;
+  border-color: var(--cv-border) !important;
+}
+
+[data-theme="light"] .step-index {
+  background: rgba(61, 50, 38, 0.84) !important;
+  color: #fffaf0 !important;
+}
+
 @media (max-width: 920px) {
+  :root {
+    --cv-page-gutter: 18px;
+    --cv-page-pad-top: 16px;
+    --cv-card-pad: 14px;
+  }
   .page,
   .match-page,
   .teach-page,
-  .nn-page {
-    width: min(100% - 20px, 1540px) !important;
+  .nn-page,
+  .ai-page,
+  .sam-page {
+    width: min(100% - var(--cv-page-gutter), var(--cv-page-max)) !important;
     padding-top: 16px !important;
   }
   .hero,

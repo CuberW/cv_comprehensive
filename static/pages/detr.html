@@ -48,7 +48,11 @@ window.ModelDemoConfig = {
   subtitle: '用 Object Query 把目标检测改写成集合预测问题。',
   intro: '本页调用 HuggingFace DETR 预训练模型，后端返回真实检测框、类别分数和 query 注意力摘要。',
   status: '真实预训练推理',
-  params: [{ name: 'threshold', label: '置信度阈值', type: 'range', min: 10, max: 90, step: 5, value: 50, scale: 100, fixed: 2 }],
+  params: [
+    { name: 'threshold', label: '置信度阈值', type: 'range', min: 10, max: 90, step: 5, value: 50, scale: 100, fixed: 2 },
+    { name: 'query_idx', label: 'Query编号', type: 'range', min: 0, max: 99, step: 1, value: 0 },
+    { name: 'head_idx', label: '注意力头', type: 'range', min: 0, max: 7, step: 1, value: 0 }
+  ],
   pipeline: ['输入图像', 'CNN backbone 提取特征', 'Transformer encoder 建立全局关系', 'Object queries 解码目标集合', '类别和框预测', '集合匹配思想替代手工候选区域'],
   applications: ['端到端目标检测', '理解 object query', '比较 CNN 检测和 Transformer 检测', '检测任务教学演示'],
   limitations: ['首次运行需要下载权重', 'CPU 推理较慢', 'COCO 类别之外的物体可能无法识别']

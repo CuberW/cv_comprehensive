@@ -1,352 +1,168 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI之眼：检测、语义分割、实例分割</title>
-<link rel="stylesheet" href="../css/iframe-theme.css">
-<script src="../js/theme-sync.js"></script>
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; }
-  .page { display: grid; gap: 16px; }
-  .hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
-    gap: 14px;
-    align-items: stretch;
-  }
-  .hero-main, .control-panel, .result-panel, .info-panel, .compare-panel {
-    border: 1px solid var(--cv-border);
-    border-radius: var(--cv-radius);
-    background: var(--cv-panel);
-    box-shadow: var(--cv-shadow);
-  }
-  .hero-main { padding: 18px; }
-  .eyebrow {
-    display: inline-flex;
-    margin-bottom: 10px;
-    padding: 5px 9px;
-    border: 1px solid color-mix(in srgb, var(--cv-accent) 28%, transparent);
-    border-radius: 999px;
-    color: var(--cv-accent);
-    background: color-mix(in srgb, var(--cv-accent) 10%, transparent);
-    font-size: .72rem;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-  h1, h2, h3, p { margin-top: 0; }
-  h1 { margin-bottom: 10px; color: var(--cv-title); font-size: clamp(1.5rem, 3vw, 2.35rem); line-height: 1.12; }
-  h2 { color: var(--cv-title); font-size: 1.04rem; }
-  h3 { color: var(--cv-title); font-size: .95rem; }
-  p { color: var(--cv-muted); line-height: 1.62; }
-  .hero-main p { max-width: 900px; margin-bottom: 0; }
-  .status-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .status-card {
-    padding: 12px;
-    border: 1px solid var(--cv-border);
-    border-radius: 8px;
-    background: var(--cv-soft-surface);
-  }
-  .status-card strong { display: block; color: var(--cv-title); font-size: .9rem; }
-  .status-card span { display: block; margin-top: 5px; color: var(--cv-muted); font-size: .78rem; line-height: 1.45; }
-  .workspace {
-    display: grid;
-    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-    gap: 14px;
-    align-items: start;
-  }
-  .control-panel, .result-panel, .info-panel, .compare-panel { padding: 15px; }
-  .control-group { display: grid; gap: 9px; margin-bottom: 14px; }
-  .task-grid, .mode-grid { display: grid; gap: 8px; }
-  .task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  button, select, input { font: inherit; }
-  button {
-    min-height: 38px;
-    border: 1px solid var(--cv-border);
-    border-radius: 7px;
-    color: var(--cv-text);
-    background: var(--cv-control-bg);
-    cursor: pointer;
-  }
-  button:hover { border-color: color-mix(in srgb, var(--cv-accent) 40%, transparent); }
-  button.active, .run-btn, .upload-btn {
-    border-color: color-mix(in srgb, var(--cv-accent) 42%, transparent);
-    background: linear-gradient(135deg, var(--cv-accent), var(--cv-accent-2));
-    color: #04110d;
-    font-weight: 800;
-  }
-  .upload-box {
-    display: grid;
-    gap: 9px;
-    padding: 12px;
-    border: 1px dashed var(--cv-border-strong);
-    border-radius: 8px;
-    background: var(--cv-soft-surface);
-  }
-  .file-line { color: var(--cv-muted); font-size: .82rem; overflow-wrap: anywhere; }
-  .field label {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    color: var(--cv-muted);
-    font-size: .8rem;
-  }
-  select, input[type="range"] { width: 100%; }
-  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .run-btn { grid-column: 1 / -1; }
-  .hint { margin: 10px 0 0; color: var(--cv-faint); font-size: .78rem; line-height: 1.5; }
-  .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .summary-grid.single { grid-template-columns: minmax(0, 1fr); }
-  .summary-card {
-    overflow: hidden;
-    border: 1px solid var(--cv-border);
-    border-radius: 8px;
-    background: var(--cv-soft-surface);
-  }
-  .summary-card header {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px 11px;
-    border-bottom: 1px solid var(--cv-border);
-  }
-  .summary-card header strong { color: var(--cv-title); }
-  .summary-card header span { color: var(--cv-muted); font-size: .76rem; }
-  .summary-card .media {
-    min-height: 190px;
-    display: grid;
-    place-items: center;
-    background: var(--cv-media-bg);
-  }
-  .summary-card img, .step-card img { width: 100%; display: block; }
-  .summary-card p { margin: 0; padding: 10px 11px; font-size: .78rem; }
-  .metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin-bottom: 12px;
-  }
-  .metric {
-    padding: 7px 9px;
-    border: 1px solid var(--cv-border);
-    border-radius: 7px;
-    background: var(--cv-soft-surface);
-    color: var(--cv-muted);
-    font-size: .74rem;
-  }
-  .metric strong { color: var(--cv-title); }
-  .model-strip {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
-  }
-  .model-card {
-    padding: 12px;
-    border: 1px solid var(--cv-border);
-    border-radius: 8px;
-    background: var(--cv-soft-surface);
-  }
-  .model-card strong { display: block; color: var(--cv-title); }
-  .model-card span { display: inline-flex; margin: 7px 0; color: var(--cv-accent); font-size: .76rem; font-weight: 800; }
-  .model-card p { margin-bottom: 0; font-size: .78rem; }
-  .step-toolbar {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: center;
-    margin: 12px 0 10px;
-  }
-  .step-filter { display: flex; gap: 7px; flex-wrap: wrap; }
-  .steps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
-  }
-  .step-card {
-    overflow: hidden;
-    border: 1px solid var(--cv-border);
-    border-radius: 8px;
-    background: var(--cv-panel-2);
-  }
-  .step-card .img-area {
-    min-height: 150px;
-    display: grid;
-    place-items: center;
-    background: var(--cv-media-bg);
-  }
-  .step-card .body { padding: 11px; }
-  .step-card strong { display: block; color: var(--cv-title); font-size: .86rem; }
-  .step-card p { margin: 6px 0 0; font-size: .76rem; }
-  .step-formula {
-    display: block;
-    margin-top: 8px;
-    padding: 7px 8px;
-    border: 1px solid var(--cv-border);
-    border-radius: 6px;
-    background: var(--cv-code-bg);
-    color: var(--cv-text);
-    font-size: .72rem;
-    overflow-wrap: anywhere;
-  }
-  .data-mini {
-    margin-top: 8px;
-    color: var(--cv-faint);
-    font-size: .72rem;
-    line-height: 1.45;
-  }
-  .compare-table {
-    width: 100%;
-    border-collapse: collapse;
-    overflow: hidden;
-    border-radius: 8px;
-  }
-  .compare-table th, .compare-table td {
-    padding: 10px;
-    border: 1px solid var(--cv-border);
-    color: var(--cv-muted);
-    text-align: left;
-    vertical-align: top;
-    font-size: .82rem;
-  }
-  .compare-table th { color: var(--cv-title); background: var(--cv-soft-surface); }
-  .loading, .error, .empty {
-    padding: 18px;
-    border: 1px solid var(--cv-border);
-    border-radius: 8px;
-    background: var(--cv-soft-surface);
-    color: var(--cv-muted);
-    text-align: center;
-  }
-  .loading, .error { display: none; }
-  .error { color: var(--cv-danger-text); border-color: color-mix(in srgb, var(--cv-danger) 30%, transparent); }
-  .spinner {
-    width: 28px;
-    height: 28px;
-    margin: 0 auto 10px;
-    border-radius: 50%;
-    border: 3px solid color-mix(in srgb, var(--cv-muted) 25%, transparent);
-    border-top-color: var(--cv-accent);
-    animation: spin .8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 980px) {
-    .hero, .workspace, .summary-grid { grid-template-columns: 1fr; }
-    .status-grid { grid-template-columns: 1fr; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI之眼：检测、语义分割、实例分割</title>
+  <link rel="stylesheet" href="../css/iframe-theme.css">
+  <link rel="stylesheet" href="../css/ai-eye-page.css">
+  <script src="../js/theme-sync.js"></script>
+  <script src="../js/page-utils.js"></script>
 </head>
 <body>
-<main class="page">
-  <section class="hero">
-    <div class="hero-main">
-      <span class="eyebrow">Torchvision Pretrained Studio</span>
-      <h1>AI之眼：同一张图的三种视角</h1>
-      <p>目标检测回答“是什么、在哪里”，语义分割回答“每个像素是什么类别”，实例分割继续回答“这是同类里的哪一个个体”。Faster R-CNN、FCN/DeepLab、Mask R-CNN 来自真实 torchvision 预训练模型；YOLO 和 U-Net 以本地机制实现展示关键数据流，结果同样由 Python 后端计算。</p>
+<main class="ai-page">
+  <header class="panel ai-hero">
+    <div>
+      <p class="eyebrow">AI Eye · Torchvision + Local Mechanisms</p>
+      <h1>AI之眼：同一张图的三种理解粒度</h1>
+      <p class="subtitle">
+        目标检测回答“有什么、在哪里”，语义分割回答“每个像素是什么类”，实例分割回答“同类目标里哪一个是哪一个”。本页主结果来自 Python 后端真实推理或真实本地机制计算，前端只负责交互展示。
+      </p>
     </div>
-    <div class="status-grid">
-      <div class="status-card"><strong>目标检测</strong><span>Faster R-CNN、RetinaNet、FCOS 等模型输出类别、置信度和边界框。</span></div>
-      <div class="status-card"><strong>语义分割</strong><span>FCN、DeepLabV3、LR-ASPP 输出每个像素的类别标签和置信度。</span></div>
-      <div class="status-card"><strong>实例分割</strong><span>Mask R-CNN 在检测框基础上为每个目标生成独立 mask。</span></div>
+    <div class="truth-card">
+      <strong>真实性边界</strong>
+      <span>Faster R-CNN / DeepLabV3 / Mask R-CNN 使用 torchvision 官方预训练权重。</span>
+      <small>YOLO 与 U-Net 展示的是本地机制实现，不冒充官方训练权重。</small>
     </div>
-  </section>
+  </header>
 
-  <section class="workspace">
-    <aside class="control-panel">
+  <section class="ai-shell">
+    <aside class="panel controls">
       <h2>运行设置</h2>
-      <div class="control-group">
+      <div class="control-block">
         <label>任务视角</label>
         <div class="task-grid">
-          <button class="task-btn active" data-task="all">三视角总览</button>
-          <button class="task-btn" data-task="detection">目标检测</button>
-          <button class="task-btn" data-task="yolo">YOLO范式</button>
-          <button class="task-btn" data-task="semantic">语义分割</button>
-          <button class="task-btn" data-task="unet">U-Net机制</button>
-          <button class="task-btn" data-task="instance">实例分割</button>
+          <button class="task-btn active" type="button" data-task="all">三视角总览</button>
+          <button class="task-btn" type="button" data-task="detection">目标检测</button>
+          <button class="task-btn" type="button" data-task="semantic">语义分割</button>
+          <button class="task-btn" type="button" data-task="instance">实例分割</button>
+          <button class="task-btn" type="button" data-task="yolo">YOLO范式</button>
+          <button class="task-btn" type="button" data-task="unet">U-Net机制</button>
         </div>
       </div>
 
-      <div class="control-group">
-        <label>模型版本</label>
+      <div class="control-block">
+        <label for="modelSelect">模型版本</label>
         <select id="modelSelect"></select>
-        <p class="hint" id="modelHint">选择任务后可切换该任务的不同 torchvision 官方预训练模型。</p>
+        <p id="modelHint" class="hint">三视角总览使用每类任务的默认真实模型；切到单任务后可切换模型。</p>
       </div>
 
-      <div class="control-group upload-box">
-        <input type="file" id="fileInput" accept="image/*" hidden>
-        <button class="upload-btn" id="uploadBtn">选择图片</button>
-        <div class="file-line" id="fileLine">未选择图片，将使用内置示例图。</div>
+      <div class="control-block upload-box">
+        <input id="fileInput" type="file" accept="image/*" hidden>
+        <button id="uploadBtn" class="upload-btn" type="button">选择图片</button>
+        <button id="sampleBtn" type="button">使用示例</button>
+        <div id="fileLine" class="file-line">未选择图片，将使用内置示例图。</div>
       </div>
 
-      <div class="control-group field">
+      <div class="control-block field">
         <label>置信度阈值 <b id="scoreValue">0.50</b></label>
-        <input type="range" id="scoreThreshold" min="5" max="95" value="50">
+        <input id="scoreThreshold" type="range" min="5" max="95" value="50">
       </div>
-      <div class="control-group field">
-        <label>Mask 阈值 <b id="maskValue">0.50</b></label>
-        <input type="range" id="maskThreshold" min="20" max="90" value="50">
+      <div class="control-block field">
+        <label>Mask阈值 <b id="maskValue">0.50</b></label>
+        <input id="maskThreshold" type="range" min="20" max="90" value="50">
       </div>
-      <div class="control-group field">
-        <label>结果透明度 <b id="opacityValue">0.78</b></label>
-        <input type="range" id="overlayOpacity" min="35" max="100" value="78">
+      <div class="control-block field">
+        <label>Overlay透明度 <b id="opacityValue">0.78</b></label>
+        <input id="overlayOpacity" type="range" min="35" max="100" value="78">
       </div>
 
-      <div class="actions">
-        <button id="sampleBtn">使用示例</button>
-        <button id="modelsBtn">刷新模型状态</button>
-        <button class="run-btn" id="runBtn">运行 AI之眼</button>
-      </div>
-      <p class="hint">首次运行未缓存模型时，torchvision 会下载官方权重。权重不放入仓库，可运行 <code>python prepare_ai_eye_assets.py --all</code> 预先准备。</p>
+      <button id="runBtn" class="primary run-btn" type="button">运行 AI之眼</button>
+      <button id="modelsBtn" type="button">刷新模型状态</button>
+      <p class="hint">
+        首次运行真实模型时 torchvision 可能下载权重。正式展示前建议运行
+        <code>python prepare_ai_eye_assets.py --all</code> 预热。
+      </p>
     </aside>
 
-    <section class="result-panel">
-      <div class="metrics" id="metrics"></div>
-      <div class="loading" id="loading"><div class="spinner"></div>后端真实模型推理中，首次加载权重可能需要一些时间。</div>
-      <div class="error" id="errorBox"></div>
-      <div class="empty" id="emptyBox">上传图片或直接使用示例图，然后运行模型。结果会按“三视角总览 + 每一步中间结果”展开。</div>
-      <div class="summary-grid" id="summaryGrid"></div>
-      <div class="step-toolbar">
-        <h2>中间步骤</h2>
-        <div class="step-filter">
-          <button class="filter-btn active" data-filter="all">全部</button>
-          <button class="filter-btn" data-filter="detection">检测</button>
-          <button class="filter-btn" data-filter="yolo">YOLO</button>
-          <button class="filter-btn" data-filter="semantic">语义</button>
-          <button class="filter-btn" data-filter="unet">U-Net</button>
-          <button class="filter-btn" data-filter="instance">实例</button>
+    <section class="panel stage-panel">
+      <div class="stage-topbar">
+        <div>
+          <p class="eyebrow">Teaching Stage</p>
+          <h2 id="stageTitle">等待运行</h2>
+        </div>
+        <div class="stage-tabs">
+          <button class="view-btn active" type="button" data-view="result">结果视图</button>
+          <button class="view-btn" type="button" data-view="process">过程播放</button>
         </div>
       </div>
-      <div class="steps-grid" id="stepsGrid"></div>
+
+      <div id="stage" class="result-stage">
+        <img id="stageImage" alt="AI之眼主舞台图像">
+        <canvas id="stageCanvas"></canvas>
+        <div id="stageEmpty" class="stage-empty">运行后这里会展示真实后端结果。点击检测框或实例框可以查看对应类别、置信度和面积。</div>
+      </div>
+
+      <div class="timeline">
+        <button id="playBtn" type="button">播放过程</button>
+        <input id="stepSlider" type="range" min="0" max="0" value="0">
+        <span id="stepName">等待步骤</span>
+      </div>
     </section>
+
+    <aside class="panel inspector">
+      <p class="eyebrow">讲解栏</p>
+      <h2 id="inspectTitle">同图三视角</h2>
+      <p id="inspectText">选择图片并运行后，可以在结果和步骤之间切换。点击框、mask候选或类别条目，观察结构化数据如何对应到图像。</p>
+      <code id="formulaBox">D, S, I = f_\theta(image)</code>
+      <dl id="inspectData">
+        <dt>状态</dt><dd>等待运行</dd>
+      </dl>
+    </aside>
   </section>
 
-  <section class="info-panel">
-    <h2>本页使用的算法版本</h2>
-    <div class="model-strip" id="modelStrip"></div>
+  <section class="panel overview-panel">
+    <div class="section-head">
+      <h2>同一张图的三种视角</h2>
+      <p>点击卡片会把主舞台切到对应结果；这些图都来自后端步骤图或模型输出。</p>
+    </div>
+    <div id="overviewGrid" class="overview-grid"></div>
   </section>
 
-  <section class="compare-panel">
-    <h2>三种任务怎么比较</h2>
+  <section class="panel object-panel">
+    <div class="section-head">
+      <h2>可交互结果</h2>
+      <p>检测与实例分割可点击目标；语义分割可点击类别统计；YOLO/U-Net显示机制步骤中的真实候选与掩码数据。</p>
+    </div>
+    <div id="objectList" class="object-list"></div>
+  </section>
+
+  <section class="panel steps-panel">
+    <div class="section-head">
+      <h2>真实中间步骤</h2>
+      <div class="filter-row">
+        <button class="filter-btn active" type="button" data-filter="all">全部</button>
+        <button class="filter-btn" type="button" data-filter="detection">检测</button>
+        <button class="filter-btn" type="button" data-filter="semantic">语义</button>
+        <button class="filter-btn" type="button" data-filter="instance">实例</button>
+        <button class="filter-btn" type="button" data-filter="yolo">YOLO</button>
+        <button class="filter-btn" type="button" data-filter="unet">U-Net</button>
+      </div>
+    </div>
+    <div id="stepsGrid" class="steps-grid"></div>
+  </section>
+
+  <section class="panel compare-panel">
+    <h2>三类任务的区别</h2>
     <table class="compare-table">
-      <thead><tr><th>任务</th><th>输出</th><th>主流模型</th><th>适用场景</th><th>局限</th></tr></thead>
+      <thead>
+        <tr><th>任务</th><th>输出形式</th><th>主流路线</th><th>适用场景</th><th>局限</th></tr>
+      </thead>
       <tbody>
-        <tr><td>目标检测</td><td>类别 + 置信度 + 边界框</td><td>Faster R-CNN / RetinaNet / FCOS / YOLO</td><td>计数、定位、跟踪入口、粗粒度场景理解</td><td>边界是矩形，不能表达精细轮廓</td></tr>
-        <tr><td>语义分割</td><td>每个像素一个类别</td><td>FCN / DeepLabV3 / SegFormer / Mask2Former</td><td>道路、天空、人体、医学或遥感区域理解</td><td>同类目标会合并，不能区分第几个个体</td></tr>
-        <tr><td>实例分割</td><td>类别 + 框 + 每个实例 mask</td><td>Mask R-CNN / YOLO-seg / YOLACT / Mask2Former</td><td>需要独立物体轮廓、遮挡分析、精细抠图</td><td>计算更重，依赖训练类别和 mask 质量</td></tr>
+        <tr><td>目标检测</td><td>类别 + 置信度 + 边界框</td><td>Faster R-CNN、RetinaNet、FCOS、YOLO</td><td>定位、计数、跟踪入口、粗粒度场景理解</td><td>只能给矩形框，不能表达精细边界</td></tr>
+        <tr><td>语义分割</td><td>每个像素一个类别</td><td>FCN、DeepLabV3、LR-ASPP、SegFormer</td><td>道路、天空、人体、医学、遥感区域理解</td><td>同类目标会合并，不能区分个体</td></tr>
+        <tr><td>实例分割</td><td>类别 + 框 + 每个实例 mask</td><td>Mask R-CNN、YOLO-seg、YOLACT、Mask2Former</td><td>精细抠图、遮挡分析、独立物体轮廓</td><td>计算更重，类别和 mask 质量依赖训练数据</td></tr>
       </tbody>
     </table>
   </section>
+
+  <section class="panel models-panel">
+    <h2>本页可用模型与权重</h2>
+    <div id="modelStrip" class="model-strip"></div>
+  </section>
+
+  <div id="loading" class="loading" hidden>后端正在进行真实推理或本地机制计算，首次加载模型可能需要较长时间。</div>
+  <div id="errorBox" class="error-box" hidden></div>
 </main>
 
 <script src="../js/detection-segmentation.js"></script>

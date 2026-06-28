@@ -67,28 +67,45 @@ def encode_image(image):
     }
 
 
+def predict_from_prompts(points=None, labels=None, box=None, multimask_output=True):
+    """
+    Predict masks from point and/or box prompts.
+    points: optional list of (x, y) in original image coordinates
+    labels: optional list of 1 (foreground) or 0 (background)
+    box: optional (x1, y1, x2, y2) in original image coordinates
+    """
+    predictor, _ = _get_model()
+
+    input_points = None
+    input_labels = None
+    input_box = None
+    if points:
+        input_points = np.array(points, dtype=np.float32)
+        input_labels = np.array(labels if labels is not None else [1] * len(points), dtype=np.int32)
+    if box is not None:
+        input_box = np.array(box, dtype=np.float32)
+
+    masks, scores, logits = predictor.predict(
+        point_coords=input_points,
+        point_labels=input_labels,
+        box=input_box,
+        multimask_output=bool(multimask_output),
+    )
+    return {
+        'masks': [mask.astype(np.uint8) * 255 for mask in masks],
+        'scores': [float(s) for s in scores],
+        'best_idx': int(np.argmax(scores)),
+        'low_res_logits_shape': list(logits.shape),
+    }
+
+
 def predict_from_points(points, labels):
     """
     Predict mask from point prompts.
     points: list of (x, y) in original image coordinates
     labels: list of 1 (foreground) or 0 (background)
     """
-    predictor, _ = _get_model()
-    input_points = np.array(points)
-    input_labels = np.array(labels)
-
-    masks, scores, logits = predictor.predict(
-        point_coords=input_points,
-        point_labels=input_labels,
-        multimask_output=True,
-    )
-    # masks: (3, H, W) - 3 candidate masks
-    # scores: (3,) - IoU predictions
-    return {
-        'masks': [mask.astype(np.uint8) * 255 for mask in masks],
-        'scores': [float(s) for s in scores],
-        'best_idx': int(np.argmax(scores)),
-    }
+    return predict_from_prompts(points=points, labels=labels, multimask_output=True)
 
 
 def predict_from_box(box):
@@ -96,15 +113,4 @@ def predict_from_box(box):
     Predict mask from bounding box prompt.
     box: (x1, y1, x2, y2) in original image coordinates
     """
-    predictor, _ = _get_model()
-    input_box = np.array([box])  # (1, 4)
-
-    masks, scores, logits = predictor.predict(
-        box=input_box,
-        multimask_output=False,
-    )
-    return {
-        'masks': [mask.astype(np.uint8) * 255 for mask in masks],
-        'scores': [float(s) for s in scores],
-        'best_idx': 0,
-    }
+    return predict_from_prompts(points=None, labels=None, box=box, multimask_output=True)

@@ -46,7 +46,11 @@ window.ModelDemoConfig = {
   subtitle: '沿相机射线采样 3D 点，再把颜色和密度体渲染成图像。',
   intro: '本页使用本地 NumPy 辐射场做真实 ray marching 和 volume rendering，展示 NeRF 的核心计算机制。',
   status: '真实本地机制实现',
-  params: [{ name: 'resolution', label: '分辨率', type: 'range', min: 64, max: 128, step: 16, value: 96 }, { name: 'samples_per_ray', label: '采样点数', type: 'range', min: 32, max: 128, step: 16, value: 80 }],
+  params: [
+    { name: 'azimuth', label: '相机角度', type: 'range', min: -180, max: 180, step: 10, value: 0, suffix: '°' },
+    { name: 'resolution', label: '分辨率', type: 'range', min: 64, max: 128, step: 16, value: 96 },
+    { name: 'samples_per_ray', label: '采样点数', type: 'range', min: 32, max: 128, step: 16, value: 80 }
+  ],
   pipeline: ['生成相机射线', '沿射线采样 3D 点', '查询每个点的颜色和密度', '按 alpha compositing 累积颜色', '得到深度图和新视角渲染'],
   applications: ['新视角合成', '三维重建教学', '理解体渲染', '连接传统多视图几何和神经表示'],
   limitations: ['这里是机制演示，不是训练好的真实场景', '完整 NeRF 训练需要多视角数据和较长优化时间', '分辨率越高计算越慢']

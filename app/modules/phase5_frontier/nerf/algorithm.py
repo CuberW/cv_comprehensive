@@ -1,9 +1,4 @@
-"""Tiny NeRF-style volume rendering with real NumPy ray marching.
-
-The page does not claim to train a full NeRF scene. It renders an analytic
-radiance field through the same core operations used by NeRF: camera rays,
-point samples, density/color query and alpha compositing volume rendering.
-"""
+"""Tiny NeRF-style volume rendering with real NumPy ray marching."""
 from __future__ import annotations
 
 import numpy as np
@@ -42,7 +37,6 @@ def _sample_points(rays_o, rays_d, near=1.2, far=5.2, samples=80):
 
 
 def _radiance_field(points):
-    """Analytic field: two soft objects with coordinate-dependent colors."""
     p = np.asarray(points, dtype=np.float64)
     r1 = np.linalg.norm(p - np.array([0.0, 0.0, 0.0]), axis=-1)
     r2 = np.linalg.norm(p - np.array([0.65, 0.22, -0.35]), axis=-1)
@@ -52,8 +46,7 @@ def _radiance_field(points):
     color[..., 0] = 0.45 + 0.45 * np.sin(2.2 * p[..., 0] + 0.6)
     color[..., 1] = 0.48 + 0.42 * np.sin(2.0 * p[..., 1] + 1.5)
     color[..., 2] = 0.50 + 0.40 * np.cos(2.1 * p[..., 2] - 0.3)
-    color = np.clip(color, 0.0, 1.0)
-    return color, sigma
+    return np.clip(color, 0.0, 1.0), sigma
 
 
 def _volume_render(rgb, sigma, depths):
@@ -88,8 +81,7 @@ def _depth_image(depth):
     if finite.size == 0:
         return np.zeros((*d.shape, 3), dtype=np.uint8)
     lo, hi = np.percentile(finite, [2, 98])
-    norm = (d - lo) / max(hi - lo, 1e-8)
-    norm = np.clip(norm, 0, 1)
+    norm = np.clip((d - lo) / max(hi - lo, 1e-8), 0, 1)
     return np.stack([(1 - norm) * 255, (1 - np.abs(norm - 0.5) * 2) * 220, norm * 255], axis=-1).astype(np.uint8)
 
 
@@ -125,8 +117,6 @@ def _ray_diagram(width=520, height=300):
             y = int((1 - t) * cam[1] + t * end[1])
             draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(225, 29, 72))
     draw.text((20, 18), 'Camera rays sample 3D points, then accumulate density and color.', fill=(15, 23, 42))
-    draw.text((84, 174), 'camera', fill=(71, 85, 105))
-    draw.text((302, 238), 'radiance field', fill=(71, 85, 105))
     return np.array(img)
 
 
@@ -143,18 +133,13 @@ def _density_curve(depths, weights, width=520, height=260):
     for x, y in zip(xs[::8].astype(int), ys[::8].astype(int)):
         draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=(37, 99, 235))
     draw.text((16, 5), 'Per-sample contribution along one center ray', fill=(15, 23, 42))
-    draw.text((54, height - 27), 'depth t', fill=(71, 85, 105))
-    draw.text((8, 106), 'weight', fill=(71, 85, 105))
     return np.array(img)
 
 
 def _positional_encoding_chart(samples, levels=6, width=520, height=260):
     vals = np.asarray(samples[:, 0], dtype=np.float64)
     freqs = 2.0 ** np.arange(levels, dtype=np.float64)
-    encoded = np.concatenate([
-        np.sin(vals[:, None] * freqs[None, :]),
-        np.cos(vals[:, None] * freqs[None, :]),
-    ], axis=1)
+    encoded = np.concatenate([np.sin(vals[:, None] * freqs[None, :]), np.cos(vals[:, None] * freqs[None, :])], axis=1)
     matrix = (encoded + 1.0) / 2.0
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
@@ -167,11 +152,7 @@ def _positional_encoding_chart(samples, levels=6, width=520, height=260):
         for j in range(matrix.shape[1]):
             v = float(matrix[i, j])
             fill = (int(30 + 210 * v), int(90 + 90 * (1 - abs(v - 0.5) * 2)), int(220 - 140 * v))
-            draw.rectangle(
-                (x0 + j * cell_w, y0 + i * cell_h, x0 + (j + 1) * cell_w - 1, y0 + (i + 1) * cell_h - 1),
-                fill=fill,
-            )
-    draw.text((x0, height - 20), 'Higher frequencies help represent fine visual detail.', fill=(71, 85, 105))
+            draw.rectangle((x0 + j * cell_w, y0 + i * cell_h, x0 + (j + 1) * cell_w - 1, y0 + (i + 1) * cell_h - 1), fill=fill)
     return np.array(img)
 
 
@@ -192,12 +173,13 @@ def _density_slice(width=360, height=360, y=0.0):
 def build_pipeline(image_path=None, **kwargs):
     samples = max(32, min(int(kwargs.get('samples_per_ray', 80)), 128))
     resolution = max(64, min(int(kwargs.get('resolution', 96)), 128))
+    azimuth = float(kwargs.get('azimuth', 0.0))
     rendered = []
     first = None
-    for az in [0, 60, 120]:
+    for az in [azimuth - 60, azimuth, azimuth + 60]:
         color, depth, weights, pts, depths = _render_view(az, h=resolution, w=resolution, samples=samples)
-        rendered.append((az, color))
-        if first is None:
+        rendered.append((int(round(az)), color))
+        if first is None or abs(az - azimuth) < 1e-6:
             first = (color, depth, weights, pts, depths)
     color, depth, weights, pts, depths = first
     center_ray = pts[resolution // 2, resolution // 2, :: max(1, samples // 10)]
@@ -208,60 +190,67 @@ def build_pipeline(image_path=None, **kwargs):
                 'id': 'camera_rays',
                 'name': '相机射线',
                 'image': _ray_diagram(),
-                'explanation': 'NeRF 对每个像素从相机发出一条射线。射线不是二维线条，而是在三维空间中穿过场景。',
-                'formula': 'r(t) = o + t d',
-                'data': {'resolution': f'{resolution}x{resolution}', 'samples_per_ray': samples},
+                'explanation': 'NeRF 对每个像素从相机发出一条 3D 射线。拖动视角滑块会改变相机位置，从而改变所有射线方向。',
+                'formula': 'r(t)=o+t d',
+                'data': {'azimuth': round(float(azimuth), 2), 'resolution': f'{resolution}x{resolution}', 'samples_per_ray': samples},
             },
             {
                 'id': 'sample_points',
                 'name': '沿射线采样 3D 点',
                 'image': _density_curve(depths, weights),
                 'explanation': '后端沿中心射线均匀采样多个 3D 点，并计算每个点对最终像素颜色的贡献权重。',
-                'formula': 'p_i = o + t_i d',
+                'formula': 'p_i=o+t_i d',
                 'data': {'center_ray_samples': np.round(center_ray, 4).tolist()},
             },
             {
                 'id': 'positional_encoding',
                 'name': '位置编码',
                 'image': _positional_encoding_chart(center_ray),
-                'explanation': 'NeRF 会把 3D 坐标映射成多频 sin/cos 特征，让后面的场函数能表达更细的纹理和几何变化。图中条纹来自中心射线上真实采样点的编码数值。',
+                'explanation': '3D 坐标会被映射成多频 sin/cos 特征，让场函数能够表达更细的几何和纹理变化。',
                 'formula': 'gamma(p)=[sin(2^k p), cos(2^k p)]',
             },
             {
                 'id': 'radiance_field',
                 'name': '密度场切片',
                 'image': _density_slice(),
-                'explanation': '采样点会查询颜色 c 和密度 sigma。这个切片显示同一个三维辐射场在水平面上的密度分布，亮处对最终像素贡献更大。',
+                'explanation': '每个采样点都会查询颜色 c 和密度 sigma。亮处表示该区域更容易挡住射线并贡献颜色。',
                 'formula': '(c_i, sigma_i)=F_theta(gamma(p_i), d)',
             },
             {
-                'id': 'render_view_0',
-                'name': '体渲染结果 0 度视角',
+                'id': 'render_view',
+                'name': f'体渲染结果：{azimuth:.0f} 度视角',
                 'image': _u8(color),
-                'explanation': '每个采样点查询颜色 c_i 和密度 sigma_i，再通过 alpha 合成得到像素颜色。这是真实体渲染结果。',
+                'explanation': '体渲染把每条射线上的颜色和密度按透明度累积，得到当前视角下的像素颜色。',
                 'formula': 'C(r)=sum_i T_i (1-exp(-sigma_i delta_i)) c_i',
+                'data': {'azimuth': round(float(azimuth), 2)},
             },
             {
                 'id': 'depth_map',
                 'name': '累积深度图',
                 'image': _depth_image(depth),
-                'explanation': '深度图由同一组体渲染权重计算得到，亮暗变化表示射线主要在哪里遇到高密度区域。',
+                'explanation': '深度图由同一组体渲染权重计算得到，表示射线主要在哪里遇到高密度区域。',
                 'formula': 'D(r)=sum_i w_i t_i / sum_i w_i',
             },
             {
                 'id': 'novel_views',
-                'name': '新视角渲染',
+                'name': '相邻新视角渲染',
                 'image': _view_strip(rendered),
-                'explanation': '相同的三维辐射场从不同相机角度渲染出不同视角，这就是 NeRF “给一个视角，还原新视角”的核心意义。',
-                'formula': 'same field F_theta(x,d) rendered from different camera poses',
+                'explanation': '同一个 3D 辐射场从不同相机角度渲染出不同图像，这就是 NeRF 新视角合成的核心思想。',
+                'formula': 'same field F_theta(x,d), different camera poses',
             },
         ],
+        'outputs': {
+            'azimuth': azimuth,
+            'resolution': resolution,
+            'samples_per_ray': samples,
+        },
         'metrics': {
             'status': 'local_mechanism',
             'backend': 'NumPy volume rendering',
             'real_model': False,
             'algorithm': 'Tiny NeRF-style ray marching',
             'views': 3,
+            'azimuth': round(float(azimuth), 2),
             'resolution': f'{resolution}x{resolution}',
             'samples_per_ray': samples,
             'note': '本页展示真实射线采样和体渲染机制，不是训练好的真实场景 NeRF 权重。',

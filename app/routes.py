@@ -18,7 +18,7 @@ from app.modules.offline_teaching import (
     LOCAL_TEACHING_MODEL_MODULES,
     OFFLINE_TEACHING_MODULES,
 )
-from app.utils.image_utils import to_base64, load_image_u8
+from app.utils.image_utils import to_base64, load_image_u8, load_chinese_font
 from app.runners import get_remote_runner
 
 main_bp = Blueprint('main', __name__)
@@ -373,6 +373,23 @@ def _data_summary(data):
     return ' | '.join(parts)
 
 
+def _json_safe_step_data(value):
+    """Keep step data useful without duplicating large inline images."""
+    if hasattr(value, 'tolist'):
+        value = value.tolist()
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            key_text = str(key).lower()
+            if 'base64' in key_text or key_text in {'image', 'img', 'mask'}:
+                continue
+            out[key] = _json_safe_step_data(item)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_step_data(item) for item in value]
+    return value
+
+
 def _step_visual_card(module_id, normalized):
     import numpy as np
     from PIL import Image, ImageDraw
@@ -380,17 +397,20 @@ def _step_visual_card(module_id, normalized):
     width, height = 420, 260
     img = Image.new('RGB', (width, height), (248, 250, 252))
     draw = ImageDraw.Draw(img)
+    font_title = load_chinese_font(20)
+    font_name = load_chinese_font(16)
+    font_body = load_chinese_font(15)
     colors = [(13, 148, 136), (59, 130, 246), (124, 58, 237), (245, 158, 11)]
     accent = colors[abs(hash((module_id, normalized.get('id')))) % len(colors)]
     draw.rectangle((0, 0, width, 48), fill=accent)
-    draw.text((18, 16), f'{module_id} / {normalized.get("id", "step")}', fill=(255, 255, 255))
-    draw.text((18, 70), str(normalized.get('name', 'Process step'))[:44], fill=(15, 23, 42))
+    draw.text((18, 14), f'{module_id} / {normalized.get("id", "step")}', fill=(255, 255, 255), font=font_title)
+    draw.text((18, 68), str(normalized.get('name', 'Process step'))[:44], fill=(15, 23, 42), font=font_name)
     formula = str(normalized.get('formula', 'Y=f(X)'))
     for i in range(0, min(len(formula), 108), 54):
-        draw.text((18, 102 + (i // 54) * 22), formula[i:i + 54], fill=(51, 65, 85))
+        draw.text((18, 102 + (i // 54) * 22), formula[i:i + 54], fill=(51, 65, 85), font=font_body)
     summary = _data_summary(normalized.get('data'))
     if summary:
-        draw.text((18, 176), summary[:58], fill=(71, 85, 105))
+        draw.text((18, 176), summary[:58], fill=(71, 85, 105), font=font_body)
     y0 = 218
     for idx, h in enumerate([24, 54, 36, 72, 44]):
         x0 = 34 + idx * 70
@@ -428,10 +448,7 @@ def _step_to_dict(step, module_id=None):
     if step.get('formula_latex'):
         out['formula_latex'] = step['formula_latex']
     if isinstance(step.get('data'), dict):
-        out['data'] = {
-            k: (v.tolist() if hasattr(v, 'tolist') else v)
-            for k, v in step['data'].items()
-        }
+        out['data'] = _json_safe_step_data(step['data'])
     if isinstance(step.get('applications'), list):
         out['applications'] = list(step['applications'])
     if isinstance(step.get('channels'), list):
@@ -523,7 +540,10 @@ def _json_demo_error(message, status_code, implementation, metrics=None, extra=N
                 for step in (_step_to_dict(s, module_id=extra.get('module_id') or 'module') for s in extra['steps'])
                 if step is not None
             ]
-        for key in ('models', 'outputs', 'algorithms', 'module_id', 'requested_module_id'):
+        for key in (
+            'models', 'outputs', 'algorithms', 'module_id', 'requested_module_id',
+            'frames', 'overlays', 'curves', 'interactions',
+        ):
             if key in extra:
                 payload[key] = extra[key]
     return jsonify(payload), status_code
@@ -1437,6 +1457,7 @@ def demo_endpoint(module_id):
             404,
             implementation,
             {'status': 'unknown_module', 'module_id': module_id},
+            extra={'module_id': module_id, 'requested_module_id': requested_module_id},
         )
 
     implementation = get_implementation_meta(module_id)
@@ -1447,6 +1468,7 @@ def demo_endpoint(module_id):
             503,
             implementation,
             result.get('metrics', {'status': 'requires_external_weights'}),
+            extra={'module_id': module_id, 'requested_module_id': requested_module_id},
         )
     if implementation.get('category') == 'not_implemented':
         return _json_demo_error(
@@ -1454,6 +1476,7 @@ def demo_endpoint(module_id):
             501,
             implementation,
             {'status': 'not_implemented'},
+            extra={'module_id': module_id, 'requested_module_id': requested_module_id},
         )
     requires_upload = bool(implementation.get('requires_upload', True))
 
@@ -1525,19 +1548,24 @@ def demo_endpoint(module_id):
     try:
         result = fn(**filtered)
     except FileNotFoundError as exc:
-        return _json_demo_error(exc, 503, implementation, {'status': 'model_not_available'})
+        return _json_demo_error(exc, 503, implementation, {'status': 'model_not_available'},
+                                extra={'module_id': module_id, 'requested_module_id': requested_module_id})
     except ImportError as exc:
-        return _json_demo_error(exc, 503, implementation, {'status': 'dependency_not_available'})
+        return _json_demo_error(exc, 503, implementation, {'status': 'dependency_not_available'},
+                                extra={'module_id': module_id, 'requested_module_id': requested_module_id})
     except Exception as exc:
         return _json_demo_error(exc, 500, implementation, {
             'status': 'processor_error',
             'module_id': module_id,
             'error_type': type(exc).__name__,
-        })
+        }, extra={'module_id': module_id, 'requested_module_id': requested_module_id})
     if isinstance(result, dict) and result.get('error'):
         result_status = result.get('metrics', {}).get('status')
         status_code = 503 if result_status in {'model_not_available', 'requires_external_weights'} else 400
-        return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}), extra=result)
+        error_extra = dict(result)
+        error_extra.setdefault('module_id', module_id)
+        error_extra['requested_module_id'] = requested_module_id
+        return _json_demo_error(result['error'], status_code, implementation, result.get('metrics', {}), extra=error_extra)
 
     steps_out, metrics = _normalize_pipeline_result(result, module_id=module_id)
     resp_module_id = result.get('module_id', module_id) if isinstance(result, dict) else module_id
@@ -1548,7 +1576,10 @@ def demo_endpoint(module_id):
         'requested_module_id': requested_module_id,
     }
     if isinstance(result, dict):
-        for extra_key in ('algorithms', 'family_module_id', 'models', 'outputs', 'task'):
+        for extra_key in (
+            'algorithms', 'family_module_id', 'models', 'outputs', 'task',
+            'frames', 'overlays', 'curves', 'interactions',
+        ):
             if extra_key in result:
                 resp[extra_key] = result[extra_key]
     if original_url:

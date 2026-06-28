@@ -115,7 +115,7 @@ html{scrollbar-width:thin;scrollbar-color:var(--text-muted) transparent}
 /* ============================================================
    GALLERY
    ============================================================ */
-.gallery{max-width:1540px;margin:0 auto;padding:24px 32px 48px}
+.gallery{max-width:1580px;margin:0 auto;padding:22px clamp(20px,2.2vw,30px) 46px}
 .gallery-hero{margin-bottom:22px}
 .gallery-hero h2{font-size:clamp(22px,2.4vw,30px);font-weight:800;letter-spacing:-.6px;margin-bottom:5px}
 .gallery-hero .sub{color:var(--text-dim);font-size:13px;max-width:860px;line-height:1.5}
@@ -372,11 +372,39 @@ html{scrollbar-width:thin;scrollbar-color:var(--text-muted) transparent}
 [data-theme="light"] .bridge-body.topic-generative-models{background:linear-gradient(135deg,rgba(236,72,153,.10),rgba(236,72,153,.05),rgba(236,72,153,.02)),rgba(250,247,240,.9)!important;box-shadow:0 10px 28px rgba(139,115,85,.10),0 0 18px rgba(236,72,153,.05)!important}
 [data-theme="light"] .bridge-body.topic-transformer-vision{background:linear-gradient(135deg,rgba(139,92,246,.10),rgba(139,92,246,.05),rgba(139,92,246,.02)),rgba(250,247,240,.9)!important;box-shadow:0 10px 28px rgba(139,115,85,.10),0 0 18px rgba(139,92,246,.05)!important}
 [data-theme="light"] .bridge-body.topic-foundation-models{background:linear-gradient(135deg,rgba(168,85,247,.10),rgba(168,85,247,.05),rgba(168,85,247,.02)),rgba(250,247,240,.9)!important;box-shadow:0 10px 28px rgba(139,115,85,.10),0 0 18px rgba(168,85,247,.05)!important}
+[data-theme="light"] .bridge-body.topic-color-and-contrast h3,
+[data-theme="light"] .bridge-body.topic-filter-and-convolution h3,
+[data-theme="light"] .bridge-body.topic-edges-to-corners h3,
+[data-theme="light"] .bridge-body.topic-descriptors-and-shapes h3,
+[data-theme="light"] .bridge-body.topic-feature-matching h3,
+[data-theme="light"] .bridge-body.topic-ai-eye-bridge h3,
+[data-theme="light"] .bridge-body.topic-ai-eye-detection-seg h3,
+[data-theme="light"] .bridge-body.topic-cnn-foundations h3,
+[data-theme="light"] .bridge-body.topic-generative-models h3,
+[data-theme="light"] .bridge-body.topic-transformer-vision h3,
+[data-theme="light"] .bridge-body.topic-foundation-models h3{color:var(--text)!important}
+[data-theme="light"] .bridge-body.topic-color-and-contrast p,
+[data-theme="light"] .bridge-body.topic-filter-and-convolution p,
+[data-theme="light"] .bridge-body.topic-edges-to-corners p,
+[data-theme="light"] .bridge-body.topic-descriptors-and-shapes p,
+[data-theme="light"] .bridge-body.topic-feature-matching p,
+[data-theme="light"] .bridge-body.topic-ai-eye-bridge p,
+[data-theme="light"] .bridge-body.topic-ai-eye-detection-seg p,
+[data-theme="light"] .bridge-body.topic-cnn-foundations p,
+[data-theme="light"] .bridge-body.topic-generative-models p,
+[data-theme="light"] .bridge-body.topic-transformer-vision p,
+[data-theme="light"] .bridge-body.topic-foundation-models p{color:var(--text-dim)!important}
 [data-theme="light"] .bridge-body.topic-ai-eye-bridge h3{color:var(--text)!important}
 [data-theme="light"] .bridge-body.topic-ai-eye-bridge p{color:var(--text-dim)!important}
 [data-theme="light"] .bridge-body.topic-ai-eye-bridge .bridge-algo-tag{background:rgba(13,148,136,.07)!important;border-color:rgba(13,148,136,.16)!important}
 [data-theme="light"] .bridge-body.topic-ai-eye-bridge .bridge-algo-tag .bat-name{color:var(--text)!important}
 [data-theme="light"] .bridge-body.topic-ai-eye-bridge .bridge-open{background:rgba(13,148,136,.08)!important;color:var(--text)!important;border-color:rgba(13,148,136,.18)!important}
+[data-theme="light"] .mock-photo{background:rgba(0,0,0,.02);border-color:rgba(139,115,85,.12)}
+[data-theme="light"] .course-frame{background:rgba(255,255,255,.52)}
+[data-theme="light"] .bridge-open{background:rgba(0,0,0,.03);color:var(--text-dim);border-color:rgba(139,115,85,.16)}
+[data-theme="light"] .bridge-algo-tag{background:rgba(0,0,0,.02);border-color:rgba(139,115,85,.12)}
+[data-theme="light"] .bridge-algo-tag .bat-name{color:var(--text)}
+[data-theme="light"] .bridge-algo-tag .bat-role{color:var(--text-muted)}
 
 /* ============================================================
    DETAIL OVERLAY

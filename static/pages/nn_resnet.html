@@ -48,6 +48,9 @@ window.ModelDemoConfig = {
   subtitle: '残差连接让深层网络更容易训练，Grad-CAM 显示模型判断时看哪里。',
   intro: '本页调用 torchvision ResNet-50 ImageNet 预训练权重，后端真实计算 Top-5 分类和 Grad-CAM 热力图。',
   status: '真实预训练推理',
+  params: [
+    { name: 'target_rank', label: '解释类别', type: 'range', min: 1, max: 5, step: 1, value: 1 }
+  ],
   pipeline: ['输入图像', 'ImageNet 预处理', 'ResNet 残差块前向传播', 'Top-5 分类概率', '目标类别反向传播', 'Grad-CAM 热力图叠加'],
   applications: ['图像分类', '模型可解释性', '理解残差连接', '展示网络关注区域'],
   limitations: ['类别受 ImageNet 限制', 'Grad-CAM 是解释线索不是因果证明', '首次运行可能下载权重']

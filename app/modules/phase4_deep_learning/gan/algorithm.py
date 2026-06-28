@@ -1,10 +1,4 @@
-"""Small real GAN training trace for teaching.
-
-This is not a pretrained image generator. It trains a tiny NumPy GAN on a
-synthetic 2D mixture distribution and returns real intermediate results:
-real samples, generator samples before/after training, discriminator surface
-and loss curves.
-"""
+"""Small real GAN training trace for teaching."""
 from __future__ import annotations
 
 import numpy as np
@@ -12,7 +6,6 @@ from PIL import Image, ImageDraw
 
 
 def _mm(a, b):
-    """Small matrix multiply without BLAS GEMM to avoid mixed-runtime aborts."""
     return np.einsum('ik,kj->ij', np.asarray(a), np.asarray(b), optimize=False)
 
 
@@ -48,8 +41,7 @@ def _G(z, p):
 def _D(x, p):
     h = np.tanh(_mm(x, p['Wd1']) + p['bd1'])
     logit = _mm(h, p['Wd2']) + p['bd2']
-    prob = _sigmoid(logit)
-    return prob, h, logit
+    return _sigmoid(logit), h, logit
 
 
 def _bce(prob, target):
@@ -62,16 +54,16 @@ def _train_gan(seed=7, iterations=260, batch=128):
     p = _init_params(rng)
     lr_d, lr_g = 0.035, 0.025
     losses = []
-
+    checkpoints = []
+    checkpoint_iters = set(np.linspace(0, iterations - 1, 6, dtype=int).tolist())
     z_probe = rng.normal(0, 1, size=(512, 2))
-    initial_fake, _ = _G(z_probe, p)
+    real_vis = _real_samples(rng, 512)
 
     for it in range(iterations):
         real = _real_samples(rng, batch)
         z = rng.normal(0, 1, size=(batch, 2))
         fake, _ = _G(z, p)
 
-        # --- discriminator update ---
         x_all = np.vstack([real, fake])
         y_all = np.vstack([np.ones((batch, 1)), np.zeros((batch, 1))])
         pred, h_d, _ = _D(x_all, p)
@@ -86,7 +78,6 @@ def _train_gan(seed=7, iterations=260, batch=128):
         p['Wd1'] -= lr_d * gWd1
         p['bd1'] -= lr_d * gbd1
 
-        # --- generator update, discriminator frozen ---
         z = rng.normal(0, 1, size=(batch, 2))
         fake, h_g = _G(z, p)
         pred_fake, h_df, _ = _D(fake, p)
@@ -115,10 +106,12 @@ def _train_gan(seed=7, iterations=260, batch=128):
                 'D_real': float(pr.mean()),
                 'D_fake': float(pf.mean()),
             })
+        if it in checkpoint_iters or it == iterations - 1:
+            fake_probe, _ = _G(z_probe, p)
+            checkpoints.append({'iter': it, 'fake': fake_probe.copy()})
 
     final_fake, _ = _G(z_probe, p)
-    real_vis = _real_samples(rng, 512)
-    return p, real_vis, initial_fake, final_fake, losses
+    return p, real_vis, checkpoints, final_fake, losses
 
 
 def _xy_to_canvas(points, width, height):
@@ -143,8 +136,6 @@ def _scatter(real, fake=None, title='GAN samples', width=520, height=360):
         for x, y in zip(fx, fy):
             draw.rectangle((x - 2, y - 2, x + 2, y + 2), fill=(225, 29, 72))
         draw.text((width - 178, 8), 'blue=real  red=generated', fill=(71, 85, 105))
-    else:
-        draw.text((width - 128, 8), 'blue=real data', fill=(71, 85, 105))
     return np.array(img)
 
 
@@ -166,8 +157,8 @@ def _loss_chart(losses, width=520, height=260):
     draw.line(pts(d_loss), fill=(37, 99, 235), width=3)
     draw.line(pts(g_loss), fill=(225, 29, 72), width=3)
     draw.text((16, 6), 'Adversarial losses during real NumPy training', fill=(15, 23, 42))
-    draw.text((60, height - 28), 'blue: discriminator loss', fill=(37, 99, 235))
-    draw.text((260, height - 28), 'red: generator loss', fill=(225, 29, 72))
+    draw.text((60, height - 28), 'blue: D loss', fill=(37, 99, 235))
+    draw.text((250, height - 28), 'red: G loss', fill=(225, 29, 72))
     return np.array(img)
 
 
@@ -184,52 +175,86 @@ def _decision_surface(p, width=420, height=320):
     return np.stack([r, g, b], axis=-1)
 
 
+def _checkpoint_strip(real, checkpoints):
+    thumbs = []
+    for item in checkpoints[:6]:
+        img = Image.fromarray(_scatter(real, item['fake'], f"iter {item['iter']}", width=260, height=190))
+        thumbs.append(img)
+    width = sum(t.width for t in thumbs) + 8 * (len(thumbs) - 1)
+    canvas = Image.new('RGB', (width, 190), (248, 250, 252))
+    x = 0
+    for thumb in thumbs:
+        canvas.paste(thumb, (x, 0))
+        x += thumb.width + 8
+    return np.array(canvas)
+
+
 def build_pipeline(image_path=None, **kwargs):
     iterations = int(kwargs.get('iterations', 260))
     iterations = max(80, min(iterations, 400))
-    p, real, fake0, fake1, losses = _train_gan(iterations=iterations)
+    p, real, checkpoints, final_fake, losses = _train_gan(iterations=iterations)
     final = losses[-1]
+    steps = [
+        {
+            'id': 'real_distribution',
+            'name': '真实数据分布',
+            'image': _scatter(real, None, 'Real target distribution'),
+            'explanation': '这里用四个二维高斯团作为“真实图像数据分布”的可视化替身。GAN 的目标是让生成分布接近真实分布。',
+            'formula': 'x ~ p_data(x)',
+            'data': {'sample_count': int(len(real)), 'distribution': '4 Gaussian modes'},
+        },
+        {
+            'id': 'initial_generator',
+            'name': '训练前生成器',
+            'image': _scatter(real, checkpoints[0]['fake'], 'Before training: G(z) is far from data'),
+            'explanation': '生成器从随机噪声 z 出发。训练前红色生成样本和蓝色真实样本明显不一致。',
+            'formula': 'z ~ N(0,I), x_fake=G_theta(z)',
+        },
+    ]
+    for item in checkpoints[1:-1]:
+        steps.append({
+            'id': f'checkpoint_{item["iter"]}',
+            'name': f'训练 checkpoint：iter {item["iter"]}',
+            'image': _scatter(real, item['fake'], f'Checkpoint iter {item["iter"]}'),
+            'explanation': '播放这些 checkpoint 可以看到生成器分布逐步被判别器梯度推向真实数据模式。',
+            'formula': 'theta_G <- theta_G - eta grad L_G',
+            'data': {'iter': int(item['iter'])},
+        })
+    steps.extend([
+        {
+            'id': 'adversarial_training',
+            'name': '对抗训练损失曲线',
+            'image': _loss_chart(losses),
+            'explanation': '判别器学习区分真样本和假样本；生成器利用判别器梯度，让假样本更像真样本。曲线来自本地 NumPy 反向传播。',
+            'formula': 'min_G max_D E[log D(x)] + E[log(1-D(G(z)))]',
+            'data': {'losses': losses},
+        },
+        {
+            'id': 'discriminator_surface',
+            'name': '判别器决策面',
+            'image': _decision_surface(p),
+            'explanation': '红色区域更像判别器认为的真实区域，蓝色区域更像假区域。生成器更新方向来自这张“地形图”的梯度。',
+            'formula': 'D_phi(x)=sigmoid(f_phi(x))',
+        },
+        {
+            'id': 'training_timeline',
+            'name': '生成分布移动时间线',
+            'image': _checkpoint_strip(real, checkpoints),
+            'explanation': '把多个 checkpoint 放在一起，可以直观看到生成分布如何从随机状态逐步靠近真实分布。',
+            'formula': 'p_G^{(t)} -> p_data',
+        },
+        {
+            'id': 'trained_generator',
+            'name': '训练后生成结果',
+            'image': _scatter(real, final_fake, 'After training: generated samples move toward real modes'),
+            'explanation': '训练后红点被推向真实数据的几个主要模式。这是真实小型 GAN 训练结果，不是预训练图像生成器。',
+            'formula': 'x_fake=G_theta(z)',
+            'data': {'D_real': round(final['D_real'], 4), 'D_fake': round(final['D_fake'], 4)},
+        },
+    ])
     return {
-        'steps': [
-            {
-                'id': 'real_distribution',
-                'name': '真实数据分布',
-                'image': _scatter(real, None, 'Real target distribution'),
-                'explanation': '这里用四个二维高斯团作为“真实图像数据”的可视化替身。GAN 的目标不是记住样本，而是让生成分布接近真实分布。',
-                'formula': 'x ~ p_data(x)',
-                'data': {'sample_count': int(len(real)), 'distribution': '4 Gaussian modes'},
-            },
-            {
-                'id': 'initial_generator',
-                'name': '训练前生成器',
-                'image': _scatter(real, fake0, 'Before training: G(z) does not match data'),
-                'explanation': '生成器从随机噪声 z 出发，训练前的 G(z) 分布和真实数据明显不一致。红点是真实前向计算得到的生成样本。',
-                'formula': 'z ~ N(0,I), x_fake = G_theta(z)',
-            },
-            {
-                'id': 'adversarial_training',
-                'name': '对抗训练损失',
-                'image': _loss_chart(losses),
-                'explanation': '判别器学习区分真样本和假样本；生成器反向利用判别器梯度，让假样本更像真样本。曲线来自本地 NumPy 反向传播训练。',
-                'formula': 'min_G max_D E[log D(x)] + E[log(1-D(G(z)))]',
-                'data': {'losses': losses},
-            },
-            {
-                'id': 'discriminator_surface',
-                'name': '判别器决策面',
-                'image': _decision_surface(p),
-                'explanation': '红色区域更像判别器认为的真实区域，蓝色区域更像假区域。生成器的梯度来自这张“地形图”。',
-                'formula': 'D_phi(x)=sigmoid(f_phi(x))',
-            },
-            {
-                'id': 'trained_generator',
-                'name': '训练后生成结果',
-                'image': _scatter(real, fake1, 'After training: generated samples move toward real modes'),
-                'explanation': '训练后红点被推向真实数据的几个主要模式。这是一个小型真实 GAN 训练结果，不是预训练图像生成模型。',
-                'formula': 'theta <- theta - eta * grad_theta L_G',
-                'data': {'D_real': round(final['D_real'], 4), 'D_fake': round(final['D_fake'], 4)},
-            },
-        ],
+        'steps': steps,
+        'outputs': {'checkpoints': [{'iter': int(c['iter'])} for c in checkpoints]},
         'metrics': {
             'status': 'local_mechanism',
             'backend': 'NumPy',
